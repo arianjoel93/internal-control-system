@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Docs | Calculadora</title>
+  <link rel="icon" href="/favicon.png" />
+  <style>
+    body{margin:0;background:#f2f1ee;color:#2f3331;font-family:Georgia,"Times New Roman",serif;line-height:1.55}
+    main{max-width:980px;margin:auto;padding:42px 22px} header,section{background:#fffdf8;border:1px solid #e3e1dc;border-radius:26px;margin-bottom:18px;padding:26px;box-shadow:0 18px 50px rgba(55,58,55,.08)}
+    h1{font-size:40px;margin:0 0 8px} h2{color:#6f7370;margin:0 0 12px}.eyebrow{color:#6f7370;font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+    table{width:100%;border-collapse:collapse;margin-top:12px} th,td{border-bottom:1px solid #e3e1dc;padding:11px;text-align:left;vertical-align:top} th{color:#6f7370}
+  </style>
+</head>
+<body><main>
+  <header><p class="eyebrow">Corporación Tectronic</p><h1>Documentación del módulo Calculadora</h1><p>Herramienta para calcular precio final de productos con margen y tipo de cambio USD/MXN.</p></header>
+  <section><h2>Objetivo</h2><p>Ayudar al equipo comercial a convertir costos en precios de venta consistentes, considerando moneda de costo, tipo de cambio y margen deseado.</p></section>
+  <section><h2>Campos</h2><table><thead><tr><th>Campo</th><th>Descripción</th><th>Uso</th></tr></thead><tbody>
+    <tr><td>Costo base</td><td>Costo del producto en la moneda seleccionada.</td><td>Debe capturarse sin IVA ni gastos adicionales no contemplados.</td></tr>
+    <tr><td>Moneda del costo</td><td>USD o MXN.</td><td>Si es USD, se convierte a MXN con el tipo de cambio usado.</td></tr>
+    <tr><td>Margen %</td><td>Margen comercial esperado.</td><td>Define la utilidad objetivo sobre el precio final.</td></tr>
+    <tr><td>Tipo de cambio usado</td><td>Valor USD/MXN consultado por API o capturado manualmente.</td><td>Permite mantener precios alineados a condiciones cambiarias.</td></tr>
+  </tbody></table></section>
+  <section><h2>Interpretación</h2><p>El resultado muestra precio sugerido en pesos y dólares. Si el margen es bajo, puede comprometer utilidad; si es demasiado alto, puede afectar competitividad. Se recomienda validar contra mercado, disponibilidad, urgencia y estrategia del cliente.</p></section>
+  <section><h2>Ejemplo</h2><p>Si el costo es 100 USD, el tipo de cambio es 20.00 y el margen objetivo es 30%, la calculadora convierte el costo a MXN y calcula el precio necesario para sostener ese margen.</p></section>
+</main></body></html>

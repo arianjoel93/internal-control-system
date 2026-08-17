@@ -1,0 +1,13 @@
+project_id = "sqzrvzwyvjeosuvzotja"
+
+[functions.odoo-sales-report]
+verify_jwt = true
+
+[functions.odoo-sales-forecast]
+verify_jwt = true
+
+[functions.odoo-shipping-quote]
+verify_jwt = true
+
+[functions.get-my-module-permissions]
+verify_jwt = true

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Docs | Reportes</title>
+  <link rel="icon" href="/favicon.png" />
+  <style>
+    :root{--ink:#2d332f;--muted:#6b625b;--accent:#9b5a36;--soft:#fffaf5;--line:#eadfd3;--risk:#b45f4d;--warn:#c27843;--good:#557b35;--blue:#52708c}
+    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 8% 0%,rgba(184,105,67,.14),transparent 28%),#f3eee8;color:var(--ink);font-family:Georgia,"Times New Roman",serif;line-height:1.58}
+    main{max-width:1180px;margin:auto;padding:42px 22px} header,section{background:rgba(255,250,245,.96);border:1px solid var(--line);border-radius:28px;margin-bottom:18px;padding:28px;box-shadow:0 18px 50px rgba(96,63,42,.08)}
+    h1{font-size:clamp(34px,5vw,52px);line-height:1;margin:0 0 12px} h2{color:var(--accent);margin:0 0 14px;font-size:28px} h3{margin:22px 0 8px;color:#4a3428}
+    p{margin:0 0 12px}.eyebrow{color:var(--accent);font-size:12px;letter-spacing:.12em;text-transform:uppercase}.lead{font-size:18px;color:#4d443e;max-width:900px}
+    nav{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px} nav a{border:1px solid var(--line);border-radius:999px;color:var(--accent);background:#fff;padding:8px 12px;text-decoration:none}
+    table{width:100%;border-collapse:collapse;margin-top:12px} th,td{border-bottom:1px solid var(--line);padding:12px;text-align:left;vertical-align:top} th{color:var(--accent);font-size:13px;text-transform:uppercase;letter-spacing:.06em}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}.card{border:1px solid var(--line);border-radius:20px;padding:17px;background:#fffdf9}.card strong{display:block;color:#3a2921;margin-bottom:6px}
+    .formula{display:inline-block;border:1px solid var(--line);border-radius:14px;background:#fff;padding:10px 12px;color:#4a3428;font-weight:700}
+    .meter{display:grid;gap:8px;margin:14px 0 32px}.bar{height:18px;border-radius:999px;background:linear-gradient(90deg,var(--risk) 0 50%,var(--warn) 50% 75%,var(--good) 75% 100%);position:relative}.pin{position:absolute;top:-7px;width:2px;height:32px;background:#222}.pin::after{content:attr(data-label);position:absolute;top:32px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:12px;color:#4d443e}
+    .legend{display:flex;flex-wrap:wrap;gap:8px}.pill{border-radius:999px;padding:5px 9px;font-size:12px;color:#fff}.risk{background:var(--risk)}.warn{background:var(--warn)}.good{background:var(--good)}.blue{background:var(--blue)}
+    .example{border-left:5px solid var(--accent);background:#fff;border-radius:18px;padding:16px;margin-top:12px}.note{color:var(--muted);font-size:14px}
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="eyebrow">Corporación Tectronic</p>
+    <h1>Documentación del módulo Reportes</h1>
+    <p class="lead">Guía operativa para entender cada indicador, interpretar resultados y convertir los datos de Odoo en decisiones para dirección, gerencia y agentes de ventas.</p>
+    <nav>
+      <a href="#objetivo">Objetivo</a><a href="#roles">Roles</a><a href="#fuentes">Fuentes Odoo</a><a href="#resumen">Resumen</a><a href="#score">Calificación vendedor</a><a href="#kpis">KPI</a><a href="#secciones">Secciones</a><a href="#umbrales">Umbrales</a>
+    </nav>
+  </header>
+
+  <section id="objetivo">
+    <h2>1. Objetivo del módulo</h2>
+    <p>Reportes responde tres preguntas centrales: qué vendimos, quién lo logró y dónde se está perdiendo flujo comercial. El módulo cruza facturación, cotizaciones, órdenes, clientes, productos, vendedores y compras para construir una lectura ejecutiva.</p>
+    <p>La finalidad no es solo ver números, sino decidir acciones: recuperar clientes, mejorar conversión, enfocar productos, revisar vendedores, detectar dependencia de pocos clientes y anticipar el cierre del año.</p>
+  </section>
+
+  <section id="roles">
+    <h2>2. Cómo debe leerlo cada rol</h2>
+    <table><thead><tr><th>Rol</th><th>Qué ve</th><th>Qué debe decidir</th><th>Preguntas clave</th></tr></thead><tbody>
+      <tr><td>Propietario / Dirección</td><td>Vista global de compañías, vendedores, clientes, productos, compras, Pareto y pronósticos.</td><td>Prioridades estratégicas, riesgo comercial, crecimiento real y asignación de recursos.</td><td>¿Dependemos de pocos clientes? ¿Crecemos contra el año anterior? ¿Qué línea conviene impulsar?</td></tr>
+      <tr><td>Administrador</td><td>Datos globales y configuración operativa.</td><td>Calidad de datos, permisos, metas y disponibilidad de reportes.</td><td>¿Coinciden Odoo y el sistema? ¿Hay vendedores sin metas? ¿Los filtros son correctos?</td></tr>
+      <tr><td>Gerente</td><td>Vista de equipo, compañía o cartera bajo su responsabilidad.</td><td>Seguimiento a vendedores, coaching y recuperación de cartera.</td><td>¿Quién convierte menos? ¿Quién tiene clientes en riesgo? ¿Qué vendedor requiere apoyo?</td></tr>
+      <tr><td>Agente de ventas</td><td>Vista filtrada por su vendedor y compañía relacionada.</td><td>Mejorar su propia conversión, recuperar clientes, crear clientes nuevos y vender categorías adecuadas.</td><td>¿Qué clientes debo contactar? ¿Qué producto me compran más? ¿Cómo voy contra mi periodo anterior?</td></tr>
+    </tbody></table>
+  </section>
+
+  <section id="fuentes">
+    <h2>3. Fuentes de datos desde Odoo</h2>
+    <table><thead><tr><th>Dato</th><th>Fuente</th><th>Filtro principal</th><th>Uso</th></tr></thead><tbody>
+      <tr><td>Total sin impuestos / facturación</td><td>Contabilidad > Reportes > Análisis de facturas.</td><td>Fecha de factura, facturas publicadas, factura de cliente y notas de crédito de cliente.</td><td>KPI financiero de venta neta operativa.</td></tr>
+      <tr><td>Cotizaciones</td><td>Ventas, modelo de órdenes.</td><td>Fecha de creación y estado cotización.</td><td>Demanda generada antes del cierre.</td></tr>
+      <tr><td>Órdenes</td><td>Ventas, modelo de órdenes.</td><td>Fecha de la orden y estado venta.</td><td>Demanda convertida en venta.</td></tr>
+      <tr><td>Productos / categorías</td><td>Líneas de factura de Contabilidad.</td><td>Fecha de factura y filtros de compañía/vendedor/producto.</td><td>Demanda real facturada por producto o categoría.</td></tr>
+      <tr><td>Clientes nuevos</td><td>Historial completo de facturación.</td><td>Cliente sin compras previas y primera compra dentro del periodo.</td><td>Adquisición real, no solo actividad.</td></tr>
+      <tr><td>Compras</td><td>Compras y facturas de proveedor cuando aplica.</td><td>Periodo, proveedor, comprador, producto.</td><td>Abastecimiento, proveedor, producto más comprado y gasto.</td></tr>
+    </tbody></table>
+    <p class="note">Todas las solicitudes a Odoo son de lectura. El sistema no crea, edita ni elimina registros en Odoo.</p>
+  </section>
+
+  <section id="resumen">
+    <h2>4. Resumen ejecutivo</h2>
+    <p>El Resumen concentra los indicadores que dirección y gerencia deben revisar primero. Si solo tienes cinco minutos, revisa estos KPI en este orden: Total sin impuestos, Conversión comercial, Crecimiento vs año anterior, Clientes nuevos, Clientes en riesgo y Pareto.</p>
+    <div class="grid">
+      <div class="card"><strong>Total sin impuestos</strong><p>Valor facturado sin IVA. Sirve para comparar contra Odoo y medir venta real.</p></div>
+      <div class="card"><strong>Conversión comercial</strong><p>Indica qué parte del flujo comercial se convierte en órdenes. Si baja, hay problema de oferta, seguimiento, precio o calidad de leads.</p></div>
+      <div class="card"><strong>Crecimiento vs año anterior</strong><p>Compara el mismo periodo contra el año anterior para separar crecimiento real de temporada alta.</p></div>
+      <div class="card"><strong>Clientes en riesgo</strong><p>Detecta cartera que puede perderse si no se contacta a tiempo.</p></div>
+    </div>
+  </section>
+
+  <section id="score">
+    <h2>5. Calificación global del vendedor</h2>
+    <p>La calificación global del vendedor es un semáforo de desempeño. No mide si una persona es buena o mala; mide si el resultado comercial del periodo está saludable respecto a varios factores.</p>
+    <p>En términos operativos combina bloques como volumen facturado, conversión, creación de clientes nuevos, retención/recuperación y calidad de cartera. Los pesos pueden ajustarse desde configuración según la estrategia de la empresa.</p>
+    <div class="meter">
+      <div class="bar"><span class="pin" style="left:50%" data-label="Score 50"></span><span class="pin" style="left:75%" data-label="Aceptable"></span></div>
+      <div class="legend"><span class="pill risk">0-49 crítico</span><span class="pill warn">50-74 en observación</span><span class="pill good">75-100 saludable</span></div>
+    </div>
+    <div class="example">
+      <h3>Ejemplo: vendedor con calificación 50</h3>
+      <p>Un score de 50 normalmente significa que el vendedor tiene señales mixtas. Puede estar facturando algo, pero con baja conversión, pocos clientes nuevos o demasiada cartera en riesgo.</p>
+      <p><strong>Lectura práctica:</strong> no basta decir que vendió poco. Hay que abrir su detalle y revisar: ¿tiene suficientes cotizaciones?, ¿las cotizaciones no cierran?, ¿su cartera antigua dejó de comprar?, ¿vende una sola categoría?, ¿perdió clientes de alto valor?</p>
+      <p><strong>Acción recomendada:</strong> definir 3 a 5 cuentas prioritarias, revisar cotizaciones no convertidas de más de 7 días, acompañar llamadas comerciales y asignar meta semanal de clientes nuevos o recuperados.</p>
+    </div>
+  </section>
+
+  <section id="kpis">
+    <h2>6. KPI explicados individualmente</h2>
+    <table><thead><tr><th>KPI</th><th>Fórmula / origen</th><th>Bueno</th><th>Crítico</th><th>Cómo usarlo</th></tr></thead><tbody>
+      <tr><td>Total sin impuestos</td><td>Suma de facturación sin impuestos desde Contabilidad.</td><td>Crece contra periodo anterior y año anterior.</td><td>Cae mientras cotizaciones suben.</td><td>Combínalo con conversión para saber si el problema es demanda o cierre.</td></tr>
+      <tr><td>Cotizaciones</td><td>Total de cotizaciones creadas en el periodo.</td><td>Suben con calidad y seguimiento.</td><td>Suben pero no generan órdenes.</td><td>Útil para medir actividad comercial previa al cierre.</td></tr>
+      <tr><td>Órdenes</td><td>Órdenes confirmadas por fecha de orden.</td><td>Crecen proporcionalmente a cotizaciones.</td><td>Se estancan o bajan con muchas cotizaciones.</td><td>Indica cierre real de oportunidades.</td></tr>
+      <tr><td>Conversión comercial</td><td><span class="formula">Órdenes / (Órdenes + Cotizaciones)</span></td><td>Mayor a 50%; ideal sostenido arriba de 60% según mercado.</td><td>Menor a 35% con volumen suficiente.</td><td>Si baja, revisar precios, seguimiento, promesa comercial y competencia.</td></tr>
+      <tr><td>Clientes nuevos</td><td>Clientes cuya primera compra histórica ocurre en el periodo.</td><td>Se mantiene o crece sin dañar retención.</td><td>Meses sin clientes nuevos.</td><td>Mide adquisición real, no solo leads.</td></tr>
+      <tr><td>Clientes en riesgo</td><td>Clientes con baja recencia respecto a su patrón de compra.</td><td>Bajo porcentaje sobre cartera total.</td><td>Muchos clientes de alto valor en riesgo.</td><td>Priorizar recuperación antes de perder facturación futura.</td></tr>
+      <tr><td>Ticket promedio</td><td>Facturación / número de operaciones.</td><td>Sube con venta cruzada o mayor valor.</td><td>Baja mientras sube volumen.</td><td>Ayuda a decidir bundles, mínimos y productos complementarios.</td></tr>
+      <tr><td>Pareto</td><td>Participación acumulada por cliente, producto o vendedor.</td><td>Concentración controlada y diversificada.</td><td>Top 5 demasiado alto.</td><td>Detecta dependencia y oportunidades de expansión.</td></tr>
+      <tr><td>Crecimiento vs año anterior</td><td>Mismo periodo del año actual contra el año anterior.</td><td>Crecimiento positivo y consistente.</td><td>Crecimiento solo por temporada alta o caída real.</td><td>Separar estacionalidad de crecimiento saludable.</td></tr>
+    </tbody></table>
+  </section>
+
+  <section id="secciones">
+    <h2>7. Qué contiene cada sección</h2>
+    <table><thead><tr><th>Sección</th><th>Qué explica</th><th>Qué acción tomar</th></tr></thead><tbody>
+      <tr><td>Resumen</td><td>Lectura ejecutiva, crecimiento, KPI generales y alertas.</td><td>Decidir foco semanal o mensual.</td></tr>
+      <tr><td>Conversión</td><td>Relación entre cotizaciones y órdenes.</td><td>Detectar pérdida de flujo comercial.</td></tr>
+      <tr><td>Clientes</td><td>Nuevos, activos, en riesgo, segmentos RFM y cartera.</td><td>Recuperar, retener o crear clientes.</td></tr>
+      <tr><td>Productos</td><td>Productos más vendidos, categorías y demanda facturada.</td><td>Impulsar productos rentables o de alta demanda.</td></tr>
+      <tr><td>Vendedores</td><td>Ranking, desempeño, conversión, clientes y categorías vendidas.</td><td>Coaching, metas y asignación de cartera.</td></tr>
+      <tr><td>Pareto</td><td>Concentración de ingresos por cliente, producto o vendedor.</td><td>Diversificar riesgo y replicar patrones ganadores.</td></tr>
+      <tr><td>Compras</td><td>Abastecimiento, proveedores, productos comprados y gasto.</td><td>Optimizar inventario y negociación.</td></tr>
+      <tr><td>Pronósticos</td><td>Proyección con histórico y escenarios.</td><td>Planear cierre de año y objetivos realistas.</td></tr>
+    </tbody></table>
+  </section>
+
+  <section id="umbrales">
+    <h2>8. Umbrales recomendados de lectura</h2>
+    <table><thead><tr><th>Indicador</th><th>Crítico</th><th>Observación</th><th>Saludable</th></tr></thead><tbody>
+      <tr><td>Conversión comercial</td><td>Menor a 35%</td><td>35% a 50%</td><td>Mayor a 50%</td></tr>
+      <tr><td>Calificación vendedor</td><td>0 a 49</td><td>50 a 74</td><td>75 a 100</td></tr>
+      <tr><td>Clientes en riesgo</td><td>Alto valor concentrado en riesgo</td><td>Riesgo moderado pero creciente</td><td>Riesgo bajo y controlado</td></tr>
+      <tr><td>Concentración top clientes</td><td>Top 5 mayor a 70%</td><td>50% a 70%</td><td>Menor a 50%</td></tr>
+      <tr><td>Crecimiento anual comparable</td><td>Negativo</td><td>Positivo pero estacional</td><td>Positivo y consistente</td></tr>
+    </tbody></table>
+  </section>
+</main>
+</body>
+</html>

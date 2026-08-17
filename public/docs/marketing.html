@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Docs | Marketing</title>
+  <link rel="icon" href="/favicon.png" />
+  <style>
+    :root{--ink:#213632;--muted:#64736e;--accent:#2f7d73;--line:#dfe6dd;--soft:#fffdf8;--risk:#b45f4d;--warn:#c27843;--good:#2f7d73}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 90% 0%,rgba(47,125,115,.15),transparent 32%),#f4f1ea;color:var(--ink);font-family:Georgia,"Times New Roman",serif;line-height:1.58}
+    main{max-width:1180px;margin:auto;padding:42px 22px}header,section{background:rgba(255,253,248,.96);border:1px solid var(--line);border-radius:28px;margin-bottom:18px;padding:28px;box-shadow:0 18px 50px rgba(37,53,49,.08)}
+    h1{font-size:clamp(34px,5vw,52px);line-height:1;margin:0 0 12px}h2{color:var(--accent);font-size:28px;margin:0 0 14px}h3{margin:20px 0 8px;color:#203531}.eyebrow{color:var(--accent);font-size:12px;letter-spacing:.12em;text-transform:uppercase}.lead{font-size:18px;color:#44534f;max-width:900px}
+    nav{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}nav a{border:1px solid var(--line);border-radius:999px;color:var(--accent);background:#fff;padding:8px 12px;text-decoration:none}
+    table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border-bottom:1px solid var(--line);padding:12px;text-align:left;vertical-align:top}th{color:var(--accent);font-size:13px;text-transform:uppercase;letter-spacing:.06em}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}.card{border:1px solid var(--line);border-radius:20px;background:#fff;padding:17px}.card strong{display:block;color:#203531;margin-bottom:6px}
+    .example{border-left:5px solid var(--accent);background:#fff;border-radius:18px;padding:16px;margin-top:12px}.pill{display:inline-block;border-radius:999px;padding:5px 9px;color:#fff;font-size:12px}.risk{background:var(--risk)}.warn{background:var(--warn)}.good{background:var(--good)}
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="eyebrow">Corporación Tectronic</p>
+    <h1>Documentación del módulo Marketing</h1>
+    <p class="lead">Guía para convertir datos comerciales de Odoo en campañas, segmentación, alertas, recuperación de clientes, seguimiento CRM y decisiones de mercadotecnia.</p>
+    <nav><a href="#objetivo">Objetivo</a><a href="#kpis">KPI</a><a href="#salud">Salud</a><a href="#modelos">Modelos</a><a href="#modales">Datos y CSV</a><a href="#notificaciones">Notificaciones</a><a href="#ejemplos">Ejemplos</a></nav>
+  </header>
+
+  <section id="objetivo">
+    <h2>1. Objetivo</h2>
+    <p>Marketing no solo muestra estadísticas. Su función es responder: a quién debo contactar, por qué motivo, con qué producto, por qué canal y con qué urgencia.</p>
+    <p>El módulo utiliza facturación, clientes, productos, categorías, vendedores y oportunidades CRM para construir audiencias accionables. Cada modal y CSV busca entregar listas que puedan usarse para campañas, llamadas, correos o seguimiento por vendedor.</p>
+  </section>
+
+  <section id="kpis">
+    <h2>2. KPI del Resumen estratégico</h2>
+    <table><thead><tr><th>KPI</th><th>Significado</th><th>Rango saludable</th><th>Uso en Marketing</th><th>Complementarlo con</th></tr></thead><tbody>
+      <tr><td>Facturación segmentable</td><td>Total facturado sin impuestos que puede cruzarse por cliente, producto, categoría y vendedor.</td><td>Debe crecer o mantenerse estable contra periodos comparables.</td><td>Elegir campañas basadas en demanda real.</td><td>Productos principales, categorías y Pareto.</td></tr>
+      <tr><td>Clientes activos</td><td>Clientes que han comprado recientemente.</td><td>Estable o creciendo.</td><td>Crear campañas de recompra, fidelización y venta cruzada.</td><td>Ticket promedio y productos comprados.</td></tr>
+      <tr><td>Clientes en riesgo</td><td>Clientes que dejaron de comprar según su recencia o frecuencia histórica.</td><td>Bajo porcentaje sobre la cartera.</td><td>Campañas de recuperación antes de perderlos.</td><td>Última compra, productos comprados y vendedor.</td></tr>
+      <tr><td>Conversión comercial</td><td>Órdenes divididas entre órdenes más cotizaciones.</td><td>Mayor a 50% con volumen suficiente.</td><td>Validar si la demanda generada está cerrando ventas.</td><td>Cotizaciones pendientes y CRM sin seguimiento.</td></tr>
+      <tr><td>Ticket promedio</td><td>Valor promedio de compra.</td><td>Debe sostener margen comercial y crecer por bundles o upsell.</td><td>Definir ofertas, paquetes y mínimos de campaña.</td><td>Categoría comprada y frecuencia.</td></tr>
+      <tr><td>Pipeline CRM ponderado</td><td>Valor esperado de oportunidades ajustado por probabilidad.</td><td>Alto y con seguimiento reciente.</td><td>Priorizar leads que necesitan contenido técnico o remarketing.</td><td>CRM sin seguimiento y fecha límite.</td></tr>
+      <tr><td>Leads u oportunidades activas</td><td>Registros CRM abiertos.</td><td>Activos con movimiento reciente.</td><td>Nutrir oportunidades y coordinar con ventas.</td><td>Embudo CRM y vendedor responsable.</td></tr>
+      <tr><td>Oportunidades sin seguimiento</td><td>Leads con fecha vencida o sin cambios recientes.</td><td>Debe ser bajo.</td><td>Activar alertas, correos, casos de éxito y llamadas.</td><td>Valor esperado y etapa CRM.</td></tr>
+    </tbody></table>
+  </section>
+
+  <section id="salud">
+    <h2>3. Salud de marketing</h2>
+    <p>La Salud de marketing sintetiza cuatro señales que afectan el crecimiento: conversión, clientes en riesgo, concentración y CRM sin seguimiento.</p>
+    <div class="grid">
+      <div class="card"><strong>Conversión</strong><p><span class="pill good">Saludable: >50%</span></p><p>Si las campañas atraen prospectos pero no se cierran ventas, el problema puede estar en mensaje, precio, seguimiento o calidad del lead.</p></div>
+      <div class="card"><strong>Clientes en riesgo</strong><p><span class="pill warn">Atención: cartera valiosa sin compra</span></p><p>Recuperar un cliente con historial suele ser más barato que captar uno nuevo. Marketing debe activar recordatorios, novedades y ofertas con vigencia.</p></div>
+      <div class="card"><strong>Concentración top 5</strong><p><span class="pill risk">Crítico: >70%</span></p><p>Si pocos clientes explican demasiada facturación, la empresa depende de ellos. Marketing debe crear audiencias similares y diversificar demanda.</p></div>
+      <div class="card"><strong>CRM sin seguimiento</strong><p><span class="pill warn">Atención: oportunidades frías</span></p><p>Una oportunidad sin movimiento pierde probabilidad. Marketing puede apoyar con nutrición, contenido técnico y automatizaciones.</p></div>
+    </div>
+  </section>
+
+  <section id="modelos">
+    <h2>4. Modelos usados para tomar decisiones</h2>
+    <table><thead><tr><th>Modelo</th><th>Qué clasifica</th><th>Ejemplo</th><th>Acción recomendada</th></tr></thead><tbody>
+      <tr><td>RFM</td><td>Recencia, frecuencia y valor de clientes.</td><td>Cliente compró mucho, pero no compra hace 90 días.</td><td>Campaña de recuperación personalizada.</td></tr>
+      <tr><td>Pareto comercial</td><td>Clientes, productos o categorías que explican más facturación.</td><td>Top 5 clientes concentran 68%.</td><td>Crear audiencias similares y reducir dependencia.</td></tr>
+      <tr><td>Demanda por categoría</td><td>Categorías que más facturan en el periodo.</td><td>Consumibles crece en participación.</td><td>Campaña por industria, bundle o recompra.</td></tr>
+      <tr><td>Higiene CRM</td><td>Oportunidades vencidas o sin movimiento.</td><td>Lead con valor alto sin cambio en 10 días.</td><td>Asignar cadencia y enviar contenido técnico.</td></tr>
+    </tbody></table>
+  </section>
+
+  <section id="modales">
+    <h2>5. Modales, buscador y CSV</h2>
+    <p>Cuando se abre un modal de datos, el buscador permite localizar cliente, vendedor, producto, categoría, correo, teléfono, dirección o contexto. Esto evita revisar listas largas manualmente.</p>
+    <p>Los CSV deben usarse como listas de trabajo. Incluyen cliente, vendedor, productos comprados, categorías, correo, teléfono, dirección, estado o segmento y observaciones. Si una columna aparece vacía, normalmente significa que el dato no existe en Odoo para ese contacto o está en un contacto relacionado que debe depurarse.</p>
+  </section>
+
+  <section id="notificaciones">
+    <h2>6. Notificaciones de Marketing</h2>
+    <table><thead><tr><th>Notificación</th><th>Qué significa</th><th>Qué hacer</th></tr></thead><tbody>
+      <tr><td>Clientes de valor requieren recuperación</td><td>Hay clientes con historial que están dejando de comprar.</td><td>Crear campaña de recompra y asignar responsable.</td></tr>
+      <tr><td>Higiene de leads y oportunidades</td><td>Hay CRM sin seguimiento reciente.</td><td>Priorizar por valor esperado y etapa.</td></tr>
+      <tr><td>Categorías con demanda comercial</td><td>Una categoría muestra tracción real en facturación.</td><td>Crear campaña por categoría, industria o necesidad.</td></tr>
+      <tr><td>Clientes para campaña por producto</td><td>Hay compradores identificados de un producto líder.</td><td>Activar recompra, accesorios o productos complementarios.</td></tr>
+    </tbody></table>
+  </section>
+
+  <section id="ejemplos">
+    <h2>7. Ejemplos prácticos</h2>
+    <div class="example"><h3>Ejemplo 1: Conversión baja y muchas cotizaciones</h3><p>Si la conversión es 32% pero las cotizaciones subieron, Marketing debe revisar si las campañas están atrayendo clientes poco calificados, si el mensaje promete algo que ventas no puede sostener o si faltan materiales de cierre.</p></div>
+    <div class="example"><h3>Ejemplo 2: Clientes en riesgo con productos consumibles</h3><p>Si un cliente compra consumibles cada 45 días y lleva 80 días sin comprar, el sistema lo puede mostrar como riesgo. La acción ideal es una campaña de recompra con el producto exacto, vendedor responsable y fecha límite.</p></div>
+    <div class="example"><h3>Ejemplo 3: Top 5 demasiado concentrado</h3><p>Si cinco clientes explican 75% de la facturación, Marketing debe construir audiencias similares: misma industria, productos comprados, zona, tamaño de cuenta y necesidad técnica.</p></div>
+  </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Docs | Cotizador IMEBA</title>
+  <link rel="icon" href="/favicon.png" />
+  <style>
+    :root{--ink:#303330;--muted:#706662;--accent:#c27843;--red:#b83a34;--line:#eadfd3;--soft:#fffaf5;--good:#557b35;--warn:#c27843;--risk:#b45f4d}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 0% 0%,rgba(194,120,67,.16),transparent 30%),#f5efe8;color:var(--ink);font-family:Georgia,"Times New Roman",serif;line-height:1.58}
+    main{max-width:1120px;margin:auto;padding:42px 22px}header,section{background:rgba(255,250,245,.96);border:1px solid var(--line);border-radius:28px;margin-bottom:18px;padding:28px;box-shadow:0 18px 50px rgba(96,63,42,.08)}
+    h1{font-size:clamp(34px,5vw,52px);line-height:1;margin:0 0 12px}h2{color:var(--accent);font-size:28px;margin:0 0 14px}h3{margin:20px 0 8px;color:#4a3024}.eyebrow{color:var(--red);font-size:12px;letter-spacing:.12em;text-transform:uppercase}.lead{font-size:18px;color:#554943;max-width:900px}
+    nav{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}nav a{border:1px solid var(--line);border-radius:999px;color:var(--red);background:#fff;padding:8px 12px;text-decoration:none}
+    table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border-bottom:1px solid var(--line);padding:12px;text-align:left;vertical-align:top}th{color:var(--accent);font-size:13px;text-transform:uppercase;letter-spacing:.06em}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}.card{border:1px solid var(--line);border-radius:20px;background:#fff;padding:17px}.card strong{display:block;color:#3b2921;margin-bottom:6px}
+    .formula{display:inline-block;border:1px solid var(--line);border-radius:14px;background:#fff;padding:10px 12px;color:#4a3428;font-weight:700}.example{border-left:5px solid var(--accent);background:#fff;border-radius:18px;padding:16px;margin-top:12px}.note{color:var(--muted);font-size:14px}
+    .pill{display:inline-block;border-radius:999px;color:#fff;padding:5px 9px;font-size:12px}.good{background:var(--good)}.warn{background:var(--warn)}.risk{background:var(--risk)}
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="eyebrow">IMEBA | Corporación Tectronic</p>
+    <h1>Documentación del Cotizador IMEBA</h1>
+    <p class="lead">Guía para usar el cotizador de etiquetas digitales basado en la lógica del Excel IMEBA, entender cada campo y revisar la cotización antes de presentarla al cliente.</p>
+    <nav><a href="#objetivo">Objetivo</a><a href="#flujo">Flujo</a><a href="#campos">Campos</a><a href="#criterios">Criterios</a><a href="#resultados">Resultados</a><a href="#ejemplos">Ejemplos</a><a href="#validacion">Validación</a></nav>
+  </header>
+
+  <section id="objetivo">
+    <h2>1. Objetivo</h2>
+    <p>El Cotizador IMEBA calcula precios de etiquetas considerando tipo de cambio, margen, material, tinta, medidas, cantidad, millares y condiciones de producción. Su propósito es estandarizar criterios para que el precio sea consistente y comparable con el Excel original.</p>
+    <p>No reemplaza la revisión técnica de producción. Si hay acabados especiales, urgencia, tolerancias, pruebas de color, materiales fuera de catálogo o condiciones comerciales especiales, se debe validar antes de enviar la propuesta final.</p>
+  </section>
+
+  <section id="flujo">
+    <h2>2. Flujo recomendado</h2>
+    <div class="grid">
+      <div class="card"><strong>1. Captura datos base</strong><p>Tipo de cambio, margen, material, tinta y medidas de etiqueta.</p></div>
+      <div class="card"><strong>2. Define cantidad</strong><p>Indica millares o cantidad equivalente. Revisa pedido mínimo.</p></div>
+      <div class="card"><strong>3. Valida producción</strong><p>Si hay etiquetado automático, activa orientación y revisa criterios aplicados.</p></div>
+      <div class="card"><strong>4. Revisa resultados</strong><p>Confirma precio unitario, precio por millar, total y criterios finales.</p></div>
+    </div>
+  </section>
+
+  <section id="campos">
+    <h2>3. Campos explicados</h2>
+    <table><thead><tr><th>Campo</th><th>Qué significa</th><th>Qué afecta</th><th>Error común</th></tr></thead><tbody>
+      <tr><td>Tipo de cambio</td><td>Valor USD/MXN usado por la calculadora.</td><td>Costos ligados a insumos dolarizados.</td><td>Usar un tipo de cambio viejo en cotizaciones grandes.</td></tr>
+      <tr><td>Margen de ganancia</td><td>Porcentaje comercial seleccionado.</td><td>Precio final y utilidad.</td><td>Confundir margen con markup. Margen mide utilidad sobre precio final.</td></tr>
+      <tr><td>Material</td><td>Sustrato o material base de la etiqueta.</td><td>Costo por área, acabado y viabilidad.</td><td>Elegir material por precio sin validar aplicación del cliente.</td></tr>
+      <tr><td>Nivel de tinta</td><td>Bajo, medio o alto según cobertura visual.</td><td>Costo de impresión.</td><td>Usar tinta baja para diseños con fondos sólidos o alta cobertura.</td></tr>
+      <tr><td>Ancho y alto</td><td>Medida de la etiqueta vista de frente.</td><td>Área base y rendimiento.</td><td>Invertir medidas cuando orientación o etiquetado automático cambia el criterio.</td></tr>
+      <tr><td>Millares</td><td>Cantidad de miles de etiquetas a cotizar.</td><td>Total, precio por millar y criterios aplicados.</td><td>Cotizar una cantidad distinta a la requerida por el cliente.</td></tr>
+      <tr><td>Etiquetado automático</td><td>Indica si la etiqueta debe ajustarse a orientación para aplicación automática.</td><td>Activa criterios de orientación.</td><td>Activarlo sin confirmar máquina o sentido de aplicación.</td></tr>
+      <tr><td>Orientación</td><td>Criterio de acomodo cuando aplica etiquetado automático.</td><td>Puede cambiar área usada y rendimiento.</td><td>Forzar orientación sin validar producción.</td></tr>
+    </tbody></table>
+  </section>
+
+  <section id="criterios">
+    <h2>4. Criterios y fórmulas conceptuales</h2>
+    <p>El módulo sigue la lógica del Excel IMEBA y muestra resultados con tres decimales para aproximar los cálculos del archivo original.</p>
+    <table><thead><tr><th>Criterio</th><th>Descripción</th><th>Uso</th></tr></thead><tbody>
+      <tr><td>Área base</td><td><span class="formula">Ancho x alto</span></td><td>Determina consumo de material y tinta.</td></tr>
+      <tr><td>Costo por material</td><td>Depende del material seleccionado y del área.</td><td>Base del costo productivo.</td></tr>
+      <tr><td>Costo por tinta</td><td>Depende del nivel de cobertura.</td><td>Ajusta diseños simples contra diseños pesados.</td></tr>
+      <tr><td>Cantidad final</td><td>Millares multiplicados por 1,000 etiquetas.</td><td>Escala los costos y totales.</td></tr>
+      <tr><td>Margen</td><td>Convierte costo en precio comercial.</td><td>Debe proteger utilidad sin perder competitividad.</td></tr>
+      <tr><td>Pedido mínimo</td><td>Control comercial para evitar trabajos no rentables.</td><td>Si el total queda bajo el mínimo, debe revisarse.</td></tr>
+    </tbody></table>
+    <p class="note">Las fórmulas exactas se mantienen dentro del cotizador para replicar el comportamiento del Excel. Esta documentación explica cómo interpretar cada bloque.</p>
+  </section>
+
+  <section id="resultados">
+    <h2>5. Resultados y cómo leerlos</h2>
+    <table><thead><tr><th>Resultado</th><th>Qué indica</th><th>Cuándo revisar</th></tr></thead><tbody>
+      <tr><td>Precio unitario</td><td>Precio por etiqueta.</td><td>Si parece demasiado bajo o alto contra histórico.</td></tr>
+      <tr><td>Precio por millar</td><td>Precio por cada 1,000 etiquetas.</td><td>Útil para presentar al cliente y comparar escalas.</td></tr>
+      <tr><td>Total</td><td>Importe final de la cantidad cotizada.</td><td>Validar contra pedido mínimo e IVA si aplica.</td></tr>
+      <tr><td>Criterios aplicados</td><td>Resumen de material, tinta, cantidad y orientación.</td><td>Antes de enviar una propuesta formal.</td></tr>
+    </tbody></table>
+  </section>
+
+  <section id="ejemplos">
+    <h2>6. Ejemplos prácticos</h2>
+    <div class="example"><h3>Ejemplo 1: etiqueta sencilla</h3><p>Una etiqueta pequeña con tinta baja y material estándar debe generar un costo controlado. Si el precio final se ve alto, revisa margen, millares y pedido mínimo.</p></div>
+    <div class="example"><h3>Ejemplo 2: tinta alta</h3><p>Un diseño con fondo completo, colores sólidos o mucha cobertura debe usarse como tinta alta. Si se cotiza como tinta baja, la utilidad puede quedar subestimada.</p></div>
+    <div class="example"><h3>Ejemplo 3: etiquetado automático</h3><p>Si el cliente aplicará etiquetas con máquina, la orientación deja de ser solo visual. Debe validarse sentido de salida, rollo y aplicación antes de confirmar.</p></div>
+  </section>
+
+  <section id="validacion">
+    <h2>7. Checklist antes de enviar</h2>
+    <table><thead><tr><th>Revisión</th><th>Por qué importa</th><th>Semáforo</th></tr></thead><tbody>
+      <tr><td>Tipo de cambio actualizado</td><td>Evita pérdidas por variación USD/MXN.</td><td><span class="pill good">Necesario</span></td></tr>
+      <tr><td>Material correcto</td><td>Impacta costo y desempeño en aplicación final.</td><td><span class="pill good">Necesario</span></td></tr>
+      <tr><td>Nivel de tinta validado</td><td>Protege costo real de impresión.</td><td><span class="pill warn">Revisar diseño</span></td></tr>
+      <tr><td>Millares correctos</td><td>Evita cotizar menos o más de lo solicitado.</td><td><span class="pill good">Necesario</span></td></tr>
+      <tr><td>Pedido mínimo</td><td>Protege rentabilidad operativa.</td><td><span class="pill warn">Revisar si queda bajo</span></td></tr>
+      <tr><td>Acabados especiales</td><td>Pueden no estar contemplados en el cálculo base.</td><td><span class="pill risk">Validación manual</span></td></tr>
+    </tbody></table>
+  </section>
+</main>
+</body>
+</html>
