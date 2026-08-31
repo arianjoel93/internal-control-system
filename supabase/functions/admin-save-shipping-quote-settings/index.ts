@@ -85,9 +85,9 @@ function normalizePayload(value: unknown) {
     fedex_origin_postal_code: optionalText(source.fedex_origin_postal_code),
     fedex_client_id: optionalText(source.fedex_client_id),
     fedex_client_secret: optionalText(source.fedex_client_secret),
-    fedex_account_number: optionalText(source.fedex_account_number),
-    fedex_child_key: optionalText(source.fedex_child_key),
-    fedex_child_secret: optionalText(source.fedex_child_secret),
+    fedex_account_number: normalizeFedexAccountNumber(source.fedex_account_number),
+    fedex_child_key: null,
+    fedex_child_secret: null,
     is_active: source.is_active !== false,
   };
 }
@@ -95,6 +95,16 @@ function normalizePayload(value: unknown) {
 function optionalText(value: unknown) {
   const normalized = String(value ?? '').trim();
   return normalized || null;
+}
+
+function normalizeFedexAccountNumber(value: unknown) {
+  const text = optionalText(value);
+  if (!text) return null;
+  const normalized = text.replace(/[\s-]+/g, '');
+  if (!/^\d+$/.test(normalized)) {
+    throw new Error('El Account Number de FedEx debe contener solo números. Quita espacios, guiones u otros caracteres.');
+  }
+  return normalized;
 }
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {

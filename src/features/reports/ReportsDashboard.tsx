@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   CheckCheck,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   CircleAlert,
   Copy,
@@ -74,7 +75,9 @@ import {
 import {
   defaultReportsConfig,
   type OdooCommercialDataset,
+  type OdooInvoiceLineRecord,
   type OdooInvoiceRecord,
+  type OdooOrderLineRecord,
   type OdooOrderRecord,
   type ParetoMetricKey,
   type ReportOption,
@@ -117,6 +120,8 @@ import {
   buildSalesAgentNotifications,
   SALES_PERFORMANCE_BIBLIOGRAPHY,
   type AgentPerformanceScore,
+  type SalesAgentNotificationDraft,
+  type SalesNotificationSeverity,
 } from './salesAgentIntelligence';
 import {
   createSharedSalesReport,
@@ -137,6 +142,7 @@ type ReportsSection =
   | 'sellers'
   | 'purchases'
   | 'pareto'
+  | 'abandonedCarts'
   | 'forecasts'
   | 'details';
 
@@ -145,6 +151,7 @@ type ReportsDashboardProps = {
   visibilityScope: ReportVisibilityScope;
   canAccessSales: boolean;
   canAccessPurchases: boolean;
+  canManageReportsSettings: boolean;
   onOpenHub: () => void;
 };
 
@@ -223,6 +230,10 @@ type DetailKey =
   | 'negativeMarginProducts'
   | 'lowConversionSellers';
 
+type VisibleSalesAgentNotification = SalesAgentNotification & {
+  isLocal?: boolean;
+};
+
 const REPORTS_CONFIG_STORAGE_KEY = 'tectronic-reports-config-v2';
 const REPORT_COMPANY_NAME = 'Corporación Tectronic';
 const REPORT_LOGO_SRC = '/tectronic-logo.png';
@@ -242,6 +253,7 @@ const reportSections: Array<{
   { id: 'sellers', label: 'Vendedores', icon: <Trophy size={18} /> },
   { id: 'purchases', label: 'Compras', icon: <ShoppingCart size={18} /> },
   { id: 'pareto', label: 'Pareto', icon: <BarChart3 size={18} /> },
+  { id: 'abandonedCarts', label: 'Cotizaciones abandonadas', icon: <ShoppingBag size={18} /> },
   { id: 'forecasts', label: 'Pronósticos', icon: <TrendingUp size={18} /> },
   { id: 'details', label: 'Detalle analítico', icon: <ShoppingBag size={18} /> },
 ];
@@ -269,6 +281,7 @@ const reportsSidebarSalesNav: Array<{
   { id: 'products', label: 'Productos', icon: <Boxes size={18} /> },
   { id: 'sellers', label: 'Vendedores', icon: <UserRound size={18} /> },
   { id: 'pareto', label: 'Pareto', icon: <PieChart size={18} /> },
+  { id: 'abandonedCarts', label: 'Cotizaciones abandonadas', icon: <ShoppingBag size={18} /> },
   { id: 'forecasts', label: 'Pronósticos', icon: <TrendingUp size={18} /> },
 ] as const;
 
@@ -295,6 +308,7 @@ export function ReportsDashboard({
   visibilityScope,
   canAccessSales,
   canAccessPurchases,
+  canManageReportsSettings,
   onOpenHub,
 }: ReportsDashboardProps) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -304,12 +318,16 @@ export function ReportsDashboard({
   const [filters, setFilters] = useState<ReportFilters>(() =>
     buildDefaultFilters(visibilityScope),
   );
+  const [draftFilters, setDraftFilters] = useState<ReportFilters>(() =>
+    buildDefaultFilters(visibilityScope),
+  );
   const [config, setConfig] = useState<ReportsConfig>(() => loadStoredConfig());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [preferencesHydrated, setPreferencesHydrated] = useState(false);
   const [companyDefaultPending, setCompanyDefaultPending] = useState(true);
   const [sellerCatalog, setSellerCatalog] = useState<Array<{ sellerId: number | null; sellerName: string }>>([]);
   const [completeSectionsReady, setCompleteSectionsReady] = useState(false);
+  const [notificationsDatasetReady, setNotificationsDatasetReady] = useState(false);
   const datasetFetchFilters = useMemo<ReportFilters>(
     () => ({
       ...buildDefaultFilters(visibilityScope),
@@ -357,7 +375,7 @@ export function ReportsDashboard({
         return nextParams;
       }, { replace: true });
     }
-  }, [activeSection, canAccessPurchases, canAccessSales, setSearchParams]);
+  }, [activeSection, canAccessPurchases, canAccessSales, setSearchParams, visibilityScope]);
 
   const preferencesQuery = useQuery({
     queryKey: ['reports-preferences', session.user.id],
@@ -391,9 +409,14 @@ export function ReportsDashboard({
     const range = buildQuickRange('last_7_days');
     return filters.startDate === range.startDate && filters.endDate === range.endDate;
   }, [filters.endDate, filters.startDate]);
+  const hasPendingFilterChanges = useMemo(
+    () => !areFiltersEqual(filters, draftFilters),
+    [draftFilters, filters],
+  );
 
   useEffect(() => {
     queueMicrotask(() => setCompleteSectionsReady(false));
+    queueMicrotask(() => setNotificationsDatasetReady(false));
   }, [datasetCacheOwnerKey, datasetFetchFilters, requestedDatasetDomain]);
 
   useEffect(() => {
@@ -402,8 +425,10 @@ export function ReportsDashboard({
     }
 
     queueMicrotask(() => {
+      const storedFilters = mergeStoredFilters(preferencesQuery.data?.filters, visibilityScope);
       setConfig(mergeStoredConfig(preferencesQuery.data?.config ?? loadStoredConfig()));
-      setFilters(mergeStoredFilters(preferencesQuery.data?.filters, visibilityScope));
+      setFilters(storedFilters);
+      setDraftFilters(storedFilters);
       setCompanyDefaultPending(!preferencesQuery.data);
       setPreferencesHydrated(true);
     });
@@ -412,6 +437,11 @@ export function ReportsDashboard({
   useEffect(() => {
     queueMicrotask(() => {
       setFilters((current) =>
+        current.visibilityScope === visibilityScope
+          ? current
+          : { ...current, visibilityScope },
+      );
+      setDraftFilters((current) =>
         current.visibilityScope === visibilityScope
           ? current
           : { ...current, visibilityScope },
@@ -437,7 +467,7 @@ export function ReportsDashboard({
   const fastDatasetQuery = useQuery({
     queryKey: ['commercial-dashboard-dataset', datasetCacheOwnerKey, requestedDatasetDomain, 'fast', datasetFetchFilters],
     queryFn: () => getCommercialDataset(datasetFetchFilters, requestedDatasetDomain, 'fast'),
-    enabled: preferencesHydrated,
+    enabled: preferencesHydrated && activeSection !== 'forecasts',
     initialData: () => cachedDataset ?? undefined,
     staleTime: Number.POSITIVE_INFINITY,
     refetchOnMount: false,
@@ -460,6 +490,7 @@ export function ReportsDashboard({
     queryFn: () => getCommercialDataset(lastMonthPrefetchFilters, requestedDatasetDomain, 'fast'),
     enabled:
       preferencesHydrated &&
+      activeSection !== 'forecasts' &&
       isDefaultSevenDayRange &&
       Boolean(fastDatasetQuery.data) &&
       !fastDatasetQuery.isFetching &&
@@ -473,7 +504,7 @@ export function ReportsDashboard({
   const forecastDatasetQuery = useQuery({
     queryKey: ['sales-forecast-dataset', datasetCacheOwnerKey, visibilityScope],
     queryFn: getSalesForecastDataset,
-    enabled: preferencesHydrated && canAccessSales,
+    enabled: preferencesHydrated && canAccessSales && activeSection === 'forecasts',
     initialData: () => cachedForecastDataset ?? undefined,
     staleTime: 1000 * 60 * 60 * 12,
     retry: false,
@@ -488,6 +519,7 @@ export function ReportsDashboard({
       canRunFullDatasetQuery &&
       completeSectionsReady &&
       activeSection !== 'executive' &&
+      activeSection !== 'forecasts' &&
       (!isDefaultSevenDayRange || Boolean(cachedLastMonthDataset) || Boolean(lastMonthPrefetchQuery.data)),
     staleTime: Number.POSITIVE_INFINITY,
     retry: false,
@@ -501,9 +533,13 @@ export function ReportsDashboard({
       return;
     }
 
+    const notificationTimeout = window.setTimeout(() => {
+      setNotificationsDatasetReady(true);
+    }, 1100);
+
     if (activeSection !== 'executive') {
       queueMicrotask(() => setCompleteSectionsReady(true));
-      return;
+      return () => window.clearTimeout(notificationTimeout);
     }
 
     if (
@@ -511,10 +547,14 @@ export function ReportsDashboard({
       !cachedLastMonthDataset &&
       !lastMonthPrefetchQuery.data
     ) {
-      return;
+      return () => window.clearTimeout(notificationTimeout);
     }
 
-    return scheduleReportIdleWork(() => setCompleteSectionsReady(true));
+    const cancelIdleWork = scheduleReportIdleWork(() => setCompleteSectionsReady(true));
+    return () => {
+      window.clearTimeout(notificationTimeout);
+      cancelIdleWork?.();
+    };
   }, [
     activeSection,
     cachedLastMonthDataset,
@@ -536,6 +576,10 @@ export function ReportsDashboard({
 
     queueMicrotask(() => {
       setFilters((current) => {
+        const nextFilters = alignFiltersWithDataset(current, displayDataset, companyDefaultPending);
+        return areFiltersEqual(current, nextFilters) ? current : nextFilters;
+      });
+      setDraftFilters((current) => {
         const nextFilters = alignFiltersWithDataset(current, displayDataset, companyDefaultPending);
         return areFiltersEqual(current, nextFilters) ? current : nextFilters;
       });
@@ -616,6 +660,7 @@ export function ReportsDashboard({
   const lastUpdatedLabel = formatRelativeUpdate(displayDataset?.fetchedAt ?? null);
   const showingPreview = Boolean(displayDataset && fullDatasetQuery.isFetching && !fullDatasetQuery.data);
   const isAgentProfile = visibilityScope === 'own' && Boolean(snapshot?.agentProfile);
+  const canUseSalesNotifications = canAccessSales;
   const notificationDatasetQuery = useQuery({
     queryKey: [
       'commercial-dashboard-dataset',
@@ -627,17 +672,21 @@ export function ReportsDashboard({
     queryFn: () => getCommercialDataset(notificationFetchFilters, 'sales', 'full'),
     enabled:
       preferencesHydrated &&
-      visibilityScope === 'own' &&
-      canAccessSales &&
-      !fullDatasetQuery.data &&
-      !fullDatasetQuery.isFetching &&
-      !fullDatasetQuery.error,
+      canUseSalesNotifications &&
+      notificationsDatasetReady,
     staleTime: 15 * 60_000,
     refetchOnMount: false,
     refetchOnReconnect: true,
     refetchOnWindowFocus: false,
   });
-  const notificationSourceDataset = fullDatasetQuery.data ?? notificationDatasetQuery.data;
+  const notificationSourceDataset =
+    notificationDatasetQuery.data ??
+    fullDatasetQuery.data ??
+    (activeSection === 'executive' ? fastDatasetQuery.data : undefined);
+  const notificationSourceIsPreliminary =
+    notificationSourceDataset === fastDatasetQuery.data &&
+    !notificationDatasetQuery.data &&
+    !fullDatasetQuery.data;
   const notificationDrafts = useMemo(
     () => (notificationSourceDataset ? buildSalesAgentNotifications(notificationSourceDataset) : []),
     [notificationSourceDataset],
@@ -652,15 +701,32 @@ export function ReportsDashboard({
   const notificationsQuery = useQuery({
     queryKey: ['sales-agent-notifications', session.user.id],
     queryFn: listSalesAgentNotifications,
-    enabled: isAgentProfile,
+    enabled: canUseSalesNotifications,
     staleTime: 60_000,
   });
+  const visibleSalesNotifications = useMemo(
+    () =>
+      buildVisibleSalesAgentNotifications(
+        notificationsQuery.data ?? [],
+        notificationDrafts,
+        session.user.id,
+        session.user.email,
+      ),
+    [
+      notificationDrafts,
+      notificationsQuery.data,
+      session.user.email,
+      session.user.id,
+    ],
+  );
   const refetchNotifications = notificationsQuery.refetch;
 
   useEffect(() => {
-    if (!isAgentProfile || !session.user.email || !notificationSourceDataset) return;
+    if (!canUseSalesNotifications || !session.user.email || !notificationSourceDataset) return;
     let active = true;
-    void syncSalesAgentNotifications(session.user.email, notificationDrafts)
+    void syncSalesAgentNotifications(session.user.email, notificationDrafts, {
+      dismissStale: !notificationSourceIsPreliminary,
+    })
       .then(() => {
         if (active) void refetchNotifications();
       })
@@ -671,8 +737,9 @@ export function ReportsDashboard({
       active = false;
     };
   }, [
-    isAgentProfile,
+    canUseSalesNotifications,
     notificationSourceDataset,
+    notificationSourceIsPreliminary,
     notificationDrafts,
     notificationSignature,
     refetchNotifications,
@@ -708,7 +775,7 @@ export function ReportsDashboard({
   return (
     <div className="admin-shell reports-shell">
       <OdooLoadingModal
-        open={isDatasetFetching}
+        open={!displayDataset && datasetQuery.isFetching}
         title={requestedDatasetDomain === 'purchases'
           ? 'Preparando el análisis de compras'
           : 'Preparando los reportes de ventas'}
@@ -812,18 +879,22 @@ export function ReportsDashboard({
           <ReportsTopBar
             isRefreshing={isDatasetFetching}
             notificationCenter={
-              isAgentProfile ? (
+              canUseSalesNotifications ? (
                 <AgentNotificationsCenter
-                  notifications={notificationsQuery.data ?? []}
+                  notifications={visibleSalesNotifications}
                   onDismiss={async (id) => {
+                    if (isLocalSalesNotificationId(id)) return;
                     await dismissSalesAgentNotification(id);
                     await refetchNotifications();
                   }}
                   onDismissMany={async (ids) => {
-                    await dismissSalesAgentNotifications(ids);
+                    const persistedIds = ids.filter((id) => !isLocalSalesNotificationId(id));
+                    if (!persistedIds.length) return;
+                    await dismissSalesAgentNotifications(persistedIds);
                     await refetchNotifications();
                   }}
                   onRead={async (id) => {
+                    if (isLocalSalesNotificationId(id)) return;
                     await markSalesAgentNotificationRead(id);
                     await refetchNotifications();
                   }}
@@ -834,11 +905,17 @@ export function ReportsDashboard({
                 />
               ) : null
             }
-            onOpenSettings={() => setSettingsOpen(true)}
-            onRefresh={() => {
-              void datasetQuery.refetch().then(() => fullDatasetQuery.refetch());
-              if (activeSection === 'forecasts') void forecastDatasetQuery.refetch();
+            onOpenSettings={() => {
+              if (canManageReportsSettings) setSettingsOpen(true);
             }}
+            onRefresh={() => {
+              if (activeSection === 'forecasts') {
+                void forecastDatasetQuery.refetch();
+              } else {
+                void datasetQuery.refetch().then(() => fullDatasetQuery.refetch());
+              }
+            }}
+            showSettings={canManageReportsSettings}
             updatedLabel={lastUpdatedLabel}
           />
           <div className="admin-section-head">
@@ -859,20 +936,25 @@ export function ReportsDashboard({
                 <FileText size={16} />
                 Docs
               </button>
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => setSettingsOpen(true)}
-              >
-                <Settings2 size={16} />
-                Configuración
-              </button>
+              {canManageReportsSettings ? (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setSettingsOpen(true)}
+                >
+                  <Settings2 size={16} />
+                  Configuración
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="secondary-button"
                 onClick={() => {
-                  void datasetQuery.refetch().then(() => fullDatasetQuery.refetch());
-                  if (activeSection === 'forecasts') void forecastDatasetQuery.refetch();
+                  if (activeSection === 'forecasts') {
+                    void forecastDatasetQuery.refetch();
+                  } else {
+                    void datasetQuery.refetch().then(() => fullDatasetQuery.refetch());
+                  }
                 }}
                 disabled={isDatasetFetching || (activeSection === 'forecasts' && forecastDatasetQuery.isFetching)}
               >
@@ -884,13 +966,15 @@ export function ReportsDashboard({
 
           {activeSection !== 'forecasts' ? (
             <FilterToolbar
-              activeFilters={filters}
+              activeFilters={draftFilters}
+              appliedFilters={filters}
               companyLocked={visibilityScope === 'own'}
               dataset={displayDataset ?? undefined}
+              hasPendingChanges={hasPendingFilterChanges}
               sellerLocked={visibilityScope === 'own'}
               sellerOptions={displayDataset?.availableFilters.sellers ?? []}
               onApplyQuickRange={(key) =>
-                setFilters((current) => {
+                setDraftFilters((current) => {
                   const range = buildQuickRange(key);
                   return {
                     ...current,
@@ -899,7 +983,14 @@ export function ReportsDashboard({
                   };
                 })
               }
-              onChange={setFilters}
+              onApplyFilters={() => {
+                startTransition(() => {
+                  setFilters((current) =>
+                    areFiltersEqual(current, draftFilters) ? current : draftFilters,
+                  );
+                });
+              }}
+              onChange={setDraftFilters}
             />
           ) : null}
 
@@ -1047,6 +1138,14 @@ export function ReportsDashboard({
                 )
               ) : null}
 
+              {activeSection === 'abandonedCarts' ? (
+                <AbandonedCartsSection
+                  dataset={displayDataset}
+                  snapshot={snapshot}
+                  agentScope={visibilityScope === 'own'}
+                />
+              ) : null}
+
               {activeSection === 'details' ? (
                 <DetailsSectionV2
                   dataset={displayDataset}
@@ -1067,7 +1166,7 @@ export function ReportsDashboard({
         </section>
       </main>
 
-      {settingsOpen ? (
+      {settingsOpen && canManageReportsSettings ? (
         <SettingsModal
           config={config}
           onClose={() => setSettingsOpen(false)}
@@ -1574,12 +1673,14 @@ function ReportsTopBar({
   notificationCenter,
   onOpenSettings,
   onRefresh,
+  showSettings,
   updatedLabel,
 }: {
   isRefreshing: boolean;
   notificationCenter?: ReactNode;
   onOpenSettings: () => void;
   onRefresh: () => void;
+  showSettings: boolean;
   updatedLabel: string;
 }) {
   return (
@@ -1594,17 +1695,83 @@ function ReportsTopBar({
           <RefreshCcw size={15} className={isRefreshing ? 'is-spinning' : undefined} />
           <span>{updatedLabel}</span>
         </button>
-        <button
-          type="button"
-          className="reports-topbar-icon"
-          aria-label="Más opciones"
-          onClick={onOpenSettings}
-        >
-          <MoreVertical size={18} />
-        </button>
+        {showSettings ? (
+          <button
+            type="button"
+            className="reports-topbar-icon"
+            aria-label="Más opciones"
+            onClick={onOpenSettings}
+          >
+            <MoreVertical size={18} />
+          </button>
+        ) : null}
       </div>
     </header>
   );
+}
+
+function buildVisibleSalesAgentNotifications(
+  persistedNotifications: SalesAgentNotification[],
+  notificationDrafts: SalesAgentNotificationDraft[],
+  userId: string,
+  sellerEmail: string | null | undefined,
+): VisibleSalesAgentNotification[] {
+  const persistedFingerprints = new Set(
+    persistedNotifications.map((notification) => notification.fingerprint),
+  );
+  const now = new Date().toISOString();
+  const localNotifications = notificationDrafts
+    .filter((notification) => !persistedFingerprints.has(notification.fingerprint))
+    // Show fresh operational signals immediately; Supabase persistence follows in the background.
+    .slice(0, 40)
+    .map((notification): VisibleSalesAgentNotification => ({
+      id: `local:${notification.fingerprint}`,
+      user_id: userId,
+      seller_email: sellerEmail?.trim().toLowerCase() ?? '',
+      fingerprint: notification.fingerprint,
+      category: notification.category,
+      severity: notification.severity,
+      title: notification.title,
+      message: notification.message,
+      recommendation: notification.recommendation,
+      entity_type: notification.entityType,
+      entity_key: notification.entityKey,
+      metadata: notification.metadata,
+      is_read: false,
+      dismissed_at: null,
+      first_detected_at: now,
+      last_detected_at: now,
+      created_at: now,
+      updated_at: now,
+      isLocal: true,
+    }));
+
+  return [...persistedNotifications, ...localNotifications]
+    .sort(compareVisibleSalesNotifications)
+    .slice(0, 40);
+}
+
+function compareVisibleSalesNotifications(
+  left: VisibleSalesAgentNotification,
+  right: VisibleSalesAgentNotification,
+) {
+  if (left.is_read !== right.is_read) return left.is_read ? 1 : -1;
+  const severityDifference =
+    getSalesNotificationSeverityRank(left.severity) -
+    getSalesNotificationSeverityRank(right.severity);
+  if (severityDifference !== 0) return severityDifference;
+  return new Date(right.last_detected_at).getTime() - new Date(left.last_detected_at).getTime();
+}
+
+function getSalesNotificationSeverityRank(severity: SalesNotificationSeverity) {
+  if (severity === 'critical') return 0;
+  if (severity === 'warning') return 1;
+  if (severity === 'opportunity') return 2;
+  return 3;
+}
+
+function isLocalSalesNotificationId(id: string) {
+  return id.startsWith('local:');
 }
 
 function AgentNotificationsCenter({
@@ -1614,7 +1781,7 @@ function AgentNotificationsCenter({
   onRead,
   onReadAll,
 }: {
-  notifications: SalesAgentNotification[];
+  notifications: VisibleSalesAgentNotification[];
   onDismiss: (id: string) => Promise<void>;
   onDismissMany: (ids: string[]) => Promise<void>;
   onRead: (id: string) => Promise<void>;
@@ -1624,10 +1791,14 @@ function AgentNotificationsCenter({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const unreadCount = notifications.filter((notification) => !notification.is_read).length;
-  const visibleSelectedIds = notifications
+  const persistedNotifications = notifications.filter((notification) => !notification.isLocal);
+  const visibleSelectedIds = persistedNotifications
     .filter((notification) => selectedIds.has(notification.id))
     .map((notification) => notification.id);
-  const allSelected = notifications.length > 0 && visibleSelectedIds.length === notifications.length;
+  const allSelected =
+    persistedNotifications.length > 0 &&
+    visibleSelectedIds.length === persistedNotifications.length;
+  const unreadPersistedCount = persistedNotifications.filter((notification) => !notification.is_read).length;
 
   const runNotificationAction = async (key: string, action: () => Promise<void>) => {
     setPendingAction(key);
@@ -1651,7 +1822,7 @@ function AgentNotificationsCenter({
     setSelectedIds((current) => {
       if (allSelected) return new Set();
       const next = new Set(current);
-      notifications.forEach((notification) => next.add(notification.id));
+      persistedNotifications.forEach((notification) => next.add(notification.id));
       return next;
     });
   };
@@ -1694,7 +1865,7 @@ function AgentNotificationsCenter({
               <button
                 type="button"
                 onClick={() => void runNotificationAction('read-all', onReadAll)}
-                disabled={!unreadCount || pendingAction !== null}
+                disabled={!unreadPersistedCount || pendingAction !== null}
               >
                 <CheckCheck size={14} />
                 Marcar todas como leídas
@@ -1718,45 +1889,55 @@ function AgentNotificationsCenter({
             </div>
           ) : null}
           <div className="sales-notification-list">
-            {notifications.length ? notifications.map((notification) => (
-              <article
-                key={notification.id}
-                className={`sales-notification-item severity-${notification.severity}${notification.is_read ? ' is-read' : ''}`}
-              >
-                <div className="sales-notification-item-head">
-                  <label className="sales-notification-select">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(notification.id)}
-                      onChange={() => toggleSelection(notification.id)}
-                    />
-                    <span>{notification.is_read ? 'Revisada' : 'Nueva'}</span>
-                  </label>
-                  <span>{notification.severity === 'critical' ? 'Prioridad alta' : notification.severity === 'warning' ? 'Atención' : 'Oportunidad'}</span>
-                  <button
-                    type="button"
-                    aria-label={`Eliminar ${notification.title}`}
-                    disabled={pendingAction !== null}
-                    onClick={() => void runNotificationAction(notification.id, () => onDismiss(notification.id))}
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-                <strong>{notification.title}</strong>
-                <p>{notification.message}</p>
-                <small>{notification.recommendation}</small>
-                {!notification.is_read ? (
-                  <button
-                    type="button"
-                    className="sales-notification-read"
-                    disabled={pendingAction !== null}
-                    onClick={() => void runNotificationAction(notification.id, () => onRead(notification.id))}
-                  >
-                    Marcar como leída
-                  </button>
-                ) : null}
-              </article>
-            )) : (
+            {notifications.length ? notifications.map((notification) => {
+              const isLocalNotification = Boolean(notification.isLocal);
+              return (
+                <article
+                  key={notification.id}
+                  className={`sales-notification-item severity-${notification.severity}${notification.is_read ? ' is-read' : ''}${isLocalNotification ? ' is-local' : ''}`}
+                >
+                  <div className="sales-notification-item-head">
+                    <label className="sales-notification-select">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(notification.id)}
+                        disabled={isLocalNotification}
+                        onChange={() => toggleSelection(notification.id)}
+                      />
+                      <span>
+                        {isLocalNotification
+                          ? 'Calculada'
+                          : notification.is_read
+                            ? 'Revisada'
+                            : 'Nueva'}
+                      </span>
+                    </label>
+                    <span>{notification.severity === 'critical' ? 'Prioridad alta' : notification.severity === 'warning' ? 'Atención' : 'Oportunidad'}</span>
+                    <button
+                      type="button"
+                      aria-label={`Eliminar ${notification.title}`}
+                      disabled={pendingAction !== null || isLocalNotification}
+                      onClick={() => void runNotificationAction(notification.id, () => onDismiss(notification.id))}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                  <strong>{notification.title}</strong>
+                  <p>{notification.message}</p>
+                  <small>{notification.recommendation}</small>
+                  {!notification.is_read && !isLocalNotification ? (
+                    <button
+                      type="button"
+                      className="sales-notification-read"
+                      disabled={pendingAction !== null}
+                      onClick={() => void runNotificationAction(notification.id, () => onRead(notification.id))}
+                    >
+                      Marcar como leída
+                    </button>
+                  ) : null}
+                </article>
+              );
+            }) : (
               <div className="sales-notification-empty">
                 <CheckCircle2 size={22} />
                 <strong>Sin alertas pendientes</strong>
@@ -2976,20 +3157,1489 @@ function PurchasesSection({ snapshot }: { snapshot: PurchaseDashboardSnapshot })
 
 function ParetoSectionV2({ snapshot }: { snapshot: CommercialDashboardSnapshot }) {
   const report = buildParetoSectionReport(snapshot);
+  const customerInsight = buildParetoInsight(snapshot.pareto.customers, 'customers');
+  const productInsight = buildParetoInsight(snapshot.pareto.products, 'products');
+  const sellerInsight = buildParetoInsight(snapshot.pareto.sellers, 'sellers');
 
   return (
     <div className="reports-stack">
       <SectionLead
         title="Pareto"
-        description="Identifica qué pocos elementos concentran la mayor parte del resultado comercial."
+        description="Explica dónde se concentra el resultado, qué es saludable, qué implica riesgo y qué acciones conviene tomar por clientes y productos."
         actions={<SectionReportActions report={report} />}
       />
 
-      <ParetoAccordion summary={snapshot.pareto.customers} />
-      <ParetoAccordion summary={snapshot.pareto.products} />
-      <ParetoAccordion summary={snapshot.pareto.sellers} />
+      <ParetoExecutiveReadout
+        customerInsight={customerInsight}
+        productInsight={productInsight}
+      />
+
+      <ParetoDecisionPanel
+        summary={snapshot.pareto.customers}
+        insight={customerInsight}
+        dimension="customers"
+      />
+      <ParetoDecisionPanel
+        summary={snapshot.pareto.products}
+        insight={productInsight}
+        dimension="products"
+      />
+      <ParetoDecisionPanel
+        summary={snapshot.pareto.sellers}
+        insight={sellerInsight}
+        dimension="sellers"
+      />
     </div>
   );
+}
+
+type AbandonedCartSummary = {
+  abandonedQuotes: OdooOrderRecord[];
+  quoteLines: OdooOrderLineRecord[];
+  productRows: AbandonedCartProductRow[];
+  sellerRows: AbandonedCartSellerRow[];
+  customerRows: AbandonedCartCustomerRow[];
+  priceRows: AbandonedCartPriceRow[];
+  totalAmount: number;
+  abandonmentRate: number;
+  expiredRate: number;
+  averageAgeDays: number;
+  pricePressureCount: number;
+  deliveryAmount: number;
+  deliveryQuoteCount: number;
+  withoutDeliveryQuoteCount: number;
+  findings: Array<{ title: string; body: string; tone: 'good' | 'risk' | 'action' }>;
+};
+
+type AbandonedCartProductRow = {
+  key: string;
+  productId: number | null;
+  productName: string;
+  categoryName: string | null;
+  quotes: number;
+  quoteIds: number[];
+  amount: number;
+  units: number;
+  averageUnitsPerQuote: number;
+  averageQuotedUnitPrice: number;
+  historicalAverageUnitPrice: number | null;
+  priceGapPct: number | null;
+  relatedProductsSummary: string;
+  equipmentCorrelationSummary: string;
+};
+
+type AbandonedCartSellerRow = {
+  key: string;
+  sellerId: number | null;
+  sellerName: string;
+  quotes: number;
+  quoteIds: number[];
+  amount: number;
+  expiredQuotes: number;
+  abandonmentSharePct: number;
+  averageAgeDays: number;
+};
+
+type AbandonedCartCustomerRow = {
+  key: string;
+  customerId: number | null;
+  customerName: string;
+  sellerName: string;
+  quotes: number;
+  quoteIds: number[];
+  amount: number;
+  latestQuotationDate: string | null;
+  averageAgeDays: number;
+  topProductsSummary: string;
+};
+
+type AbandonedCartPriceRow = AbandonedCartProductRow & {
+  interpretation: string;
+};
+
+type AbandonedCartDrilldown = {
+  title: string;
+  subtitle: string;
+  quoteIds: number[];
+};
+
+type AbandonedQuoteAnalysisLine = {
+  amount: number;
+  hasProductSignal: boolean;
+};
+
+function AbandonedCartsSection({
+  agentScope,
+  dataset,
+  snapshot,
+}: {
+  agentScope: boolean;
+  dataset: OdooCommercialDataset;
+  snapshot: CommercialDashboardSnapshot;
+}) {
+  const summary = useMemo(
+    () => buildAbandonedCartSummary(dataset, snapshot),
+    [dataset, snapshot],
+  );
+  const [drilldown, setDrilldown] = useState<AbandonedCartDrilldown | null>(null);
+  const quotesById = useMemo(
+    () => new Map(summary.abandonedQuotes.map((quote) => [quote.id, quote])),
+    [summary.abandonedQuotes],
+  );
+  const linesByOrderId = useMemo(
+    () => groupOrderLinesByOrderId(summary.quoteLines),
+    [summary.quoteLines],
+  );
+  const topProduct = summary.productRows[0] ?? null;
+  const topSeller = summary.sellerRows[0] ?? null;
+  const topCustomer = summary.customerRows[0] ?? null;
+  const openTopProductDetail = () => {
+    if (!topProduct) return;
+    setDrilldown({
+      title: topProduct.productName,
+      subtitle: `Este producto aparece en ${formatNumber(topProduct.quotes)} cotizaciones no cerradas, con ${formatCurrency(topProduct.amount)} detenido y un precio unitario promedio de ${formatCurrency(topProduct.averageQuotedUnitPrice)}. ${
+        topSeller ? `El vendedor con mayor monto detenido es ${topSeller.sellerName}.` : ''
+      } ${
+        topCustomer
+          ? `El cliente con mayor recurrencia económica es ${topCustomer.customerName}, principalmente en ${topCustomer.topProductsSummary}.`
+          : ''
+      }`,
+      quoteIds: topProduct.quoteIds,
+    });
+  };
+
+  return (
+    <div className="reports-stack reports-abandoned-carts">
+      <SectionLead
+        title={agentScope ? 'Mis cotizaciones abandonadas' : 'Cotizaciones abandonadas'}
+        description={agentScope
+          ? 'Prioriza tus cotizaciones que no avanzaron a orden de venta, identifica productos con fricción y define seguimientos concretos con cada cliente.'
+          : 'Analiza cotizaciones que no avanzaron a orden de venta para detectar pérdidas de flujo comercial, presión de precio, concentración por vendedor, productos con fricción y oportunidades de seguimiento.'}
+      />
+
+      <AbandonedExecutiveSummary summary={summary} onOpenTopProduct={openTopProductDetail} />
+
+      <div className="abandoned-kpi-grid">
+        <AbandonedKpiCard
+          label="Cotizaciones abandonadas"
+          value={formatNumber(summary.abandonedQuotes.length)}
+          helper={`${formatCurrency(summary.totalAmount)} sin impuestos en flujo comercial detenido.`}
+          tone="risk"
+        />
+        <AbandonedKpiCard
+          label="Presión de precio"
+          value={formatNumber(summary.pricePressureCount)}
+          helper="Productos cotizados por encima de su precio medio facturado histórico."
+          tone={summary.pricePressureCount > 0 ? 'warning' : 'good'}
+        />
+        <AbandonedKpiCard
+          label="Entrega en cotización"
+          value={`${formatNumber(summary.deliveryQuoteCount)} con entrega`}
+          helper={`${formatNumber(summary.withoutDeliveryQuoteCount)} cotizaciones no tienen producto Entrega. Monto detectado en entrega: ${formatCurrency(summary.deliveryAmount)}.`}
+          tone={summary.withoutDeliveryQuoteCount > summary.deliveryQuoteCount ? 'warning' : 'good'}
+        />
+      </div>
+
+      <StaticPanel
+        title="Lectura ejecutiva"
+        subtitle="Qué está pasando, dónde se puede estar perdiendo venta y cómo actuar."
+      >
+        <AbandonedFindingsCarousel findings={summary.findings} />
+      </StaticPanel>
+
+      <div className="reports-grid two">
+        <StaticPanel
+          title="Top productos abandonados"
+          subtitle="Ordenado por cantidad de cotizaciones donde aparece cada producto."
+        >
+          <AbandonedBarList
+            rows={summary.productRows.slice(0, 8).map((row) => ({
+              key: row.key,
+              label: row.productName,
+              value: row.quotes,
+              helper: `${formatCurrency(row.amount)} detenido · ${formatNumber(row.units)} unidades`,
+              onClick: () => setDrilldown({
+                title: row.productName,
+                subtitle: `${formatNumber(row.quotes)} cotizaciones abandonadas con este producto · ${formatCurrency(row.amount)} detenido`,
+                quoteIds: row.quoteIds,
+              }),
+            }))}
+            formatter={(value) => `${formatNumber(value)} cotizaciones`}
+          />
+        </StaticPanel>
+        <StaticPanel
+          title={agentScope ? 'Clientes con cotizaciones abandonadas' : 'Top vendedores con cotizaciones abandonadas'}
+          subtitle={agentScope
+            ? 'Prioriza los clientes con más cotizaciones sin cerrar y prepara el siguiente contacto.'
+            : 'Útil para priorizar seguimiento, cierre y revisión de objeciones.'}
+        >
+          <AbandonedBarList
+            rows={(agentScope ? summary.customerRows : summary.sellerRows).slice(0, 8).map((row) => ({
+              key: row.key,
+              label: agentScope ? (row as AbandonedCartCustomerRow).customerName : (row as AbandonedCartSellerRow).sellerName,
+              value: row.quotes,
+              helper: agentScope
+                ? `${formatCurrency((row as AbandonedCartCustomerRow).amount)} detenido · ${(row as AbandonedCartCustomerRow).topProductsSummary}`
+                : `${formatCurrency((row as AbandonedCartSellerRow).amount)} detenido · ${formatPercent((row as AbandonedCartSellerRow).abandonmentSharePct)} del monto abandonado`,
+              onClick: () => setDrilldown({
+                title: agentScope
+                  ? (row as AbandonedCartCustomerRow).customerName
+                  : (row as AbandonedCartSellerRow).sellerName,
+                subtitle: agentScope
+                  ? `${formatNumber(row.quotes)} cotizaciones sin cerrar · ${formatCurrency((row as AbandonedCartCustomerRow).amount)} detenido`
+                  : `${formatNumber(row.quotes)} cotizaciones abandonadas asignadas · ${formatCurrency((row as AbandonedCartSellerRow).amount)} detenido`,
+                quoteIds: row.quoteIds,
+              }),
+            }))}
+            formatter={(value) => `${formatNumber(value)} cotizaciones`}
+          />
+        </StaticPanel>
+      </div>
+
+      <StaticPanel
+        title="Brecha de precio contra facturación histórica"
+        subtitle="Compara precio unitario cotizado, frecuencia de abandono y productos/equipos que aparecen juntos en la misma cotización."
+      >
+        {summary.priceRows.length ? (
+          <div className="abandoned-price-table">
+            <DataTable
+              rows={summary.priceRows}
+              storageKey="abandoned-carts-price-gap"
+              columns={[
+                column<AbandonedCartPriceRow>(
+                  'product',
+                  'Producto',
+                  (row) => (
+                    <div className="abandoned-product-cell">
+                      <strong>{row.productName}</strong>
+                      <span>{row.categoryName ?? 'Sin categoría'} · {formatNumber(row.units)} unidades</span>
+                    </div>
+                  ),
+                  (row) => row.productName,
+                ),
+                column<AbandonedCartPriceRow>('quotes', 'Veces cotizado', (row) => formatNumber(row.quotes), (row) => row.quotes),
+                column<AbandonedCartPriceRow>('quantity', 'Cantidad prom.', (row) => formatNumber(row.averageUnitsPerQuote), (row) => row.averageUnitsPerQuote),
+                column<AbandonedCartPriceRow>('quotePrice', 'Unitario cotizado', (row) => formatCurrency(row.averageQuotedUnitPrice), (row) => row.averageQuotedUnitPrice),
+                column<AbandonedCartPriceRow>('invoicePrice', 'Unitario histórico', (row) => row.historicalAverageUnitPrice === null ? '-' : formatCurrency(row.historicalAverageUnitPrice), (row) => row.historicalAverageUnitPrice ?? 0),
+                column<AbandonedCartPriceRow>(
+                  'gap',
+                  'Brecha',
+                  (row) => (
+                    <span className={`abandoned-price-gap ${getAbandonedPriceGapTone(row.priceGapPct)}`}>
+                      {row.priceGapPct === null ? '-' : formatPercent(row.priceGapPct)}
+                    </span>
+                  ),
+                  (row) => row.priceGapPct ?? 0,
+                ),
+                column<AbandonedCartPriceRow>(
+                  'related',
+                  'Relación en la orden',
+                  (row) => (
+                    <div className="abandoned-related-cell">
+                      <span>{row.equipmentCorrelationSummary}</span>
+                      <small data-full={row.relatedProductsSummary} title={row.relatedProductsSummary}>
+                        {row.relatedProductsSummary}
+                      </small>
+                    </div>
+                  ),
+                  (row) => `${row.equipmentCorrelationSummary} ${row.relatedProductsSummary}`,
+                ),
+                column<AbandonedCartPriceRow>(
+                  'interpretation',
+                  'Acción sugerida',
+                  (row) => (
+                    <span className="abandoned-action-cell" data-full={row.interpretation} title={row.interpretation}>
+                      {row.interpretation}
+                    </span>
+                  ),
+                  (row) => row.interpretation,
+                ),
+              ]}
+            />
+          </div>
+        ) : (
+          <EmptyState title="Sin brechas calculables">
+            No hay suficientes facturas históricas del mismo producto para comparar precios.
+          </EmptyState>
+        )}
+      </StaticPanel>
+
+      <div className="reports-grid two">
+        <StaticPanel
+          title="Clientes con más cotizaciones abandonadas"
+          subtitle="Cuentas con mayor repetición de cotizaciones no cerradas."
+        >
+          <div className="abandoned-customer-table">
+            <DataTable
+              rows={summary.customerRows}
+              storageKey="abandoned-carts-customers"
+              columns={[
+                column<AbandonedCartCustomerRow>(
+                  'customer',
+                  'Cliente',
+                  (row) => <span className="abandoned-table-strong">{row.customerName}</span>,
+                  (row) => row.customerName,
+                ),
+                column<AbandonedCartCustomerRow>('seller', 'Vendedor', (row) => row.sellerName, (row) => row.sellerName),
+                column<AbandonedCartCustomerRow>('quotes', 'Cotizaciones', (row) => formatNumber(row.quotes), (row) => row.quotes),
+                column<AbandonedCartCustomerRow>('amount', 'Monto detenido', (row) => formatCurrency(row.amount), (row) => row.amount),
+                column<AbandonedCartCustomerRow>(
+                  'products',
+                  'Productos recurrentes',
+                  (row) => (
+                    <span className="abandoned-action-cell" data-full={row.topProductsSummary} title={row.topProductsSummary}>
+                      {row.topProductsSummary}
+                    </span>
+                  ),
+                  (row) => row.topProductsSummary,
+                ),
+                column<AbandonedCartCustomerRow>('latest', 'Última cotización', (row) => formatDate(row.latestQuotationDate), (row) => row.latestQuotationDate ?? ''),
+              ]}
+            />
+          </div>
+        </StaticPanel>
+      </div>
+
+      {drilldown ? (
+        <AbandonedQuotesModal
+          dataset={dataset}
+          drilldown={drilldown}
+          linesByOrderId={linesByOrderId}
+          quotesById={quotesById}
+          referenceEndDate={snapshot.filters.endDate}
+          onClose={() => setDrilldown(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function AbandonedExecutiveSummary({
+  onOpenTopProduct,
+  summary,
+}: {
+  onOpenTopProduct: () => void;
+  summary: AbandonedCartSummary;
+}) {
+  const topProduct = summary.productRows[0];
+  const topSeller = summary.sellerRows[0];
+  const topCustomer = summary.customerRows[0];
+  const productShare = ratioPercent(topProduct?.amount ?? 0, summary.totalAmount);
+  const sellerShare = ratioPercent(topSeller?.amount ?? 0, summary.totalAmount);
+  const deliveryShare = ratioPercent(summary.deliveryQuoteCount, summary.abandonedQuotes.length);
+  return (
+    <article className="abandoned-executive-card">
+      <div className="abandoned-executive-copy">
+        <span>Resumen principal</span>
+        <h3>
+          {topProduct
+            ? `${topProduct.productName} concentra la mayor fricción comercial.`
+            : 'No hay concentración clara de productos abandonados.'}
+        </h3>
+        <p>
+          {topProduct
+            ? 'Haz clic en el producto foco para ver las cotizaciones que originan esta señal, sus clientes, precios unitarios, productos relacionados y situación de entrega.'
+            : 'No se detectan cotizaciones abandonadas con líneas de producto suficientes para explicar acumulación por producto, vendedor o cliente.'}
+        </p>
+        <div className="abandoned-executive-bars" aria-label="Indicadores principales de concentración">
+          <div>
+            <span>Producto foco</span>
+            <i><b style={{ width: `${Math.min(100, productShare)}%` }} /></i>
+            <strong>{formatPercent(productShare)}</strong>
+          </div>
+          <div>
+            <span>Vendedor foco</span>
+            <i><b style={{ width: `${Math.min(100, sellerShare)}%` }} /></i>
+            <strong>{formatPercent(sellerShare)}</strong>
+          </div>
+          <div>
+            <span>Con entrega</span>
+            <i><b style={{ width: `${Math.min(100, deliveryShare)}%` }} /></i>
+            <strong>{formatPercent(deliveryShare)}</strong>
+          </div>
+        </div>
+      </div>
+      <div className="abandoned-executive-metrics">
+        <button type="button" onClick={onOpenTopProduct} disabled={!topProduct}>
+          <small>Producto foco</small>
+          <strong>{topProduct?.productName ?? '-'}</strong>
+          <span>{topProduct ? `${formatNumber(topProduct.quotes)} cotizaciones · ${formatCurrency(topProduct.amount)}` : 'Sin producto foco'}</span>
+        </button>
+        <article>
+          <small>Vendedor foco</small>
+          <strong>{topSeller?.sellerName ?? '-'}</strong>
+          <span>{topSeller ? `${formatCurrency(topSeller.amount)} detenido` : 'Sin vendedor foco'}</span>
+        </article>
+        <article>
+          <small>Cliente foco</small>
+          <strong>{topCustomer?.customerName ?? '-'}</strong>
+          <span>{topCustomer ? topCustomer.topProductsSummary : 'Sin cliente foco'}</span>
+        </article>
+      </div>
+    </article>
+  );
+}
+
+function AbandonedFindingsCarousel({
+  findings,
+}: {
+  findings: AbandonedCartSummary['findings'];
+}) {
+  const [page, setPage] = useState(0);
+  const pageSize = 2;
+  const pageCount = Math.max(1, Math.ceil(findings.length / pageSize));
+  const safePage = Math.min(page, pageCount - 1);
+  const visibleFindings = findings.slice(safePage * pageSize, safePage * pageSize + pageSize);
+
+  return (
+    <div className="abandoned-findings-carousel">
+      <div className="abandoned-findings-track">
+        {visibleFindings.map((finding) => (
+          <ParetoFindingCard
+            key={finding.title}
+            title={finding.title}
+            body={finding.body}
+            tone={finding.tone}
+          />
+        ))}
+      </div>
+      <div className="abandoned-carousel-controls">
+        <button
+          type="button"
+          onClick={() => setPage((current) => Math.max(0, current - 1))}
+          disabled={safePage <= 0}
+        >
+          <ChevronLeft size={16} />
+          Anterior
+        </button>
+        <span>{safePage + 1} / {pageCount}</span>
+        <button
+          type="button"
+          onClick={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
+          disabled={safePage >= pageCount - 1}
+        >
+          Siguiente
+          <ChevronRight size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AbandonedKpiCard({
+  helper,
+  label,
+  tone,
+  value,
+}: {
+  helper: string;
+  label: string;
+  tone: 'good' | 'warning' | 'risk';
+  value: string;
+}) {
+  return (
+    <article className={`abandoned-kpi-card tone-${tone}`}>
+      <small>{label}</small>
+      <strong>{value}</strong>
+      <p>{helper}</p>
+    </article>
+  );
+}
+
+function AbandonedBarList({
+  formatter,
+  rows,
+}: {
+  formatter: (value: number) => string;
+  rows: Array<{ key: string; label: string; value: number; helper: string; onClick?: () => void }>;
+}) {
+  if (!rows.length) {
+    return <EmptyState title="Sin datos">No hay cotizaciones abandonadas para graficar.</EmptyState>;
+  }
+
+  const maxValue = Math.max(...rows.map((row) => row.value), 1);
+  return (
+    <div className="abandoned-bar-list">
+      {rows.map((row) => (
+        <button
+          key={row.key}
+          type="button"
+          className="abandoned-bar-row"
+          onClick={row.onClick}
+        >
+          <div>
+            <strong>{row.label}</strong>
+            <small>{row.helper}</small>
+          </div>
+          <span>{formatter(row.value)}</span>
+          <div className="abandoned-bar-track">
+            <i style={{ width: `${Math.max(4, (row.value / maxValue) * 100)}%` }} />
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function AbandonedQuotesModal({
+  dataset,
+  drilldown,
+  linesByOrderId,
+  onClose,
+  quotesById,
+  referenceEndDate,
+}: {
+  dataset: OdooCommercialDataset;
+  drilldown: AbandonedCartDrilldown;
+  linesByOrderId: Map<number, OdooOrderLineRecord[]>;
+  onClose: () => void;
+  quotesById: Map<number, OdooOrderRecord>;
+  referenceEndDate: string;
+}) {
+  const quotes = drilldown.quoteIds
+    .map((quoteId) => quotesById.get(quoteId))
+    .filter((quote): quote is OdooOrderRecord => Boolean(quote))
+    .sort((left, right) => right.amountUntaxed - left.amountUntaxed);
+
+  return (
+    <div className="modal-backdrop abandoned-detail-backdrop" role="dialog" aria-modal="true">
+      <section className="modal-card modal-wide abandoned-detail-modal">
+        <header className="modal-head">
+          <div>
+            <h2>{drilldown.title}</h2>
+            <p>{drilldown.subtitle}</p>
+          </div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Cerrar">
+            <X size={18} />
+          </button>
+        </header>
+        <div className="abandoned-detail-list">
+          {quotes.map((quote) => {
+            const lines = linesByOrderId.get(quote.id) ?? [];
+            const hasDelivery = lines.some(isDeliveryOrderLine);
+            const productSummary = summarizeQuoteProducts(lines);
+            const adjustedAmount = calculateAbandonedQuoteAnalysisAmount(lines);
+            return (
+              <article key={quote.id} className="abandoned-detail-quote">
+                <div>
+                  <strong>{renderOdooLink(dataset, 'sale.order', quote.id, quote.name)}</strong>
+                  <span>{quote.customerName} · {quote.sellerName || 'Sin vendedor'}</span>
+                </div>
+                <div>
+                  <small>Fecha</small>
+                  <span>{formatDate(quote.quotationDate ?? quote.createDate)}</span>
+                </div>
+                <div>
+                  <small>Total sin producto genérico</small>
+                  <span>{formatCurrency(adjustedAmount.amount)}</span>
+                </div>
+                <div>
+                  <small>Entrega</small>
+                  <span>{hasDelivery ? 'Incluye Entrega' : 'Sin producto Entrega'}</span>
+                </div>
+                <div>
+                  <small>Días abierta</small>
+                  <span>{formatNumber(calculateQuoteAgeDays(quote, referenceEndDate))}</span>
+                </div>
+                <p>{productSummary}</p>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function buildAbandonedCartSummary(
+  dataset: OdooCommercialDataset,
+  snapshot: CommercialDashboardSnapshot,
+): AbandonedCartSummary {
+  const rawAbandonedQuotes = [...snapshot.details.pendingQuotes]
+    .sort((left, right) => right.amountUntaxed - left.amountUntaxed);
+  const quoteIds = new Set(rawAbandonedQuotes.map((quote) => quote.id));
+  const quoteLines = dataset.orderLines.filter((line) => quoteIds.has(line.orderId));
+  const linesByOrderId = groupOrderLinesByOrderId(quoteLines);
+  const quoteAnalysisById = buildAbandonedQuoteAnalysisIndex(rawAbandonedQuotes, linesByOrderId);
+  const abandonedQuotes = rawAbandonedQuotes.filter((quote) => {
+    const analysis = quoteAnalysisById.get(quote.id);
+    return Boolean(analysis && analysis.amount > 0);
+  });
+  const effectiveQuoteIds = new Set(abandonedQuotes.map((quote) => quote.id));
+  const effectiveQuoteLines = quoteLines.filter((line) => effectiveQuoteIds.has(line.orderId));
+  const effectiveLinesByOrderId = groupOrderLinesByOrderId(effectiveQuoteLines);
+  const totalAmount = [...quoteAnalysisById.values()].reduce((total, quote) => total + quote.amount, 0);
+  const totalQuotes = Math.max(snapshot.quoteSummary.totalQuotes.current, 0);
+  const expiredQuoteIds = new Set(snapshot.details.expiredQuotes.map((quote) => quote.id));
+  const referenceEndDate = parseReportDate(snapshot.filters.endDate) ?? new Date();
+  const startDate = parseReportDate(snapshot.filters.startDate);
+  const historicalInvoiceLines = buildHistoricalInvoiceLineSet(
+    dataset.invoiceLines,
+    startDate,
+  );
+  const historicalProductPrices = buildHistoricalProductPriceIndex(historicalInvoiceLines);
+  const analyzableQuoteLines = effectiveQuoteLines.filter((line) => !isIgnoredAbandonedAnalysisLine(line));
+  const productRows = buildAbandonedProductRows(analyzableQuoteLines, historicalProductPrices);
+  const sellerRows = buildAbandonedSellerRows(abandonedQuotes, totalAmount, expiredQuoteIds, referenceEndDate, quoteAnalysisById);
+  const customerRows = buildAbandonedCustomerRows(abandonedQuotes, referenceEndDate, effectiveLinesByOrderId, quoteAnalysisById);
+  const priceRows = productRows
+    .filter((row) => row.historicalAverageUnitPrice !== null)
+    .map((row): AbandonedCartPriceRow => ({
+      ...row,
+      interpretation: interpretAbandonedPriceGap(row.priceGapPct),
+    }))
+    .sort((left, right) => Math.abs(right.priceGapPct ?? 0) - Math.abs(left.priceGapPct ?? 0))
+    .slice(0, 20);
+  const pricePressureCount = productRows.filter((row) => (row.priceGapPct ?? 0) >= 15).length;
+  const averageAgeDays = averageNumber(
+    abandonedQuotes.map((quote) => calculateQuoteAgeDays(quote, snapshot.filters.endDate)),
+  );
+  const expiredRate = ratioPercent(expiredQuoteIds.size, abandonedQuotes.length);
+  const abandonmentRate = ratioPercent(abandonedQuotes.length, totalQuotes);
+  const deliveryQuoteIds = new Set(
+    effectiveQuoteLines.filter(isDeliveryOrderLine).map((line) => line.orderId),
+  );
+  const deliveryAmount = effectiveQuoteLines
+    .filter(isDeliveryOrderLine)
+    .reduce((total, line) => total + Math.max(line.untaxedAmount, 0), 0);
+
+  return {
+    abandonedQuotes,
+    quoteLines: effectiveQuoteLines,
+    productRows,
+    sellerRows,
+    customerRows,
+    priceRows,
+    totalAmount,
+    abandonmentRate,
+    expiredRate,
+    averageAgeDays,
+    pricePressureCount,
+    deliveryAmount,
+    deliveryQuoteCount: deliveryQuoteIds.size,
+    withoutDeliveryQuoteCount: Math.max(0, abandonedQuotes.length - deliveryQuoteIds.size),
+    findings: buildAbandonedCartFindings({
+      abandonmentRate,
+      deliveryQuoteCount: deliveryQuoteIds.size,
+      expiredRate,
+      pricePressureCount,
+      productRows,
+      sellerRows,
+      totalAmount,
+      withoutDeliveryQuoteCount: Math.max(0, abandonedQuotes.length - deliveryQuoteIds.size),
+    }),
+  };
+}
+
+function buildAbandonedProductRows(
+  quoteLines: OdooOrderLineRecord[],
+  historicalProductPrices: Map<string, { amount: number; quantity: number }>,
+): AbandonedCartProductRow[] {
+  const linesByOrderId = new Map<number, OdooOrderLineRecord[]>();
+  quoteLines.forEach((line) => {
+    const current = linesByOrderId.get(line.orderId) ?? [];
+    current.push(line);
+    linesByOrderId.set(line.orderId, current);
+  });
+
+  const buckets = new Map<
+    string,
+    AbandonedCartProductRow & {
+      equipmentCorrelations: Map<string, number>;
+      quoteIdSet: Set<number>;
+      relatedProducts: Map<string, number>;
+    }
+  >();
+
+  quoteLines.forEach((line) => {
+    const key = productBucketKey(line.productId, line.productName);
+    const bucket = buckets.get(key) ?? {
+      key,
+      productId: line.productId,
+      productName: line.productName || 'Producto sin nombre',
+      categoryName: line.categoryName,
+      quotes: 0,
+      amount: 0,
+      units: 0,
+      averageUnitsPerQuote: 0,
+      averageQuotedUnitPrice: 0,
+      historicalAverageUnitPrice: null,
+      priceGapPct: null,
+      equipmentCorrelationSummary: 'Sin equipo relacionado',
+      relatedProductsSummary: 'Sin productos relacionados',
+      equipmentCorrelations: new Map<string, number>(),
+      quoteIds: [],
+      quoteIdSet: new Set<number>(),
+      relatedProducts: new Map<string, number>(),
+    };
+    const siblingLines = linesByOrderId.get(line.orderId) ?? [];
+    bucket.quoteIdSet.add(line.orderId);
+    bucket.amount += Math.max(line.untaxedAmount, 0);
+    bucket.units += Math.max(line.quantity, 0);
+    if (!bucket.categoryName && line.categoryName) bucket.categoryName = line.categoryName;
+    siblingLines.forEach((sibling) => {
+      const siblingKey = productBucketKey(sibling.productId, sibling.productName);
+      if (siblingKey === key) return;
+      const siblingName = sibling.productName || 'Producto sin nombre';
+      bucket.relatedProducts.set(
+        siblingName,
+        (bucket.relatedProducts.get(siblingName) ?? 0) + 1,
+      );
+      if (isEquipmentLikeOrderLine(sibling)) {
+        bucket.equipmentCorrelations.set(
+          siblingName,
+          (bucket.equipmentCorrelations.get(siblingName) ?? 0) + 1,
+        );
+      }
+    });
+    buckets.set(key, bucket);
+  });
+
+  return [...buckets.values()]
+    .map((bucket) => {
+      const historical = historicalProductPrices.get(bucket.key);
+      const quotedAverage = bucket.units > 0 ? bucket.amount / bucket.units : 0;
+      const historicalAverage = historical && historical.quantity > 0
+        ? historical.amount / historical.quantity
+        : null;
+      const priceGapPct = historicalAverage && historicalAverage > 0
+        ? ((quotedAverage - historicalAverage) / historicalAverage) * 100
+        : null;
+
+      return {
+        key: bucket.key,
+        productId: bucket.productId,
+        productName: bucket.productName,
+        categoryName: bucket.categoryName,
+        quotes: bucket.quoteIdSet.size,
+        quoteIds: [...bucket.quoteIdSet],
+        amount: bucket.amount,
+        units: bucket.units,
+        averageUnitsPerQuote: bucket.quoteIdSet.size > 0 ? bucket.units / bucket.quoteIdSet.size : 0,
+        averageQuotedUnitPrice: quotedAverage,
+        historicalAverageUnitPrice: historicalAverage,
+        priceGapPct,
+        equipmentCorrelationSummary: formatAbandonedAssociationSummary(
+          bucket.equipmentCorrelations,
+          'Sin equipo relacionado',
+        ),
+        relatedProductsSummary: formatAbandonedAssociationSummary(
+          bucket.relatedProducts,
+          'Sin productos relacionados',
+        ),
+      };
+    })
+    .sort((left, right) => right.quotes - left.quotes || right.amount - left.amount);
+}
+
+function buildAbandonedSellerRows(
+  abandonedQuotes: OdooOrderRecord[],
+  totalAmount: number,
+  expiredQuoteIds: Set<number>,
+  referenceEndDate: Date,
+  quoteAnalysisById: Map<number, AbandonedQuoteAnalysisLine>,
+): AbandonedCartSellerRow[] {
+  const buckets = new Map<string, AbandonedCartSellerRow & { ages: number[] }>();
+
+  abandonedQuotes.forEach((quote) => {
+    const adjustedAmount = quoteAnalysisById.get(quote.id)?.amount ?? 0;
+    if (adjustedAmount <= 0) return;
+    const key = sellerBucketKey(quote.sellerId, quote.sellerName);
+    const bucket = buckets.get(key) ?? {
+      key,
+      sellerId: quote.sellerId,
+      sellerName: quote.sellerName || 'Sin vendedor',
+      quotes: 0,
+      quoteIds: [],
+      amount: 0,
+      expiredQuotes: 0,
+      abandonmentSharePct: 0,
+      averageAgeDays: 0,
+      ages: [],
+    };
+    bucket.quotes += 1;
+    bucket.quoteIds.push(quote.id);
+    bucket.amount += adjustedAmount;
+    if (expiredQuoteIds.has(quote.id)) bucket.expiredQuotes += 1;
+    bucket.ages.push(calculateQuoteAgeDays(quote, dateInputFromDate(referenceEndDate)));
+    buckets.set(key, bucket);
+  });
+
+  return [...buckets.values()]
+    .map((bucket) => ({
+      key: bucket.key,
+      sellerId: bucket.sellerId,
+      sellerName: bucket.sellerName,
+      quotes: bucket.quotes,
+      quoteIds: bucket.quoteIds,
+      amount: bucket.amount,
+      expiredQuotes: bucket.expiredQuotes,
+      abandonmentSharePct: ratioPercent(bucket.amount, totalAmount),
+      averageAgeDays: averageNumber(bucket.ages),
+    }))
+    .sort((left, right) => right.quotes - left.quotes || right.amount - left.amount);
+}
+
+function buildAbandonedCustomerRows(
+  abandonedQuotes: OdooOrderRecord[],
+  referenceEndDate: Date,
+  linesByOrderId: Map<number, OdooOrderLineRecord[]>,
+  quoteAnalysisById: Map<number, AbandonedQuoteAnalysisLine>,
+): AbandonedCartCustomerRow[] {
+  const buckets = new Map<
+    string,
+    AbandonedCartCustomerRow & {
+      ages: number[];
+      latestDateValue: number;
+      productCounts: Map<string, number>;
+    }
+  >();
+
+  abandonedQuotes.forEach((quote) => {
+    const adjustedAmount = quoteAnalysisById.get(quote.id)?.amount ?? 0;
+    if (adjustedAmount <= 0) return;
+    const key = customerBucketKey(quote.customerId, quote.customerName);
+    const quoteDate = parseReportDate(quote.quotationDate ?? quote.createDate);
+    const quoteDateValue = quoteDate?.getTime() ?? 0;
+    const bucket = buckets.get(key) ?? {
+      key,
+      customerId: quote.customerId,
+      customerName: quote.customerName || 'Cliente sin nombre',
+      sellerName: quote.sellerName || 'Sin vendedor',
+      quotes: 0,
+      quoteIds: [],
+      amount: 0,
+      latestQuotationDate: quote.quotationDate ?? quote.createDate,
+      averageAgeDays: 0,
+      topProductsSummary: 'Sin productos',
+      ages: [],
+      latestDateValue: quoteDateValue,
+      productCounts: new Map<string, number>(),
+    };
+    bucket.quotes += 1;
+    bucket.quoteIds.push(quote.id);
+    bucket.amount += adjustedAmount;
+    bucket.ages.push(calculateQuoteAgeDays(quote, dateInputFromDate(referenceEndDate)));
+    (linesByOrderId.get(quote.id) ?? [])
+      .filter((line) => !isIgnoredAbandonedAnalysisLine(line))
+      .forEach((line) => {
+        const productName = line.productName || 'Producto sin nombre';
+        bucket.productCounts.set(productName, (bucket.productCounts.get(productName) ?? 0) + 1);
+      });
+    if (quoteDateValue >= bucket.latestDateValue) {
+      bucket.latestDateValue = quoteDateValue;
+      bucket.latestQuotationDate = quote.quotationDate ?? quote.createDate;
+      bucket.sellerName = quote.sellerName || bucket.sellerName;
+    }
+    buckets.set(key, bucket);
+  });
+
+  return [...buckets.values()]
+    .map((bucket) => ({
+      key: bucket.key,
+      customerId: bucket.customerId,
+      customerName: bucket.customerName,
+      sellerName: bucket.sellerName,
+      quotes: bucket.quotes,
+      quoteIds: bucket.quoteIds,
+      amount: bucket.amount,
+      latestQuotationDate: bucket.latestQuotationDate,
+      averageAgeDays: averageNumber(bucket.ages),
+      topProductsSummary: formatAbandonedAssociationSummary(bucket.productCounts, 'Sin productos'),
+    }))
+    .sort((left, right) => right.quotes - left.quotes || right.amount - left.amount)
+    .slice(0, 50);
+}
+
+function buildHistoricalInvoiceLineSet(
+  invoiceLines: OdooInvoiceLineRecord[],
+  startDate: Date | null,
+) {
+  const historical = invoiceLines.filter((line) => {
+    if (line.moveType !== 'out_invoice' || line.invoiceState === 'draft' || line.invoiceState === 'cancel') return false;
+    if (line.untaxedAmount <= 0 || line.quantity <= 0) return false;
+    const invoiceDate = parseReportDate(line.invoiceDate);
+    if (!invoiceDate) return false;
+    return startDate ? invoiceDate < startDate : true;
+  });
+
+  return historical.length
+    ? historical
+    : invoiceLines.filter((line) =>
+        line.moveType === 'out_invoice' &&
+        line.invoiceState !== 'draft' &&
+        line.invoiceState !== 'cancel' &&
+        line.untaxedAmount > 0 &&
+        line.quantity > 0,
+      );
+}
+
+function buildHistoricalProductPriceIndex(invoiceLines: OdooInvoiceLineRecord[]) {
+  const buckets = new Map<string, { amount: number; quantity: number }>();
+  invoiceLines
+    .filter((line) => !isPlaceholderQuoteProductName(line.productName))
+    .forEach((line) => {
+    const key = productBucketKey(line.productId, line.productName);
+    const bucket = buckets.get(key) ?? { amount: 0, quantity: 0 };
+    bucket.amount += line.untaxedAmount;
+    bucket.quantity += line.quantity;
+    buckets.set(key, bucket);
+  });
+  return buckets;
+}
+
+function buildAbandonedCartFindings({
+  abandonmentRate,
+  deliveryQuoteCount,
+  expiredRate,
+  pricePressureCount,
+  productRows,
+  sellerRows,
+  totalAmount,
+  withoutDeliveryQuoteCount,
+}: {
+  abandonmentRate: number;
+  deliveryQuoteCount: number;
+  expiredRate: number;
+  pricePressureCount: number;
+  productRows: AbandonedCartProductRow[];
+  sellerRows: AbandonedCartSellerRow[];
+  totalAmount: number;
+  withoutDeliveryQuoteCount: number;
+}): AbandonedCartSummary['findings'] {
+  const topProduct = productRows[0];
+  const topSeller = sellerRows[0];
+  return [
+    {
+      title: 'Qué está bien',
+      tone: 'good',
+      body: totalAmount > 0
+        ? `Hay ${formatCurrency(totalAmount)} en oportunidades todavía recuperables porque siguen como cotización. Esto permite priorizar seguimiento antes de declararlas perdidas.`
+        : 'No se detectan cotizaciones abandonadas en el periodo seleccionado; el flujo comercial no muestra cartera detenida bajo este criterio.',
+    },
+    {
+      title: 'Qué puede estar frenando el cierre',
+      tone: abandonmentRate >= 35 || expiredRate >= 25 ? 'risk' : 'action',
+      body: topProduct
+        ? `${topProduct.productName} se repite en ${formatNumber(topProduct.quotes)} cotizaciones no cerradas. Si aparece varias veces con cantidades similares, revisa precio unitario, disponibilidad, entrega, aprobación interna del cliente y claridad del valor ofertado.`
+        : `La cartera detenida suma ${formatCurrency(totalAmount)}. Revisa primero cotizaciones con productos repetidos, montos altos y clientes con más de una solicitud sin cierre.`,
+    },
+    {
+      title: 'Dónde enfocar la revisión',
+      tone: 'action',
+      body: topProduct || topSeller
+        ? `Producto principal: ${topProduct?.productName ?? 'sin dato'}. Vendedor con mayor monto detenido: ${topSeller?.sellerName ?? 'sin dato'}. Revisa primero estas cuentas y detecta si la causa fue precio, tiempos, entrega, autorización interna o falta de seguimiento.`
+        : 'No hay concentración suficiente para recomendar un foco específico.',
+    },
+    {
+      title: 'Entrega como posible fricción',
+      tone: withoutDeliveryQuoteCount > deliveryQuoteCount ? 'risk' : 'action',
+      body: `${formatNumber(deliveryQuoteCount)} cotizaciones abandonadas incluyen producto Entrega y ${formatNumber(withoutDeliveryQuoteCount)} no lo incluyen. Si el cierre depende de flete, instalación o logística, conviene separar el seguimiento entre precio del producto y costo/alcance de entrega.`,
+    },
+    {
+      title: 'Señal de precio',
+      tone: pricePressureCount > 0 ? 'risk' : 'good',
+      body: pricePressureCount > 0
+        ? `${formatNumber(pricePressureCount)} productos tienen precio unitario cotizado por encima del promedio unitario facturado histórico. Revisa cantidades, descuentos, configuración del equipo y valor agregado antes de renegociar.`
+        : 'No se detecta presión de precio relevante contra el histórico unitario disponible del mismo producto.',
+    },
+  ];
+}
+
+function interpretAbandonedPriceGap(priceGapPct: number | null) {
+  if (priceGapPct === null) return 'Sin histórico comparable';
+  if (priceGapPct >= 20) return 'Precio cotizado muy por encima del histórico; revisar objeción de precio.';
+  if (priceGapPct >= 8) return 'Precio cotizado arriba del histórico; validar si el valor adicional está explicado.';
+  if (priceGapPct <= -15) return 'Precio cotizado debajo del histórico; revisar margen o condiciones especiales.';
+  return 'Precio cercano al histórico; buscar causa en seguimiento, necesidad, tiempos o entrega.';
+}
+
+function getAbandonedPriceGapTone(priceGapPct: number | null) {
+  if (priceGapPct === null) return 'neutral';
+  if (priceGapPct >= 8) return 'risk';
+  if (priceGapPct <= -15) return 'warning';
+  return 'good';
+}
+
+function isEquipmentLikeOrderLine(line: OdooOrderLineRecord) {
+  const text = normalizeText(`${line.categoryName ?? ''} ${line.productName}`);
+  return [
+    'equipo',
+    'impresora',
+    'printer',
+    'bascula',
+    'indicador',
+    'terminal',
+    'aplicador',
+  ].some((keyword) => text.includes(keyword));
+}
+
+function isDeliveryOrderLine(line: OdooOrderLineRecord) {
+  const productName = normalizeText(line.productName);
+  return productName === 'entrega' || productName.includes('entrega') || productName.includes('flete');
+}
+
+function isIgnoredAbandonedAnalysisLine(line: OdooOrderLineRecord) {
+  return isDeliveryOrderLine(line) || isPlaceholderQuoteProductName(line.productName);
+}
+
+function isPlaceholderQuoteProductName(productName: string) {
+  const normalized = normalizeText(productName).replace(/[[\]]/g, ' ');
+  return normalized.includes('producto para cotizar');
+}
+
+function buildAbandonedQuoteAnalysisIndex(
+  abandonedQuotes: OdooOrderRecord[],
+  linesByOrderId: Map<number, OdooOrderLineRecord[]>,
+) {
+  const index = new Map<number, AbandonedQuoteAnalysisLine>();
+  abandonedQuotes.forEach((quote) => {
+    const lines = linesByOrderId.get(quote.id) ?? [];
+    index.set(quote.id, calculateAbandonedQuoteAnalysisAmount(lines));
+  });
+  return index;
+}
+
+function calculateAbandonedQuoteAnalysisAmount(lines: OdooOrderLineRecord[]): AbandonedQuoteAnalysisLine {
+  const includedLines = lines.filter((line) => !isPlaceholderQuoteProductName(line.productName));
+  const amount = includedLines.reduce((total, line) => total + Math.max(line.untaxedAmount, 0), 0);
+  return {
+    amount,
+    hasProductSignal: includedLines.some((line) => !isDeliveryOrderLine(line)),
+  };
+}
+
+function groupOrderLinesByOrderId(lines: OdooOrderLineRecord[]) {
+  const grouped = new Map<number, OdooOrderLineRecord[]>();
+  lines.forEach((line) => {
+    const current = grouped.get(line.orderId) ?? [];
+    current.push(line);
+    grouped.set(line.orderId, current);
+  });
+  return grouped;
+}
+
+function summarizeQuoteProducts(lines: OdooOrderLineRecord[]) {
+  const summary = lines
+    .filter((line) => !isIgnoredAbandonedAnalysisLine(line))
+    .slice(0, 5)
+    .map((line) => {
+      const unitPrice = line.quantity > 0 ? line.untaxedAmount / line.quantity : 0;
+      return `${line.productName} · ${formatNumber(line.quantity)} pzas · ${formatCurrency(unitPrice)} unitario`;
+    })
+    .join(' | ');
+
+  return summary || 'Sin líneas de producto visibles en la cotización.';
+}
+
+function formatAbandonedAssociationSummary(
+  values: Map<string, number>,
+  fallback: string,
+) {
+  const entries = [...values.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 3);
+
+  if (!entries.length) return fallback;
+  return entries
+    .map(([name, count]) => `${name} (${formatNumber(count)})`)
+    .join(' · ');
+}
+
+function calculateQuoteAgeDays(order: OdooOrderRecord, referenceEndDate: string) {
+  const quoteDate = parseReportDate(order.quotationDate ?? order.createDate);
+  const referenceDate = parseReportDate(referenceEndDate) ?? new Date();
+  if (!quoteDate) return 0;
+  return Math.max(0, Math.round((referenceDate.getTime() - quoteDate.getTime()) / 86400000));
+}
+
+function productBucketKey(productId: number | null, productName: string) {
+  return productId !== null ? `product:${productId}` : `product-name:${normalizeText(productName)}`;
+}
+
+function sellerBucketKey(sellerId: number | null, sellerName: string) {
+  return sellerId !== null ? `seller:${sellerId}` : `seller-name:${normalizeText(sellerName)}`;
+}
+
+function customerBucketKey(customerId: number | null, customerName: string) {
+  return customerId !== null ? `customer:${customerId}` : `customer-name:${normalizeText(customerName)}`;
+}
+
+function parseReportDate(value: string | null | undefined) {
+  if (!value) return null;
+  const date = new Date(`${value.slice(0, 10)}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function dateInputFromDate(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
+function averageNumber(values: number[]) {
+  if (!values.length) return 0;
+  return values.reduce((total, value) => total + value, 0) / values.length;
+}
+
+function ratioPercent(numerator: number, denominator: number) {
+  return denominator > 0 ? (numerator / denominator) * 100 : 0;
+}
+
+type ParetoDimension = 'customers' | 'products' | 'sellers';
+
+type ParetoInsight = {
+  dimension: ParetoDimension;
+  labelSingular: string;
+  labelPlural: string;
+  mainLabel: string;
+  classACount: number;
+  classBCount: number;
+  classCCount: number;
+  classAShare: number;
+  topShare: number;
+  topRow: ParetoRow | null;
+  concentrationLevel: 'saludable' | 'vigilancia' | 'riesgo';
+  good: string;
+  bad: string;
+  improve: string;
+  actionTitle: string;
+};
+
+function ParetoExecutiveReadout({
+  customerInsight,
+  productInsight,
+}: {
+  customerInsight: ParetoInsight;
+  productInsight: ParetoInsight;
+}) {
+  return (
+    <article className="panel reports-pareto-executive">
+      <div className="panel-header">
+        <div>
+          <strong>Lectura ejecutiva del Pareto</strong>
+          <span>
+            El objetivo no es que el 80/20 sea exacto, sino decidir dónde proteger ingresos, dónde diversificar y dónde dejar de gastar atención.
+          </span>
+        </div>
+      </div>
+      <div className="reports-pareto-executive-grid">
+        <ParetoExecutiveCard
+          label="Concentración en clientes"
+          insight={customerInsight}
+          helper="Si pocos clientes clase A pesan demasiado, hay riesgo de dependencia comercial."
+        />
+        <ParetoExecutiveCard
+          label="Concentración en productos"
+          insight={productInsight}
+          helper="Si pocos productos clase A sostienen la venta, inventario, precio y disponibilidad deben cuidarse más."
+        />
+        <div className="reports-pareto-method-card">
+          <strong>Cómo leer A/B/C</strong>
+          <p>
+            Clase A concentra la mayor parte del valor acumulado. Clase B es el grupo que puede escalar. Clase C es la cola larga: útil para catálogo, pero no debe consumir la misma atención operativa.
+          </p>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function ParetoExecutiveCard({
+  label,
+  insight,
+  helper,
+}: {
+  label: string;
+  insight: ParetoInsight;
+  helper: string;
+}) {
+  return (
+    <div className={`reports-pareto-executive-card ${insight.concentrationLevel}`}>
+      <small>{label}</small>
+      <strong>{formatPercent(insight.classAShare)} en clase A</strong>
+      <span>{insight.classACount} {insight.labelPlural} concentran el primer bloque crítico.</span>
+      <p>{helper}</p>
+    </div>
+  );
+}
+
+function ParetoDecisionPanel({
+  summary,
+  insight,
+  dimension,
+}: {
+  summary: CommercialDashboardSnapshot['pareto']['customers'];
+  insight: ParetoInsight;
+  dimension: ParetoDimension;
+}) {
+  const rowsA = summary.rows.filter((row) => row.classification === 'A');
+  const rowsB = summary.rows.filter((row) => row.classification === 'B');
+  const rowsC = summary.rows.filter((row) => row.classification === 'C');
+  const visibleRows = summary.rows.slice(0, 8);
+
+  return (
+    <article className={`panel reports-pareto-decision reports-pareto-decision-${dimension}`}>
+      <div className="panel-header">
+        <div>
+          <strong>{insight.mainLabel}</strong>
+          <span>{summary.statement}</span>
+        </div>
+      </div>
+
+      <div className="reports-pareto-decision-grid">
+        <div className="reports-pareto-narrative">
+          <div className={`reports-pareto-status ${insight.concentrationLevel}`}>
+            <span>{getParetoStatusLabel(insight.concentrationLevel)}</span>
+            <strong>{insight.topRow ? insight.topRow.label : 'Sin datos suficientes'}</strong>
+            <small>
+              {insight.topRow
+                ? `${formatPercent(insight.topShare)} del resultado individual`
+                : 'No hay concentración calculable.'}
+            </small>
+          </div>
+          <ParetoFindingCard title="Qué está bien" body={insight.good} tone="good" />
+          <ParetoFindingCard title="Qué está mal o puede ser riesgo" body={insight.bad} tone="risk" />
+          <ParetoFindingCard title="Qué tiene que mejorar" body={insight.improve} tone="action" />
+        </div>
+
+        <div className="reports-pareto-abc">
+          <ParetoClassCard
+            title="Clase A"
+            subtitle="Proteger y gestionar de cerca"
+            rows={rowsA}
+            share={insight.classAShare}
+            tone="a"
+          />
+          <ParetoClassCard
+            title="Clase B"
+            subtitle="Convertir en nuevos motores"
+            rows={rowsB}
+            share={sumParetoPct(rowsB)}
+            tone="b"
+          />
+          <ParetoClassCard
+            title="Clase C"
+            subtitle="Simplificar, depurar o automatizar"
+            rows={rowsC}
+            share={sumParetoPct(rowsC)}
+            tone="c"
+          />
+        </div>
+      </div>
+
+      <section className="reports-pareto-focus-list">
+        <div className="panel-header compact">
+          <div>
+            <strong>{insight.actionTitle}</strong>
+            <span>Ordenado de mayor a menor contribución. La línea punteada indica el acumulado.</span>
+          </div>
+        </div>
+        <ParetoPreviewChart rows={visibleRows} />
+      </section>
+
+      <section className="reports-pareto-detail-table">
+        <div className="panel-header compact">
+          <div>
+            <strong>Detalle descargable</strong>
+            <span>Usa esta tabla para revisar el dato fino sin mezclar clientes, productos y vendedores.</span>
+          </div>
+        </div>
+        <DataTable
+          rows={summary.rows}
+          storageKey={`pareto-v2-${summary.title}`}
+          columns={[
+            column<ParetoRow>('position', '#', (row) => row.position, (row) => row.position),
+            column<ParetoRow>('label', getParetoColumnLabel(dimension), (row) => row.label, (row) => row.label),
+            column<ParetoRow>('value', 'Total sin impuestos', (row) => formatCurrency(row.value), (row) => row.value),
+            column<ParetoRow>('orders', 'Órdenes', (row) => formatNumber(row.orders), (row) => row.orders),
+            column<ParetoRow>('units', 'Unidades', (row) => formatNumber(row.units), (row) => row.units),
+            column<ParetoRow>('share', '% individual', (row) => formatPercent(row.individualPct), (row) => row.individualPct),
+            column<ParetoRow>('accum', '% acumulado', (row) => formatPercent(row.accumulatedPct), (row) => row.accumulatedPct),
+            column<ParetoRow>('class', 'ABC', (row) => row.classification, (row) => row.classification),
+          ]}
+        />
+      </section>
+    </article>
+  );
+}
+
+function ParetoFindingCard({
+  title,
+  body,
+  tone,
+}: {
+  title: string;
+  body: string;
+  tone: 'good' | 'risk' | 'action';
+}) {
+  return (
+    <div className={`reports-pareto-finding ${tone}`}>
+      <small>{title}</small>
+      <p>{body}</p>
+    </div>
+  );
+}
+
+function ParetoClassCard({
+  title,
+  subtitle,
+  rows,
+  share,
+  tone,
+}: {
+  title: string;
+  subtitle: string;
+  rows: ParetoRow[];
+  share: number;
+  tone: 'a' | 'b' | 'c';
+}) {
+  return (
+    <div className={`reports-pareto-class-card tone-${tone}`}>
+      <div>
+        <strong>{title}</strong>
+        <span>{subtitle}</span>
+      </div>
+      <b>{formatPercent(share)}</b>
+      <small>{rows.length} registros</small>
+      <ul>
+        {rows.slice(0, 3).map((row) => (
+          <li key={row.key}>
+            <span>{row.label}</span>
+            <em>{formatPercent(row.individualPct)}</em>
+          </li>
+        ))}
+        {rows.length === 0 ? <li><span>Sin registros en esta clase</span></li> : null}
+      </ul>
+    </div>
+  );
+}
+
+function buildParetoInsight(
+  summary: CommercialDashboardSnapshot['pareto']['customers'],
+  dimension: ParetoDimension,
+): ParetoInsight {
+  const rows = summary.rows;
+  const rowsA = rows.filter((row) => row.classification === 'A');
+  const rowsB = rows.filter((row) => row.classification === 'B');
+  const rowsC = rows.filter((row) => row.classification === 'C');
+  const topRow = rows[0] ?? null;
+  const topShare = topRow?.individualPct ?? 0;
+  const classAShare = sumParetoPct(rowsA);
+  const concentrationLevel: ParetoInsight['concentrationLevel'] =
+    topShare >= 35 || (rowsA.length <= 3 && classAShare >= 65)
+      ? 'riesgo'
+      : classAShare >= 75
+        ? 'vigilancia'
+        : 'saludable';
+  const labels = getParetoDimensionLabels(dimension);
+
+  return {
+    dimension,
+    ...labels,
+    classACount: rowsA.length,
+    classBCount: rowsB.length,
+    classCCount: rowsC.length,
+    classAShare,
+    topShare,
+    topRow,
+    concentrationLevel,
+    good: buildParetoGoodMessage(dimension, rowsA.length, classAShare, topRow),
+    bad: buildParetoRiskMessage(dimension, concentrationLevel, topShare, rowsC.length),
+    improve: buildParetoImproveMessage(dimension, rowsB.length, rowsC.length),
+    actionTitle: buildParetoActionTitle(dimension),
+  };
+}
+
+function getParetoDimensionLabels(dimension: ParetoDimension) {
+  if (dimension === 'customers') {
+    return {
+      labelSingular: 'cliente',
+      labelPlural: 'clientes',
+      mainLabel: 'Clientes que concentran el resultado',
+    };
+  }
+  if (dimension === 'products') {
+    return {
+      labelSingular: 'producto',
+      labelPlural: 'productos',
+      mainLabel: 'Productos que concentran el resultado',
+    };
+  }
+  return {
+    labelSingular: 'vendedor',
+    labelPlural: 'vendedores',
+    mainLabel: 'Vendedores que explican la concentración',
+  };
+}
+
+function buildParetoGoodMessage(
+  dimension: ParetoDimension,
+  classACount: number,
+  classAShare: number,
+  topRow: ParetoRow | null,
+) {
+  if (!topRow) return 'No hay datos suficientes para identificar una fortaleza clara.';
+  if (dimension === 'customers') {
+    return `Ya están identificados los ${classACount} clientes que explican ${formatPercent(classAShare)} del valor. Esto permite proteger cuentas clave con seguimiento directivo, acuerdos de servicio y agenda comercial priorizada.`;
+  }
+  if (dimension === 'products') {
+    return `Ya están visibles los ${classACount} productos que explican ${formatPercent(classAShare)} del valor. Esto ayuda a priorizar disponibilidad, precios, inventario y campañas alrededor de los SKU que más mueven el resultado.`;
+  }
+  return `Ya están visibles los ${classACount} vendedores que explican ${formatPercent(classAShare)} del valor. Sirve para entender quién sostiene el resultado y dónde replicar prácticas comerciales.`;
+}
+
+function buildParetoRiskMessage(
+  dimension: ParetoDimension,
+  concentrationLevel: ParetoInsight['concentrationLevel'],
+  topShare: number,
+  classCCount: number,
+) {
+  if (concentrationLevel === 'riesgo') {
+    if (dimension === 'customers') {
+      return `La dependencia es alta: el principal cliente pesa ${formatPercent(topShare)}. Si compra menos, cambia de proveedor o retrasa pagos, el resultado del período puede caer de forma desproporcionada.`;
+    }
+    if (dimension === 'products') {
+      return `La dependencia es alta: el principal producto pesa ${formatPercent(topShare)}. Cualquier falta de inventario, cambio de precio o caída de demanda puede afectar mucho la facturación.`;
+    }
+    return `La dependencia comercial está cargada en pocos vendedores. Si uno pierde ritmo, cartera o disponibilidad, el resultado general queda expuesto.`;
+  }
+
+  if (classCCount > 0) {
+    return `La cola larga tiene ${classCCount} registros clase C. No necesariamente está mal, pero puede consumir tiempo operativo si se gestiona con la misma intensidad que la clase A.`;
+  }
+
+  return 'No se observa una alerta grave de concentración, pero conviene monitorear cambios cada mes para detectar dependencia antes de que se vuelva crítica.';
+}
+
+function buildParetoImproveMessage(dimension: ParetoDimension, classBCount: number, classCCount: number) {
+  if (dimension === 'customers') {
+    return `Trabajar la clase B (${classBCount} clientes) para reducir dependencia de la clase A: visitas, recompra, bundles, condiciones comerciales y recuperación de clientes con potencial. Automatizar o segmentar la clase C (${classCCount}) para no gastar esfuerzo excesivo.`;
+  }
+  if (dimension === 'products') {
+    return `Impulsar productos B (${classBCount}) con campañas cruzadas, kits y revisión de margen. En productos C (${classCCount}), revisar si conviene depurar, vender bajo pedido o reducir inventario/atención comercial.`;
+  }
+  return `Documentar prácticas de vendedores clase A, acompañar vendedores B y revisar si los C requieren capacitación, reasignación de cartera o metas más específicas.`;
+}
+
+function buildParetoActionTitle(dimension: ParetoDimension) {
+  if (dimension === 'customers') return 'Clientes prioritarios para seguimiento';
+  if (dimension === 'products') return 'Productos prioritarios para asegurar venta';
+  return 'Vendedores para comparar prácticas';
+}
+
+function getParetoStatusLabel(level: ParetoInsight['concentrationLevel']) {
+  if (level === 'riesgo') return 'Riesgo de concentración';
+  if (level === 'vigilancia') return 'Concentración a vigilar';
+  return 'Concentración manejable';
+}
+
+function getParetoColumnLabel(dimension: ParetoDimension) {
+  if (dimension === 'customers') return 'Cliente';
+  if (dimension === 'products') return 'Producto';
+  return 'Vendedor';
+}
+
+function sumParetoPct(rows: ParetoRow[]) {
+  return rows.reduce((total, row) => total + row.individualPct, 0);
 }
 
 type ForecastRecommendation = {
@@ -4421,36 +6071,6 @@ function GaugePanel({
   );
 }
 
-function ParetoAccordion({
-  summary,
-}: {
-  summary: {
-    title: string;
-    statement: string;
-    rows: ParetoRow[];
-  };
-}) {
-  return (
-    <StaticPanel title={summary.title} subtitle={summary.statement}>
-      <ParetoPreviewChart rows={summary.rows.slice(0, 8)} />
-      <DataTable
-        rows={summary.rows}
-        storageKey={`pareto-v2-${summary.title}`}
-        columns={[
-          column<ParetoRow>('position', '#', (row) => row.position, (row) => row.position),
-          column<ParetoRow>('label', 'Elemento', (row) => row.label, (row) => row.label),
-          column<ParetoRow>('value', 'Valor', (row) => formatCurrency(row.value), (row) => row.value),
-          column<ParetoRow>('orders', 'Órdenes', (row) => formatNumber(row.orders), (row) => row.orders),
-          column<ParetoRow>('units', 'Unidades', (row) => formatNumber(row.units), (row) => row.units),
-          column<ParetoRow>('share', '% individual', (row) => formatPercent(row.individualPct), (row) => row.individualPct),
-          column<ParetoRow>('accum', '% acumulado', (row) => formatPercent(row.accumulatedPct), (row) => row.accumulatedPct),
-          column<ParetoRow>('class', 'ABC', (row) => row.classification, (row) => row.classification),
-        ]}
-      />
-    </StaticPanel>
-  );
-}
-
 function ParetoPreviewChart({ rows }: { rows: ParetoRow[] }) {
   if (rows.length === 0) {
     return <EmptyState title="Sin datos">No hay suficientes elementos para calcular Pareto.</EmptyState>;
@@ -4773,18 +6393,24 @@ function HallazgosPanel({
 
 function FilterToolbar({
   activeFilters,
+  appliedFilters,
   companyLocked,
   dataset,
+  hasPendingChanges,
   sellerLocked,
   sellerOptions,
+  onApplyFilters,
   onApplyQuickRange,
   onChange,
 }: {
   activeFilters: ReportFilters;
+  appliedFilters: ReportFilters;
   companyLocked: boolean;
   dataset: OdooCommercialDataset | undefined;
+  hasPendingChanges: boolean;
   sellerLocked: boolean;
   sellerOptions: ReportOption[];
+  onApplyFilters: () => void;
   onApplyQuickRange: (key: QuickRangeKey) => void;
   onChange: (filters: ReportFilters) => void;
 }) {
@@ -4855,11 +6481,25 @@ function FilterToolbar({
           options={dataset?.availableFilters.teams ?? []}
           emptyLabel="Todos"
         />
+        <button
+          type="button"
+          className={`reports-filter-apply-button ${hasPendingChanges ? 'has-pending-changes' : ''}`}
+          onClick={onApplyFilters}
+          disabled={!hasPendingChanges}
+        >
+          <CheckCircle2 size={16} />
+          {hasPendingChanges ? 'Aplicar filtros' : 'Filtros aplicados'}
+        </button>
       </div>
 
       <div className="reports-filter-range">
         <CalendarDays size={15} />
-        <span>{formatReferenceDateRange(activeFilters.startDate, activeFilters.endDate)}</span>
+        <span>
+          {formatReferenceDateRange(activeFilters.startDate, activeFilters.endDate)}
+          {hasPendingChanges
+            ? ` · aplicado: ${formatReferenceDateRange(appliedFilters.startDate, appliedFilters.endDate)}`
+            : ''}
+        </span>
       </div>
 
       {showLegacyFilterGrid ? (
@@ -6024,6 +7664,7 @@ function TrendPanel({ points }: { points: TrendPoint[] }) {
   const gridValues = Array.from({ length: ySteps + 1 }, (_, index) =>
     (maxValue / ySteps) * (ySteps - index),
   );
+  const hasPreviousInvoicedData = points.some((point) => point.previousInvoicedAmount > 0);
 
   const buildLine = (valueGetter: (point: TrendPoint) => number) =>
     points
@@ -6039,7 +7680,7 @@ function TrendPanel({ points }: { points: TrendPoint[] }) {
   return (
     <div className="reports-chart">
       <div className="reports-chart-legend">
-        <span><i className="tone-sold"></i>Facturación periodo anterior</span>
+        {hasPreviousInvoicedData ? <span><i className="tone-sold"></i>Facturación periodo anterior</span> : null}
         <span><i className="tone-invoiced"></i>Facturación</span>
       </div>
       <svg viewBox={`0 0 ${width} ${height}`} className="reports-chart-svg">
@@ -6060,24 +7701,28 @@ function TrendPanel({ points }: { points: TrendPoint[] }) {
             </g>
           );
         })}
-        <polygon
-          fill="url(#reports-area-gradient)"
-          points={previousInvoicedArea}
-        />
+        {hasPreviousInvoicedData ? (
+          <polygon
+            fill="url(#reports-area-gradient)"
+            points={previousInvoicedArea}
+          />
+        ) : null}
         <defs>
           <linearGradient id="reports-area-gradient" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="var(--reports-chart-previous-fill-strong)" />
             <stop offset="100%" stopColor="var(--reports-chart-previous-fill-soft)" />
           </linearGradient>
         </defs>
-        <polyline
-          fill="none"
-          stroke="var(--reports-chart-previous)"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          points={previousInvoicedLine}
-        />
+        {hasPreviousInvoicedData ? (
+          <polyline
+            fill="none"
+            stroke="var(--reports-chart-previous)"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            points={previousInvoicedLine}
+          />
+        ) : null}
         <polyline
           fill="none"
           stroke="var(--reports-chart-current)"
@@ -6086,7 +7731,7 @@ function TrendPanel({ points }: { points: TrendPoint[] }) {
           strokeLinejoin="round"
           points={buildLine((point) => point.invoicedAmount)}
         />
-        {points.map((point, index) => {
+        {hasPreviousInvoicedData ? points.map((point, index) => {
           const x = leftPadding + index * stepX;
           const y =
             topPadding + chartHeight - (point.previousInvoicedAmount / maxValue) * chartHeight;
@@ -6099,7 +7744,7 @@ function TrendPanel({ points }: { points: TrendPoint[] }) {
               fill="var(--reports-chart-previous)"
             />
           );
-        })}
+        }) : null}
       </svg>
     </div>
   );
@@ -6678,7 +8323,7 @@ export function buildDefaultFilters(visibilityScope: ReportVisibilityScope): Rep
 function buildOperationalNotificationFilters(
   visibilityScope: ReportVisibilityScope,
 ): ReportFilters {
-  const quickRange = buildQuickRange('last_30_days');
+  const quickRange = buildRollingDayRange(90);
   return {
     ...buildDefaultFilters(visibilityScope),
     startDate: quickRange.startDate,
@@ -6696,6 +8341,14 @@ function buildOperationalNotificationFilters(
     channel: null,
     stateScope: 'all',
   };
+}
+
+function buildRollingDayRange(days: number) {
+  const today = new Date();
+  const end = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+  const start = new Date(end);
+  start.setUTCDate(end.getUTCDate() - Math.max(0, days - 1));
+  return { startDate: toDateInput(start), endDate: toDateInput(end) };
 }
 
 function mergeStoredConfig(rawConfig: Partial<ReportsConfig> | ReportsConfig) {
@@ -7043,6 +8696,7 @@ function normalizeReportsSection(value: string | null): ReportsSection | null {
     value === 'sellers' ||
     value === 'purchases' ||
     value === 'pareto' ||
+    value === 'abandonedCarts' ||
     value === 'forecasts' ||
     value === 'details'
   ) {

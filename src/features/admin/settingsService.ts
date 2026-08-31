@@ -27,7 +27,9 @@ export const adminModules: Array<{ key: AdminModuleKey; label: string }> = [
   { key: 'reports', label: 'Reportes' },
   { key: 'purchases', label: 'Compras' },
   { key: 'marketing', label: 'Marketing' },
+  { key: 'forms', label: 'Formularios' },
   { key: 'quoting', label: 'Cotizador' },
+  { key: 'shipping_quotes', label: 'Cotizador de Envíos' },
   { key: 'calculator', label: 'Calculadora' },
 ];
 
@@ -86,8 +88,6 @@ export type ShippingQuoteSettingsDraft = {
   fedex_client_id: string | null;
   fedex_client_secret: string | null;
   fedex_account_number: string | null;
-  fedex_child_key: string | null;
-  fedex_child_secret: string | null;
   is_active: boolean;
 };
 
@@ -100,6 +100,7 @@ export type ShippingBoxDraft = Omit<ShippingBox, 'id' | 'created_at' | 'updated_
 
 export type UpdateAdminUserDraft = {
   permission: AdminUserModulePermissions;
+  email: string;
   password: string;
   full_name: string;
   role: AdminUserRole;
@@ -122,8 +123,7 @@ export function isPermissionOwner(
 }
 
 export async function getModulePermissions() {
-  const { data: response, error } = await supabase.functions.invoke('admin-get-permissions');
-  if (error) throw error;
+  const response = await invokeAuthenticatedFunction<{ data?: unknown } | null>('admin-get-permissions');
 
   const rows = (((response as { data?: unknown } | null)?.data ?? []) as unknown) as PermissionRow[];
 
@@ -140,7 +140,9 @@ export async function getModulePermissions() {
         reports: Boolean(permission.can_access_reports),
         purchases: Boolean(permission.can_access_purchases),
         marketing: Boolean(permission.can_access_marketing),
+        forms: Boolean(permission.can_access_forms),
         quoting: Boolean(permission.can_access_quoting),
+        shipping_quotes: Boolean(permission.can_access_shipping_quotes),
         calculator: Boolean(permission.can_access_calculator),
       },
     ),
@@ -170,7 +172,7 @@ export async function getCurrentModulePermission(userId: string, email?: string 
     const itemsResult = await supabase
       .from('admin_module_permission_items')
       .select('*')
-      .eq('user_id', userId)
+      .eq('permission_id', row.id)
       .order('module_key', { ascending: true });
 
     row.admin_module_permission_items = itemsResult.error
@@ -179,12 +181,13 @@ export async function getCurrentModulePermission(userId: string, email?: string 
   }
 
   if (!row) {
-    const { data: response, error: functionError } = await supabase.functions.invoke(
-      'get-my-module-permissions',
-    );
-    if (!functionError) {
+    try {
+      const response = await invokeAuthenticatedFunction<{ data?: unknown } | null>(
+        'get-my-module-permissions',
+      );
       row = ((response as { data?: unknown } | null)?.data ?? null) as PermissionRow | null;
-    } else if (directResult.error) {
+    } catch {
+      if (!directResult.error) return null;
       throw directResult.error;
     }
   }
@@ -204,7 +207,9 @@ export async function getCurrentModulePermission(userId: string, email?: string 
         reports: Boolean(row.can_access_reports),
         purchases: Boolean(row.can_access_purchases),
         marketing: Boolean(row.can_access_marketing),
+        forms: Boolean(row.can_access_forms),
         quoting: Boolean(row.can_access_quoting),
+        shipping_quotes: Boolean(row.can_access_shipping_quotes),
         calculator: Boolean(row.can_access_calculator),
       },
     ),
@@ -278,7 +283,9 @@ export async function saveUserModulePermissions(permission: AdminUserModulePermi
       can_access_reports: draft.reports.can_access,
       can_access_purchases: draft.purchases.can_access,
       can_access_marketing: draft.marketing.can_access,
+      can_access_forms: draft.forms.can_access,
       can_access_quoting: draft.quoting.can_access,
+      can_access_shipping_quotes: draft.shipping_quotes.can_access,
       can_access_calculator: draft.calculator.can_access,
     })
     .eq('id', permission.id);
@@ -288,6 +295,7 @@ export async function saveUserModulePermissions(permission: AdminUserModulePermi
 }
 
 export async function updateAdminUser(payload: UpdateAdminUserDraft) {
+  const normalizedEmail = payload.email.trim().toLowerCase();
   const userType = payload.role === 'owner' ? 'owner' : 'user';
   const permissions = payload.role === 'owner'
     ? buildFullAccessDraft()
@@ -297,10 +305,15 @@ export async function updateAdminUser(payload: UpdateAdminUserDraft) {
   if (password && password.length < 6) {
     throw new Error('La contraseña debe tener al menos 6 caracteres.');
   }
+  if (!normalizedEmail) {
+    throw new Error('Indica el correo del usuario.');
+  }
 
-  const { data, error } = await supabase.functions.invoke('admin-update-user', {
-    body: {
+  const data = await invokeAuthenticatedFunction<{ user_id: string; email: string; user_type: AdminUserType }>(
+    'admin-update-user',
+    {
       user_id: payload.permission.user_id,
+      email: normalizedEmail,
       full_name: payload.full_name.trim() || null,
       role: payload.role,
       is_active: payload.is_active,
@@ -308,10 +321,26 @@ export async function updateAdminUser(payload: UpdateAdminUserDraft) {
       password: password || null,
       permissions,
     },
-  });
+  );
 
-  if (error) throw error;
   return data as { user_id: string; email: string; user_type: AdminUserType };
+}
+
+export async function deleteAdminUser(permission: AdminUserModulePermissions) {
+  if (isPermissionOwner(permission)) {
+    throw new Error('Los propietarios no se pueden eliminar desde esta sección.');
+  }
+
+  const data = await invokeAuthenticatedFunction<{ user_id: string; email: string; permission_id: string | null }>(
+    'admin-delete-user',
+    {
+      user_id: permission.user_id,
+      email: permission.email,
+      permission_id: permission.id,
+    },
+  );
+
+  return data as { user_id: string; email: string; permission_id: string | null };
 }
 
 export async function createAdminUser(payload: CreateAdminUserDraft) {
@@ -323,31 +352,32 @@ export async function createAdminUser(payload: CreateAdminUserDraft) {
     ? buildFullAccessDraft()
     : payload.permissions;
 
-  const { data, error } = await supabase.functions.invoke('admin-create-user', {
-    body: {
+  const data = await invokeAuthenticatedFunction<{ user_id: string; email: string; user_type: AdminUserType }>(
+    'admin-create-user',
+    {
       email: normalizedEmail,
       password: payload.password,
       full_name: payload.full_name.trim(),
       role: payload.role,
       permissions,
     },
-  });
+  );
 
-  if (error) throw error;
   return data as { user_id: string; email: string; user_type: AdminUserType };
 }
 
 export async function getSupportMailerSettings() {
-  const { data, error } = await supabase.functions.invoke('admin-get-support-mailer-settings');
-  if (error) throw error;
+  const data = await invokeAuthenticatedFunction<{ data?: SupportMailerSettings | null } | null>(
+    'admin-get-support-mailer-settings',
+  );
   return ((data as { data?: SupportMailerSettings | null } | null)?.data ?? null) as SupportMailerSettings | null;
 }
 
 export async function saveSupportMailerSettings(payload: SupportMailerSettingsDraft) {
-  const { data, error } = await supabase.functions.invoke('admin-save-support-mailer-settings', {
-    body: payload,
-  });
-  if (error) throw error;
+  const data = await invokeAuthenticatedFunction<{ data?: SupportMailerSettings } | null>(
+    'admin-save-support-mailer-settings',
+    payload as unknown as Record<string, unknown>,
+  );
   return ((data as { data?: SupportMailerSettings } | null)?.data ?? null) as SupportMailerSettings;
 }
 
@@ -369,6 +399,8 @@ export async function saveShippingQuoteSettings(payload: ShippingQuoteSettingsDr
       {
         provider: 'fedex',
         ...payload,
+        fedex_child_key: null,
+        fedex_child_secret: null,
       },
       { onConflict: 'provider' },
     )
@@ -509,6 +541,28 @@ function normalizeShippingBoxDraft(payload: ShippingBoxDraft) {
   };
 }
 
+async function invokeAuthenticatedFunction<T>(
+  functionName: string,
+  body?: Record<string, unknown>,
+) {
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError) throw sessionError;
+
+  const { data, error } = await supabase.functions.invoke(functionName, {
+    body,
+    headers: session?.access_token
+      ? { Authorization: `Bearer ${session.access_token}` }
+      : undefined,
+  });
+
+  if (error) throw error;
+  return data as T;
+}
+
 function emptyToNull(value: string | null | undefined) {
   const normalized = typeof value === 'string' ? value.trim() : '';
   return normalized || null;
@@ -553,17 +607,27 @@ export function applyRolePermissionDefaults(
   draft: ModulePermissionDraft,
   role: AdminUserRole,
 ): ModulePermissionDraft {
-  if (role !== 'marketing_agent') {
-    return draft;
+  if (role === 'marketing_agent') {
+    return {
+      ...draft,
+      marketing: {
+        can_access: true,
+        visibility_scope: 'all',
+      },
+    };
   }
 
-  return {
-    ...draft,
-    marketing: {
-      can_access: true,
-      visibility_scope: 'all',
-    },
-  };
+  if (role === 'support_agent') {
+    return adminModules.reduce((nextDraft, module) => ({
+      ...nextDraft,
+      [module.key]: {
+        can_access: module.key === 'supports',
+        visibility_scope: 'all',
+      },
+    }), {} as ModulePermissionDraft);
+  }
+
+  return draft;
 }
 
 export function buildFullAccessDraft(): ModulePermissionDraft {

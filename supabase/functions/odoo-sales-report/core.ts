@@ -139,10 +139,12 @@ export async function fetchCommercialDataset(options) {
 
   const orderCreationField = 'create_date';
   const orderConfirmationDateField = pick(orderMeta, ['date_order']);
+  const orderShippingField = pick(orderMeta, ['partner_shipping_id']);
   const orderChannelField = pick(orderMeta, ['source_id', 'medium_id', 'campaign_id', 'origin']);
   const orderCategoryField = pick(orderLineMeta, ['categ_id', 'product_categ_id']);
   const invoiceSellerField = pick(invoiceMeta, ['invoice_user_id', 'user_id']) ?? 'invoice_user_id';
   const invoiceTeamField = pick(invoiceMeta, ['team_id']) ?? 'team_id';
+  const invoiceShippingField = pick(invoiceMeta, ['partner_shipping_id']);
   const invoiceCategoryField = pick(invoiceLineMeta, ['product_categ_id', 'product_category_id', 'categ_id']);
   const invoiceSaleLineField = pick(invoiceLineMeta, ['sale_line_ids']);
   const invoiceMarginField = pick(invoiceLineMeta, ['margin']);
@@ -195,6 +197,7 @@ export async function fetchCommercialDataset(options) {
     orderCreationField,
     'validity_date',
     'partner_id',
+    orderShippingField,
     'user_id',
     'team_id',
     'company_id',
@@ -294,6 +297,7 @@ export async function fetchCommercialDataset(options) {
       'currency_id',
       'amount_untaxed_signed',
       'amount_total_signed',
+      invoiceShippingField,
       'invoice_origin',
       'payment_state',
     ]),
@@ -413,6 +417,8 @@ export async function fetchCommercialDataset(options) {
     validityDate: iso(row.validity_date),
     customerId: many2oneId(row.partner_id),
     customerName: many2oneLabel(row.partner_id) ?? 'Cliente sin nombre',
+    deliveryCustomerId: orderShippingField ? many2oneId(row[orderShippingField]) : null,
+    deliveryCustomerName: orderShippingField ? many2oneLabel(row[orderShippingField]) : null,
     sellerId: many2oneId(row.user_id),
     sellerName: many2oneLabel(row.user_id) ?? 'Sin vendedor',
     teamId: many2oneId(row.team_id),
@@ -427,6 +433,11 @@ export async function fetchCommercialDataset(options) {
     origin: readText(row.origin),
   }));
   const orderMap = new Map(orders.map((row) => [row.id, row]));
+  const orderBySourceName = new Map(
+    orders
+      .map((order) => [normalizeSourceDocumentName(order.name), order] as const)
+      .filter(([name]) => Boolean(name)),
+  );
 
   const orderLines = orderLinesRaw
     .map((row) => {
@@ -448,6 +459,8 @@ export async function fetchCommercialDataset(options) {
         orderState: order.state,
         customerId: order.customerId,
         customerName: order.customerName,
+        deliveryCustomerId: order.deliveryCustomerId,
+        deliveryCustomerName: order.deliveryCustomerName,
         sellerId: order.sellerId,
         sellerName: order.sellerName,
         teamId: order.teamId,
@@ -476,26 +489,40 @@ export async function fetchCommercialDataset(options) {
     .filter(Boolean);
   const orderLineMap = new Map(orderLines.map((row) => [row.id, row]));
 
-  const invoices = postedInvoicesRaw.map((row) => ({
-    id: Number(row.id),
-    name: readText(row.name) ?? `INV-${row.id}`,
-    state: readText(row.state) ?? 'draft',
-    moveType: readText(row.move_type) ?? 'out_invoice',
-    invoiceDate: iso(row.invoice_date),
-    customerId: many2oneId(row.partner_id),
-    customerName: many2oneLabel(row.partner_id) ?? 'Cliente sin nombre',
-    sellerId: many2oneId(row[invoiceSellerField]),
-    sellerName: many2oneLabel(row[invoiceSellerField]) ?? 'Sin vendedor',
-    teamId: many2oneId(row[invoiceTeamField]),
-    teamName: many2oneLabel(row[invoiceTeamField]),
-    companyId: many2oneId(row.company_id),
-    companyName: many2oneLabel(row.company_id),
-    currencyCode: currencyLabel(row.currency_id),
-    untaxedAmountSigned: num(row.amount_untaxed_signed),
-    totalAmountSigned: num(row.amount_total_signed),
-    invoiceOrigin: readText(row.invoice_origin),
-    paymentState: readText(row.payment_state),
-  }));
+  const invoices = postedInvoicesRaw.map((row) => {
+    const invoice = {
+      id: Number(row.id),
+      name: readText(row.name) ?? `INV-${row.id}`,
+      state: readText(row.state) ?? 'draft',
+      moveType: readText(row.move_type) ?? 'out_invoice',
+      invoiceDate: iso(row.invoice_date),
+      customerId: many2oneId(row.partner_id),
+      customerName: many2oneLabel(row.partner_id) ?? 'Cliente sin nombre',
+      deliveryCustomerId: invoiceShippingField ? many2oneId(row[invoiceShippingField]) : null,
+      deliveryCustomerName: invoiceShippingField ? many2oneLabel(row[invoiceShippingField]) : null,
+      sellerId: many2oneId(row[invoiceSellerField]),
+      sellerName: many2oneLabel(row[invoiceSellerField]) ?? 'Sin vendedor',
+      teamId: many2oneId(row[invoiceTeamField]),
+      teamName: many2oneLabel(row[invoiceTeamField]),
+      companyId: many2oneId(row.company_id),
+      companyName: many2oneLabel(row.company_id),
+      currencyCode: currencyLabel(row.currency_id),
+      untaxedAmountSigned: num(row.amount_untaxed_signed),
+      totalAmountSigned: num(row.amount_total_signed),
+      invoiceOrigin: readText(row.invoice_origin),
+      paymentState: readText(row.payment_state),
+    };
+    if (invoice.deliveryCustomerName) return invoice;
+
+    const sourceOrder = resolveOrderFromInvoiceOrigin(invoice.invoiceOrigin, orderBySourceName);
+    return sourceOrder?.deliveryCustomerName
+      ? {
+          ...invoice,
+          deliveryCustomerId: sourceOrder.deliveryCustomerId,
+          deliveryCustomerName: sourceOrder.deliveryCustomerName,
+        }
+      : invoice;
+  });
   const invoiceMap = new Map(invoices.map((row) => [row.id, row]));
   const crmLeads = crmLeadsRaw.map((row) => ({
     id: Number(row.id),
@@ -525,7 +552,9 @@ export async function fetchCommercialDataset(options) {
 
   const customerContactIds = uniqueNumbers([
     ...orders.map((row) => row.customerId),
+    ...orders.map((row) => row.deliveryCustomerId ?? null),
     ...invoices.map((row) => row.customerId),
+    ...invoices.map((row) => row.deliveryCustomerId ?? null),
     ...crmLeads.map((row) => row.customerId),
   ]);
   const customerContacts = await fetchCustomerContacts({
@@ -550,6 +579,9 @@ export async function fetchCommercialDataset(options) {
       const product = productMap.get(productId) ?? null;
       const saleLineIds = invoiceSaleLineField ? relationIds(row[invoiceSaleLineField]) : [];
       const linkedLine = saleLineIds.map((id) => orderLineMap.get(id)).find(Boolean) ?? null;
+      const linkedDeliveryLine = saleLineIds
+        .map((id) => orderLineMap.get(id))
+        .find((line) => line?.deliveryCustomerName) ?? null;
       const sign = invoice.moveType === 'out_refund' ? -1 : 1;
       const quantity = num(row.quantity) * sign;
       // Odoo's Accounting > Reports > Invoice Analysis calculates "Untaxed Total"
@@ -571,6 +603,8 @@ export async function fetchCommercialDataset(options) {
         invoiceDate: invoice.invoiceDate,
         customerId: invoice.customerId,
         customerName: invoice.customerName,
+        deliveryCustomerId: invoice.deliveryCustomerId ?? linkedDeliveryLine?.deliveryCustomerId ?? null,
+        deliveryCustomerName: invoice.deliveryCustomerName ?? linkedDeliveryLine?.deliveryCustomerName ?? null,
         sellerId: invoice.sellerId,
         sellerName: invoice.sellerName,
         teamId: invoice.teamId,
@@ -1433,4 +1467,19 @@ function formatDateKeyInTimeZone(date, timeZone) {
 
 function splitOrigin(value) {
   return `${value ?? ''}`.split(/[,;\n]+/).map((item) => item.trim()).filter(Boolean);
+}
+
+function resolveOrderFromInvoiceOrigin(invoiceOrigin, ordersBySourceName) {
+  return splitOrigin(invoiceOrigin)
+    .map((origin) => ordersBySourceName.get(normalizeSourceDocumentName(origin)) ?? null)
+    .find(Boolean) ?? null;
+}
+
+function normalizeSourceDocumentName(value) {
+  return `${value ?? ''}`
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase();
 }

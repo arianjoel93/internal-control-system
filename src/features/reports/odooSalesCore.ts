@@ -83,6 +83,8 @@ export type OdooOrderRecord = {
   validityDate: string | null;
   customerId: number | null;
   customerName: string;
+  deliveryCustomerId: number | null;
+  deliveryCustomerName: string | null;
   sellerId: number | null;
   sellerName: string;
   teamId: number | null;
@@ -104,6 +106,8 @@ export type OdooOrderLineRecord = {
   orderState: string;
   customerId: number | null;
   customerName: string;
+  deliveryCustomerId: number | null;
+  deliveryCustomerName: string | null;
   sellerId: number | null;
   sellerName: string;
   teamId: number | null;
@@ -137,6 +141,8 @@ export type OdooInvoiceRecord = {
   invoiceDate: string | null;
   customerId: number | null;
   customerName: string;
+  deliveryCustomerId: number | null;
+  deliveryCustomerName: string | null;
   sellerId: number | null;
   sellerName: string;
   teamId: number | null;
@@ -159,6 +165,8 @@ export type OdooInvoiceLineRecord = {
   invoiceDate: string | null;
   customerId: number | null;
   customerName: string;
+  deliveryCustomerId: number | null;
+  deliveryCustomerName: string | null;
   sellerId: number | null;
   sellerName: string;
   teamId: number | null;
@@ -506,6 +514,7 @@ export async function fetchCommercialDataset(
   const quotationDateField = pickFirstAvailable(orderMeta, ['create_date']);
   const orderCreationField = pickFirstAvailable(orderMeta, ['create_date']);
   const orderConfirmationTimelineField = pickFirstAvailable(orderMeta, ['date_order']);
+  const orderShippingField = pickFirstAvailable(orderMeta, ['partner_shipping_id']);
   const channelField = pickFirstAvailable(orderMeta, [
     'source_id',
     'medium_id',
@@ -521,6 +530,7 @@ export async function fetchCommercialDataset(
     pickFirstAvailable(invoiceMeta, ['invoice_user_id']) ??
     pickFirstAvailable(invoiceMeta, ['user_id']);
   const invoiceTeamField = pickFirstAvailable(invoiceMeta, ['team_id']);
+  const invoiceShippingField = pickFirstAvailable(invoiceMeta, ['partner_shipping_id']);
   const invoiceLineCategoryField =
     pickFirstAvailable(invoiceLineMeta, ['product_categ_id']) ??
     pickFirstAvailable(invoiceLineMeta, ['product_category_id']) ??
@@ -577,6 +587,7 @@ export async function fetchCommercialDataset(
     confirmationDateField,
     pickFirstAvailable(orderMeta, ['validity_date']),
     'partner_id',
+    orderShippingField,
     'user_id',
     'team_id',
     'company_id',
@@ -777,6 +788,7 @@ export async function fetchCommercialDataset(
     'currency_id',
     'amount_untaxed_signed',
     'amount_total_signed',
+    invoiceShippingField,
     pickFirstAvailable(invoiceMeta, ['invoice_origin']),
     pickFirstAvailable(invoiceMeta, ['payment_state']),
   ]);
@@ -929,13 +941,14 @@ export async function fetchCommercialDataset(
   const normalizedOrders = ordersRaw.map((row) =>
     normalizeOrderRow({
       confirmationDateField,
-      orderMeta,
+      orderShippingField,
       quotationDateField,
       row,
     }),
   );
 
   const orderById = new Map(normalizedOrders.map((order) => [order.id, order]));
+  const orderBySourceName = buildOrderBySourceName(normalizedOrders);
   const normalizedLines = linesRaw
     .map((row) =>
       normalizeOrderLineRow({
@@ -948,13 +961,16 @@ export async function fetchCommercialDataset(
     )
     .filter((line): line is OdooOrderLineRecord => Boolean(line));
 
-  const normalizedInvoices = invoicesRaw.map((row) =>
-    normalizeInvoiceRow({
+  const normalizedInvoices = invoicesRaw.map((row) => {
+    const invoice = normalizeInvoiceRow({
       invoiceSellerField,
+      invoiceShippingField,
       invoiceTeamField,
       row,
-    }),
-  );
+    });
+    const sourceOrder = resolveOrderFromInvoiceOrigin(invoice.invoiceOrigin, orderBySourceName);
+    return applyDeliveryCustomerFromSourceOrder(invoice, sourceOrder);
+  });
   const normalizedCustomerFirstPurchases = normalizeCustomerFirstPurchases(
     customerFirstPurchaseHistoryRaw,
     invoiceSellerField,
@@ -963,7 +979,9 @@ export async function fetchCommercialDataset(
     apiKey,
     customerIds: uniqueNumbers([
       ...normalizedOrders.map((row) => row.customerId),
+      ...normalizedOrders.map((row) => row.deliveryCustomerId),
       ...normalizedInvoices.map((row) => row.customerId),
+      ...normalizedInvoices.map((row) => row.deliveryCustomerId ?? null),
     ]),
     database,
     odooUrl,
@@ -1397,11 +1415,12 @@ function previousDay(value: string) {
 
 function normalizeOrderRow({
   confirmationDateField,
+  orderShippingField,
   quotationDateField,
   row,
 }: {
   confirmationDateField: OdooFieldCandidate;
-  orderMeta: OdooFieldMeta;
+  orderShippingField: OdooFieldCandidate;
   quotationDateField: OdooFieldCandidate;
   row: Record<string, unknown>;
 }) {
@@ -1415,6 +1434,12 @@ function normalizeOrderRow({
     validityDate: normalizeDateValue(row.validity_date),
     customerId: readManyToOneId(row.partner_id),
     customerName: readManyToOneLabel(row.partner_id) ?? 'Cliente sin nombre',
+    deliveryCustomerId: orderShippingField
+      ? readManyToOneId(row[orderShippingField])
+      : null,
+    deliveryCustomerName: orderShippingField
+      ? readManyToOneLabel(row[orderShippingField])
+      : null,
     sellerId: readManyToOneId(row.user_id),
     sellerName: readManyToOneLabel(row.user_id) ?? 'Sin vendedor',
     teamId: readManyToOneId(row.team_id),
@@ -1474,6 +1499,8 @@ function normalizeOrderLineRow({
     orderState: order.state,
     customerId: order.customerId,
     customerName: order.customerName,
+    deliveryCustomerId: order.deliveryCustomerId,
+    deliveryCustomerName: order.deliveryCustomerName,
     sellerId: order.sellerId,
     sellerName: order.sellerName,
     teamId: order.teamId,
@@ -1520,7 +1547,7 @@ function normalizeInvoiceLineRow({
   orderLineById: Map<number, OdooOrderLineRecord>;
   productCatalogMap: Map<number, ProductCatalogEntry>;
   row: Record<string, unknown>;
-}) {
+}): OdooInvoiceLineRecord | null {
   const invoiceId = readManyToOneId(row.move_id);
   if (!invoiceId) return null;
 
@@ -1568,6 +1595,16 @@ function normalizeInvoiceLineRow({
         .filter((value): value is string => Boolean(value)),
     ),
   ];
+  const linkedDeliveryCustomers = sourceSaleLineIds
+    .map((saleLineId) => {
+      const linkedOrderLine = orderLineById.get(saleLineId);
+      if (!linkedOrderLine?.deliveryCustomerName) return null;
+      return {
+        customerId: linkedOrderLine.deliveryCustomerId,
+        customerName: linkedOrderLine.deliveryCustomerName,
+      };
+    })
+    .filter((value): value is { customerId: number | null; customerName: string } => Boolean(value));
   const linkedPurchaseCosts = sourceSaleLineIds
     .map((saleLineId) => orderLineById.get(saleLineId)?.linePurchaseUnitCost ?? null)
     .filter((value): value is number => value !== null);
@@ -1598,6 +1635,8 @@ function normalizeInvoiceLineRow({
     invoiceDate: invoice.invoiceDate,
     customerId: invoice.customerId,
     customerName: invoice.customerName,
+    deliveryCustomerId: invoice.deliveryCustomerId ?? linkedDeliveryCustomers[0]?.customerId ?? null,
+    deliveryCustomerName: invoice.deliveryCustomerName ?? linkedDeliveryCustomers[0]?.customerName ?? null,
     sellerId: invoice.sellerId,
     sellerName: invoice.sellerName,
     teamId: invoice.teamId,
@@ -1636,10 +1675,12 @@ function normalizeInvoiceLineRow({
 
 function normalizeInvoiceRow({
   invoiceSellerField,
+  invoiceShippingField,
   invoiceTeamField,
   row,
 }: {
   invoiceSellerField: OdooFieldCandidate;
+  invoiceShippingField: OdooFieldCandidate;
   invoiceTeamField: OdooFieldCandidate;
   row: Record<string, unknown>;
 }) {
@@ -1651,6 +1692,8 @@ function normalizeInvoiceRow({
     invoiceDate: normalizeDateValue(row.invoice_date),
     customerId: readManyToOneId(row.partner_id),
     customerName: readManyToOneLabel(row.partner_id) ?? 'Cliente sin nombre',
+    deliveryCustomerId: invoiceShippingField ? readManyToOneId(row[invoiceShippingField]) : null,
+    deliveryCustomerName: invoiceShippingField ? readManyToOneLabel(row[invoiceShippingField]) : null,
     sellerId: readManyToOneId(row[invoiceSellerField ?? 'invoice_user_id']),
     sellerName: readManyToOneLabel(row[invoiceSellerField ?? 'invoice_user_id']) ?? 'Sin vendedor',
     teamId: readManyToOneId(row[invoiceTeamField ?? 'team_id']),
@@ -1662,6 +1705,40 @@ function normalizeInvoiceRow({
     totalAmountSigned: readNumber(row.amount_total_signed),
     invoiceOrigin: readString(row.invoice_origin),
     paymentState: readString(row.payment_state),
+  } satisfies OdooInvoiceRecord;
+}
+
+function buildOrderBySourceName(orders: OdooOrderRecord[]) {
+  const ordersBySourceName = new Map<string, OdooOrderRecord>();
+  orders.forEach((order) => {
+    const key = normalizeSourceDocumentName(order.name);
+    if (key) ordersBySourceName.set(key, order);
+  });
+  return ordersBySourceName;
+}
+
+function resolveOrderFromInvoiceOrigin(
+  invoiceOrigin: string | null,
+  ordersBySourceName: Map<string, OdooOrderRecord>,
+) {
+  if (!invoiceOrigin) return null;
+
+  return invoiceOrigin
+    .split(',')
+    .map((origin) => ordersBySourceName.get(normalizeSourceDocumentName(origin.trim())) ?? null)
+    .find((order): order is OdooOrderRecord => Boolean(order)) ?? null;
+}
+
+function applyDeliveryCustomerFromSourceOrder(
+  invoice: OdooInvoiceRecord,
+  sourceOrder: OdooOrderRecord | null,
+) {
+  if (invoice.deliveryCustomerName || !sourceOrder?.deliveryCustomerName) return invoice;
+
+  return {
+    ...invoice,
+    deliveryCustomerId: sourceOrder.deliveryCustomerId,
+    deliveryCustomerName: sourceOrder.deliveryCustomerName,
   } satisfies OdooInvoiceRecord;
 }
 

@@ -22,6 +22,8 @@ function createOrder(
     validityDate: null,
     customerId: null,
     customerName: 'Cliente',
+    deliveryCustomerId: null,
+    deliveryCustomerName: null,
     sellerId: null,
     sellerName: 'Sin vendedor',
     teamId: null,
@@ -45,6 +47,8 @@ function createLine(
   return {
     customerId: null,
     customerName: 'Cliente',
+    deliveryCustomerId: null,
+    deliveryCustomerName: null,
     sellerId: null,
     sellerName: 'Sin vendedor',
     teamId: null,
@@ -79,6 +83,8 @@ function createInvoice(
     invoiceDate: null,
     customerId: null,
     customerName: 'Cliente',
+    deliveryCustomerId: null,
+    deliveryCustomerName: null,
     sellerId: null,
     sellerName: 'Sin vendedor',
     teamId: null,
@@ -102,6 +108,8 @@ function createInvoiceLine(
     invoiceDate: null,
     customerId: null,
     customerName: 'Cliente',
+    deliveryCustomerId: null,
+    deliveryCustomerName: null,
     sellerId: null,
     sellerName: 'Sin vendedor',
     teamId: null,
@@ -1191,7 +1199,7 @@ test('agrupa clientes y vendedores repetidos en conversion y rankings', () => {
   );
 
   const snapshot = buildCommercialDashboard(dataset, createFilters(), defaultReportsConfig);
-  const customerRow = snapshot.conversion.byCustomer.find((row) => row.key === 'id:102');
+  const customerRow = snapshot.conversion.byCustomer.find((row) => row.key === 'customer:CLIENTE B');
   const sellerRow = snapshot.conversion.bySeller.find((row) => row.key === 'id:11');
   const sellerRankRows = snapshot.sellers.rankingByRevenue.filter((row) => row.sellerId === 11);
 
@@ -1428,4 +1436,198 @@ test('crea el perfil anual equivalente solo para agentes de ventas con alcance p
     defaultReportsConfig,
   );
   assert.equal(globalSnapshot.agentProfile, null);
+});
+
+test('en perfil de agente reemplaza PUBLICO EN GENERAL por direccion de entrega', () => {
+  const dataset = createDataset();
+  const publicInvoices: OdooInvoiceRecord[] = [
+    createInvoice({
+      id: 2101,
+      name: 'INV-PUBLICO-1',
+      state: 'posted',
+      moveType: 'out_invoice',
+      invoiceDate: '2026-06-12T00:00:00.000Z',
+      customerId: 999,
+      customerName: 'PUBLICO EN GENERAL',
+      deliveryCustomerId: 710,
+      deliveryCustomerName: 'Cliente Mostrador Norte',
+      sellerId: 11,
+      sellerName: 'Carmen',
+      untaxedAmountSigned: 800,
+      totalAmountSigned: 928,
+    }),
+    createInvoice({
+      id: 2102,
+      name: 'INV-PUBLICO-2',
+      state: 'posted',
+      moveType: 'out_invoice',
+      invoiceDate: '2026-06-18T00:00:00.000Z',
+      customerId: 999,
+      customerName: 'PUBLICO EN GENERAL',
+      deliveryCustomerId: 711,
+      deliveryCustomerName: 'Cliente Mostrador Sur',
+      sellerId: 11,
+      sellerName: 'Carmen',
+      untaxedAmountSigned: 600,
+      totalAmountSigned: 696,
+    }),
+  ];
+  const publicLines: OdooInvoiceLineRecord[] = [
+    createInvoiceLine({
+      id: 2101,
+      invoiceId: 2101,
+      invoiceName: 'INV-PUBLICO-1',
+      invoiceState: 'posted',
+      moveType: 'out_invoice',
+      invoiceDate: '2026-06-12T00:00:00.000Z',
+      customerId: 999,
+      customerName: 'PUBLICO EN GENERAL',
+      deliveryCustomerId: 710,
+      deliveryCustomerName: 'Cliente Mostrador Norte',
+      sellerId: 11,
+      sellerName: 'Carmen',
+      productId: 9001,
+      productName: 'Etiqueta especial',
+      quantity: 1,
+      untaxedAmount: 800,
+      totalAmount: 928,
+    }),
+    createInvoiceLine({
+      id: 2102,
+      invoiceId: 2102,
+      invoiceName: 'INV-PUBLICO-2',
+      invoiceState: 'posted',
+      moveType: 'out_invoice',
+      invoiceDate: '2026-06-18T00:00:00.000Z',
+      customerId: 999,
+      customerName: 'PUBLICO EN GENERAL',
+      deliveryCustomerId: 711,
+      deliveryCustomerName: 'Cliente Mostrador Sur',
+      sellerId: 11,
+      sellerName: 'Carmen',
+      productId: 9002,
+      productName: 'Ribbon especial',
+      quantity: 1,
+      untaxedAmount: 600,
+      totalAmount: 696,
+    }),
+  ];
+
+  const snapshot = buildCommercialDashboard(
+    {
+      ...dataset,
+      scopeApplied: 'own',
+      viewerRole: 'sales_agent',
+      sellerScope: { id: 11, label: 'Carmen' },
+      companyScope: { id: 1, label: 'Tectronic MX' },
+      invoices: publicInvoices,
+      invoiceLines: publicLines,
+      orders: [],
+      orderLines: [],
+    },
+    createFilters({
+      visibilityScope: 'own',
+      sellerId: 11,
+      sellerIds: [11],
+    }),
+    defaultReportsConfig,
+  );
+  const customerNames = snapshot.clientLifecycle.rows.map((row) => row.customerName);
+  const agentClientRowNames = snapshot.agentProfile?.clients.rows.map((row) => row.label) ?? [];
+
+  assert.ok(customerNames.includes('Cliente Mostrador Norte'));
+  assert.ok(customerNames.includes('Cliente Mostrador Sur'));
+  assert.ok(!customerNames.includes('PUBLICO EN GENERAL'));
+  assert.ok(agentClientRowNames.includes('Cliente Mostrador Norte'));
+  assert.ok(agentClientRowNames.includes('Cliente Mostrador Sur'));
+  assert.ok(!agentClientRowNames.includes('PUBLICO EN GENERAL'));
+});
+
+test('agrupa contactos que solo difieren por el texto posterior a una coma', () => {
+  const dataset = createDataset();
+  const commonInvoice = {
+    state: 'posted' as const,
+    moveType: 'out_invoice' as const,
+    invoiceDate: '2026-06-12T00:00:00.000Z',
+    sellerId: 11,
+    sellerName: 'Carmen',
+  };
+  const commonLine = {
+    invoiceState: 'posted' as const,
+    moveType: 'out_invoice' as const,
+    invoiceDate: '2026-06-12T00:00:00.000Z',
+    sellerId: 11,
+    sellerName: 'Carmen',
+    productId: 9200,
+    productName: 'Etiqueta especial',
+    quantity: 1,
+  };
+
+  const snapshot = buildCommercialDashboard(
+    {
+      ...dataset,
+      scopeApplied: 'own',
+      viewerRole: 'sales_agent',
+      sellerScope: { id: 11, label: 'Carmen' },
+      companyScope: { id: 1, label: 'Tectronic MX' },
+      invoices: [
+        createInvoice({
+          ...commonInvoice,
+          id: 2201,
+          name: 'INV-CONTACTO-1',
+          customerId: 801,
+          customerName: 'EDWIN GARCIA GUTIERREZ, Eduardo Uribe',
+          untaxedAmountSigned: 800,
+          totalAmountSigned: 928,
+        }),
+        createInvoice({
+          ...commonInvoice,
+          id: 2202,
+          name: 'INV-CONTACTO-2',
+          customerId: 802,
+          customerName: 'EDWIN GARCIA GUTIERREZ, Erick Bismarck Rodriguez Mendoza',
+          untaxedAmountSigned: 600,
+          totalAmountSigned: 696,
+        }),
+      ],
+      invoiceLines: [
+        createInvoiceLine({
+          ...commonLine,
+          id: 2201,
+          invoiceId: 2201,
+          invoiceName: 'INV-CONTACTO-1',
+          customerId: 801,
+          customerName: 'EDWIN GARCIA GUTIERREZ, Eduardo Uribe',
+          untaxedAmount: 800,
+          totalAmount: 928,
+        }),
+        createInvoiceLine({
+          ...commonLine,
+          id: 2202,
+          invoiceId: 2202,
+          invoiceName: 'INV-CONTACTO-2',
+          customerId: 802,
+          customerName: 'EDWIN GARCIA GUTIERREZ, Erick Bismarck Rodriguez Mendoza',
+          untaxedAmount: 600,
+          totalAmount: 696,
+        }),
+      ],
+      orders: [],
+      orderLines: [],
+    },
+    createFilters({
+      visibilityScope: 'own',
+      sellerId: 11,
+      sellerIds: [11],
+    }),
+    defaultReportsConfig,
+  );
+
+  const clientRows = snapshot.agentProfile?.clients.rows ?? [];
+  const edwin = clientRows.find((row) => row.label === 'EDWIN GARCIA GUTIERREZ');
+
+  assert.equal(edwin?.current, 1400);
+  assert.equal(clientRows.filter((row) => row.label === 'EDWIN GARCIA GUTIERREZ').length, 1);
+  assert.ok(!clientRows.some((row) => row.label.includes('Eduardo Uribe')));
+  assert.ok(!clientRows.some((row) => row.label.includes('Erick Bismarck')));
 });

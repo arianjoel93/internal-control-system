@@ -1061,15 +1061,33 @@ function buildAgentPerformanceProfile({
   quoteInvoiceIndex: ReturnType<typeof buildQuoteInvoiceIndex>;
   sellerName: string;
 }): AgentPerformanceProfile {
-  const currentRevenue = sum(currentInvoices, (invoice) => invoiceAmount(invoice, config));
-  const previousRevenue = sum(previousInvoices, (invoice) => invoiceAmount(invoice, config));
-  const currentBilledOrders = countDistinctBilledOrders(
+  const currentAgentData = normalizeGeneralPublicInvoiceCollections(currentInvoices, currentInvoiceLines);
+  const previousAgentData = normalizeGeneralPublicInvoiceCollections(previousInvoices, previousInvoiceLines);
+  const currentPublishedAgentData = normalizeGeneralPublicInvoiceCollections(
     currentPublishedInvoices,
     currentPublishedInvoiceLines,
   );
-  const previousBilledOrders = countDistinctBilledOrders(
+  const previousPublishedAgentData = normalizeGeneralPublicInvoiceCollections(
     previousPublishedInvoices,
     previousPublishedInvoiceLines,
+  );
+  const currentAgentInvoices = currentAgentData.invoices;
+  const currentAgentInvoiceLines = currentAgentData.invoiceLines;
+  const previousAgentInvoices = previousAgentData.invoices;
+  const previousAgentInvoiceLines = previousAgentData.invoiceLines;
+  const currentAgentPublishedInvoices = currentPublishedAgentData.invoices;
+  const currentAgentPublishedInvoiceLines = currentPublishedAgentData.invoiceLines;
+  const previousAgentPublishedInvoices = previousPublishedAgentData.invoices;
+  const previousAgentPublishedInvoiceLines = previousPublishedAgentData.invoiceLines;
+  const currentRevenue = sum(currentAgentInvoices, (invoice) => invoiceAmount(invoice, config));
+  const previousRevenue = sum(previousAgentInvoices, (invoice) => invoiceAmount(invoice, config));
+  const currentBilledOrders = countDistinctBilledOrders(
+    currentAgentPublishedInvoices,
+    currentAgentPublishedInvoiceLines,
+  );
+  const previousBilledOrders = countDistinctBilledOrders(
+    previousAgentPublishedInvoices,
+    previousAgentPublishedInvoiceLines,
   );
   const currentSalesOrderCount = currentSalesOrders.length;
   const previousSalesOrderCount = previousSalesOrders.length;
@@ -1099,22 +1117,22 @@ function buildAgentPerformanceProfile({
   ).length;
 
   const clientRows = buildAgentDimensionRows({
-    currentRows: currentInvoices,
-    previousRows: previousInvoices,
-    key: (invoice) => buildCustomerKey(invoice.customerId, invoice.customerName),
-    label: (invoice) => invoice.customerName,
-    value: (invoice) => invoiceAmount(invoice, config),
+    currentRows: currentAgentInvoiceLines,
+    previousRows: previousAgentInvoiceLines,
+    key: (line) => buildCustomerKey(line.customerId, line.customerName),
+    label: (line) => normalizeCustomerContactName(line.customerName),
+    value: (line) => line.untaxedAmount,
   });
   const productRows = buildAgentDimensionRows({
-    currentRows: currentInvoiceLines,
-    previousRows: previousInvoiceLines,
+    currentRows: currentAgentInvoiceLines,
+    previousRows: previousAgentInvoiceLines,
     key: (line) => buildProductKey(line.productId, line.productName),
     label: (line) => line.productName,
     value: (line) => line.untaxedAmount,
   });
   const categoryRows = buildAgentDimensionRows({
-    currentRows: currentInvoiceLines,
-    previousRows: previousInvoiceLines,
+    currentRows: currentAgentInvoiceLines,
+    previousRows: previousAgentInvoiceLines,
     key: (line) =>
       `category:${line.categoryId ?? normalizeDimensionText(line.categoryName ?? 'Sin categoría')}`,
     label: (line) => line.categoryName ?? 'Sin categoría',
@@ -1182,8 +1200,8 @@ function buildAgentPerformanceProfile({
     agentMetric(
       'invoice_count',
       'Facturas publicadas',
-      currentInvoices.length,
-      previousInvoices.length,
+      currentAgentInvoices.length,
+      previousAgentInvoices.length,
       'number',
       false,
     ),
@@ -1269,8 +1287,8 @@ function buildAgentPerformanceProfile({
       true,
     ),
   ];
-  const currentUnits = sum(currentInvoiceLines, (line) => line.quantity);
-  const previousUnits = sum(previousInvoiceLines, (line) => line.quantity);
+  const currentUnits = sum(currentAgentInvoiceLines, (line) => line.quantity);
+  const previousUnits = sum(previousAgentInvoiceLines, (line) => line.quantity);
   const currentActiveProducts = productRows.filter((row) => row.current !== 0).length;
   const previousActiveProducts = productRows.filter((row) => row.previous !== 0).length;
   const productMetrics = [
@@ -1298,8 +1316,8 @@ function buildAgentPerformanceProfile({
     agentMetric(
       'invoice_count',
       'Facturas publicadas',
-      currentInvoices.length,
-      previousInvoices.length,
+      currentAgentInvoices.length,
+      previousAgentInvoices.length,
       'number',
       false,
     ),
@@ -2017,17 +2035,156 @@ function filterDataset(dataset: OdooCommercialDataset, filters: ReportFilters) {
     filters.stateScope === 'quotation' || filters.stateScope === 'cancelled' ? [] : invoices;
   const visibleInvoiceIds = new Set(scopedInvoices.map((invoice) => invoice.id));
   invoiceLines = invoiceLines.filter((line) => visibleInvoiceIds.has(line.invoiceId));
+  const customerScopedData = normalizeGeneralPublicCustomersForOwnScope({
+    customerFirstPurchases: dataset.customerFirstPurchases,
+    filters,
+    invoiceLines,
+    invoices: scopedInvoices,
+  });
   const visibleCustomerKeys = new Set(
-    scopedInvoices.map((invoice) => buildCustomerKey(invoice.customerId, invoice.customerName)),
+    customerScopedData.invoices.map((invoice) => buildCustomerKey(invoice.customerId, invoice.customerName)),
   );
   const customerFirstPurchases =
     filters.stateScope === 'quotation' || filters.stateScope === 'cancelled'
       ? []
-      : dataset.customerFirstPurchases.filter((record) =>
+      : customerScopedData.customerFirstPurchases.filter((record) =>
           visibleCustomerKeys.has(buildCustomerKey(record.customerId, record.customerName)),
         );
 
-  return { orders, orderLines, invoices: scopedInvoices, invoiceLines, customerFirstPurchases };
+  return {
+    orders,
+    orderLines,
+    invoices: customerScopedData.invoices,
+    invoiceLines: customerScopedData.invoiceLines,
+    customerFirstPurchases,
+  };
+}
+
+function normalizeGeneralPublicCustomersForOwnScope({
+  customerFirstPurchases,
+  filters,
+  invoiceLines,
+  invoices,
+}: {
+  customerFirstPurchases: OdooCustomerFirstPurchaseRecord[];
+  filters: ReportFilters;
+  invoiceLines: OdooInvoiceLineRecord[];
+  invoices: OdooInvoiceRecord[];
+}) {
+  if (filters.visibilityScope !== 'own') {
+    return { customerFirstPurchases, invoiceLines, invoices };
+  }
+
+  const invoiceCustomerOverrides = new Map<number, { customerId: number | null; customerName: string }>();
+  const normalizedInvoices = invoices.map((invoice) => {
+    const effectiveCustomer = resolveGeneralPublicDeliveryCustomer(
+      invoice.customerId,
+      invoice.customerName,
+      invoice.deliveryCustomerId ?? null,
+      invoice.deliveryCustomerName ?? null,
+    );
+    if (!effectiveCustomer) return invoice;
+    invoiceCustomerOverrides.set(invoice.id, effectiveCustomer);
+    return {
+      ...invoice,
+      customerId: effectiveCustomer.customerId,
+      customerName: effectiveCustomer.customerName,
+    };
+  });
+
+  const normalizedInvoiceLines = invoiceLines.map((line) => {
+    const effectiveCustomer =
+      resolveGeneralPublicDeliveryCustomer(
+        line.customerId,
+        line.customerName,
+        line.deliveryCustomerId ?? null,
+        line.deliveryCustomerName ?? null,
+      ) ?? invoiceCustomerOverrides.get(line.invoiceId);
+    if (!effectiveCustomer) return line;
+    return {
+      ...line,
+      customerId: effectiveCustomer.customerId,
+      customerName: effectiveCustomer.customerName,
+    };
+  });
+
+  return {
+    customerFirstPurchases,
+    invoiceLines: normalizedInvoiceLines,
+    invoices: normalizedInvoices,
+  };
+}
+
+function normalizeGeneralPublicInvoiceCollections(
+  invoices: OdooInvoiceRecord[],
+  invoiceLines: OdooInvoiceLineRecord[],
+) {
+  const invoiceCustomerOverrides = new Map<number, { customerId: number | null; customerName: string }>();
+  const normalizedInvoices = invoices.map((invoice) => {
+    const effectiveCustomer = resolveGeneralPublicDeliveryCustomer(
+      invoice.customerId,
+      invoice.customerName,
+      invoice.deliveryCustomerId,
+      invoice.deliveryCustomerName,
+    );
+    if (!effectiveCustomer) return invoice;
+    invoiceCustomerOverrides.set(invoice.id, effectiveCustomer);
+    return {
+      ...invoice,
+      customerId: effectiveCustomer.customerId,
+      customerName: effectiveCustomer.customerName,
+    };
+  });
+
+  const normalizedInvoiceLines = invoiceLines.map((line) => {
+    const effectiveCustomer =
+      resolveGeneralPublicDeliveryCustomer(
+        line.customerId,
+        line.customerName,
+        line.deliveryCustomerId,
+        line.deliveryCustomerName,
+      ) ?? invoiceCustomerOverrides.get(line.invoiceId);
+    if (!effectiveCustomer) return line;
+    return {
+      ...line,
+      customerId: effectiveCustomer.customerId,
+      customerName: effectiveCustomer.customerName,
+    };
+  });
+
+  return {
+    invoiceLines: normalizedInvoiceLines,
+    invoices: normalizedInvoices,
+  };
+}
+
+function resolveGeneralPublicDeliveryCustomer(
+  customerId: number | null,
+  customerName: string | null | undefined,
+  deliveryCustomerId: number | null,
+  deliveryCustomerName: string | null | undefined,
+) {
+  if (!isGeneralPublicCustomerName(customerName)) return null;
+  const normalizedDeliveryName = deliveryCustomerName?.trim();
+  if (!normalizedDeliveryName || isGeneralPublicCustomerName(normalizedDeliveryName)) return null;
+  return {
+    customerId: deliveryCustomerId ?? customerId,
+    customerName: normalizedDeliveryName,
+  };
+}
+
+function isGeneralPublicCustomerName(value: string | null | undefined) {
+  const normalized = normalizeGeneralPublicText(value);
+  return normalized === 'publico en general' || normalized === 'publico general';
+}
+
+function normalizeGeneralPublicText(value: string | null | undefined) {
+  return (value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, ' ')
+    .trim()
+    .toLowerCase();
 }
 
 function resolveCompanyFilterIds(filters: ReportFilters) {
@@ -2573,7 +2730,7 @@ function buildClientLifecycleRows({
     if (!invoiceDate) return;
     const bucket = customerBuckets.get(key) ?? {
       customerId: invoice.customerId,
-      customerName: invoice.customerName || 'Cliente sin nombre',
+      customerName: normalizeCustomerContactName(invoice.customerName),
       sellerName: invoice.sellerName || 'Sin vendedor',
       dates: [],
       invoices: [],
@@ -3696,7 +3853,7 @@ function getQuoteDimension(
   if (dimension === 'customerName') {
     return {
       key: buildCustomerKey(quote.customerId, quote.customerName),
-      label: quote.customerName || 'Sin cliente',
+      label: normalizeCustomerContactName(quote.customerName),
       sortOrder: 0,
     };
   }
@@ -3847,7 +4004,17 @@ function buildEntityKey(id: number | null, label: string | null | undefined, fal
 }
 
 function buildCustomerKey(customerId: number | null, customerName: string | null | undefined) {
-  return buildEntityKey(customerId, customerName, 'Sin cliente');
+  const normalizedName = normalizeDimensionText(normalizeCustomerContactName(customerName));
+  return normalizedName ? `customer:${normalizedName}` : buildEntityKey(customerId, customerName, 'Sin cliente');
+}
+
+function normalizeCustomerContactName(customerName: string | null | undefined) {
+  const value = customerName?.trim() ?? '';
+  if (!value) return 'Cliente sin nombre';
+
+  // Odoo delivery contacts may append an operator after a comma. The base name
+  // identifies the customer and must remain consistent across invoice records.
+  return value.split(',')[0]?.trim() || value;
 }
 
 function buildSellerKey(sellerId: number | null, sellerName: string | null | undefined) {

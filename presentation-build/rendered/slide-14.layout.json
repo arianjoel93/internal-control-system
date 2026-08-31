@@ -1,0 +1,934 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/4fqti7",
+    "id": "4fqti7",
+    "slide": 14,
+    "layoutId": "3f176916-bd07-47bf-88f1-a7edc37624ad",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "5e3e6502-836e-497c-b0d2-d680a62652af",
+    "masterLayoutName": "Master",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "+mn-lt"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "3f176916-bd07-47bf-88f1-a7edc37624ad",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "5e3e6502-836e-497c-b0d2-d680a62652af",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "5e3e6502-836e-497c-b0d2-d680a62652af",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/v21wvu9g",
+      "id": "1",
+      "bbox": [
+        72,
+        38,
+        520,
+        26
+      ],
+      "geometry": "rect",
+      "text": "CORPORACIÓN TECTRONIC",
+      "textPreview": "CORPORACIÓN TECTRONIC",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5B6068",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "CORPORACIÓN TECTRONIC"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "CORPORACIÓN TECTRONIC",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5B6068",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "CORPORACIÓN TECTRONIC",
+              "fontSize": 13,
+              "color": "#5B6068",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/g3ax4fq1",
+      "id": "2",
+      "bbox": [
+        72,
+        72,
+        910,
+        58
+      ],
+      "geometry": "rect",
+      "text": "El valor está en la cadena completa: captura, operación, decisión y seguimiento",
+      "textPreview": "El valor está en la cadena completa: captura, operación, decisión y seguimiento",
+      "resolvedFontSize": 36,
+      "resolvedTextStyle": {
+        "fontSize": 36,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "El valor está en la cadena completa: captura, operación,"
+          },
+          {
+            "index": 2,
+            "text": "decisión y seguimiento"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "El valor está en la cadena completa: captura, operación, decisión y seguimiento",
+          "resolvedTextStyle": {
+            "fontSize": 36,
+            "color": "#101114",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "El valor está en la cadena completa: captura, operación, decisión y seguimiento",
+              "fontSize": 36,
+              "color": "#101114",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/onu5w3y5",
+      "id": "3",
+      "bbox": [
+        1124,
+        32,
+        88,
+        56
+      ],
+      "alt": "Logo Corporación Tectronic",
+      "contentType": "image/png",
+      "imageFit": "contain",
+      "asset": {
+        "assetId": "29d4e2e5-8db3-4005-b167-e4db032555d7",
+        "contentType": "image/png",
+        "byteLength": 29707
+      }
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/6x8vy58z",
+      "id": "4",
+      "bbox": [
+        72,
+        140,
+        1136,
+        0
+      ],
+      "geometry": "line",
+      "lineColor": "#C8CDD5",
+      "lineWidth": 1
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/7y1wra9k",
+      "id": "5",
+      "bbox": [
+        92,
+        256,
+        220,
+        146
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#2F80ED",
+      "lineWidth": 1
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/8zad0fq5",
+      "id": "6",
+      "bbox": [
+        112,
+        286,
+        180,
+        34
+      ],
+      "geometry": "rect",
+      "text": "Captura",
+      "textPreview": "Captura",
+      "resolvedFontSize": 24,
+      "resolvedTextStyle": {
+        "fontSize": 24,
+        "typeface": "+mn-lt",
+        "color": "#2F80ED",
+        "bold": true,
+        "alignment": "center",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Captura"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Captura",
+          "resolvedTextStyle": {
+            "fontSize": 24,
+            "color": "#2F80ED",
+            "bold": true,
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Captura",
+              "fontSize": 24,
+              "color": "#2F80ED",
+              "bold": true,
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/t0jetkra",
+      "id": "7",
+      "bbox": [
+        114,
+        334,
+        176,
+        42
+      ],
+      "geometry": "rect",
+      "text": "Soportes, formularios, pólizas, inventario",
+      "textPreview": "Soportes, formularios, pólizas, inventario",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#5B6068",
+        "alignment": "center",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Soportes, formularios,"
+          },
+          {
+            "index": 2,
+            "text": "pólizas, inventario"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Soportes, formularios, pólizas, inventario",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#5B6068",
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Soportes, formularios, pólizas, inventario",
+              "fontSize": 16,
+              "color": "#5B6068",
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/y98vu58n",
+      "id": "8",
+      "bbox": [
+        378,
+        256,
+        220,
+        146
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#2F7D73",
+      "lineWidth": 1
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/jahwnq98",
+      "id": "9",
+      "bbox": [
+        398,
+        286,
+        180,
+        34
+      ],
+      "geometry": "rect",
+      "text": "Estandarización",
+      "textPreview": "Estandarización",
+      "resolvedFontSize": 24,
+      "resolvedTextStyle": {
+        "fontSize": 24,
+        "typeface": "+mn-lt",
+        "color": "#2F7D73",
+        "bold": true,
+        "alignment": "center",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Estandarización"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Estandarización",
+          "resolvedTextStyle": {
+            "fontSize": 24,
+            "color": "#2F7D73",
+            "bold": true,
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Estandarización",
+              "fontSize": 24,
+              "color": "#2F7D73",
+              "bold": true,
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/z6lofy9k",
+      "id": "10",
+      "bbox": [
+        400,
+        334,
+        176,
+        42
+      ],
+      "geometry": "rect",
+      "text": "catálogos, permisos, folios, movimientos",
+      "textPreview": "catálogos, permisos, folios, movimientos",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#5B6068",
+        "alignment": "center",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "catálogos, permisos,"
+          },
+          {
+            "index": 2,
+            "text": "folios, movimientos"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "catálogos, permisos, folios, movimientos",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#5B6068",
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "catálogos, permisos, folios, movimientos",
+              "fontSize": 16,
+              "color": "#5B6068",
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/y5cn6d8z",
+      "id": "11",
+      "bbox": [
+        664,
+        256,
+        220,
+        146
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#B66A4D",
+      "lineWidth": 1
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/l8n6h8rq",
+      "id": "12",
+      "bbox": [
+        684,
+        286,
+        180,
+        34
+      ],
+      "geometry": "rect",
+      "text": "Automatización",
+      "textPreview": "Automatización",
+      "resolvedFontSize": 24,
+      "resolvedTextStyle": {
+        "fontSize": 24,
+        "typeface": "+mn-lt",
+        "color": "#B66A4D",
+        "bold": true,
+        "alignment": "center",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Automatización"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Automatización",
+          "resolvedTextStyle": {
+            "fontSize": 24,
+            "color": "#B66A4D",
+            "bold": true,
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Automatización",
+              "fontSize": 24,
+              "color": "#B66A4D",
+              "bold": true,
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/k7e583q5",
+      "id": "13",
+      "bbox": [
+        686,
+        334,
+        176,
+        42
+      ],
+      "geometry": "rect",
+      "text": "Odoo, FedEx, tipo de cambio, alertas",
+      "textPreview": "Odoo, FedEx, tipo de cambio, alertas",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#5B6068",
+        "alignment": "center",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Odoo, FedEx, tipo de"
+          },
+          {
+            "index": 2,
+            "text": "cambio, alertas"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Odoo, FedEx, tipo de cambio, alertas",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#5B6068",
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Odoo, FedEx, tipo de cambio, alertas",
+              "fontSize": 16,
+              "color": "#5B6068",
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/7a5oji9w",
+      "id": "14",
+      "bbox": [
+        950,
+        256,
+        220,
+        146
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#1E252B",
+      "lineWidth": 1
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/m9wnad8b",
+      "id": "15",
+      "bbox": [
+        970,
+        286,
+        180,
+        34
+      ],
+      "geometry": "rect",
+      "text": "Decisión",
+      "textPreview": "Decisión",
+      "resolvedFontSize": 24,
+      "resolvedTextStyle": {
+        "fontSize": 24,
+        "typeface": "+mn-lt",
+        "color": "#1E252B",
+        "bold": true,
+        "alignment": "center",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Decisión"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Decisión",
+          "resolvedTextStyle": {
+            "fontSize": 24,
+            "color": "#1E252B",
+            "bold": true,
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Decisión",
+              "fontSize": 24,
+              "color": "#1E252B",
+              "bold": true,
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/9wn6lsr2",
+      "id": "16",
+      "bbox": [
+        972,
+        334,
+        176,
+        42
+      ],
+      "geometry": "rect",
+      "text": "reportes, marketing, compras, pronóstico",
+      "textPreview": "reportes, marketing, compras, pronóstico",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#5B6068",
+        "alignment": "center",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "reportes, marketing,"
+          },
+          {
+            "index": 2,
+            "text": "compras, pronóstico"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "reportes, marketing, compras, pronóstico",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#5B6068",
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "reportes, marketing, compras, pronóstico",
+              "fontSize": 16,
+              "color": "#5B6068",
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/8be5cnqh",
+      "id": "17",
+      "bbox": [
+        110,
+        494,
+        1060,
+        72
+      ],
+      "geometry": "rect",
+      "text": "Cada módulo resuelve una necesidad puntual, pero el sistema completo crea una memoria operativa que antes suele quedar repartida entre chats, correos, hojas de cálculo y consultas manuales.",
+      "textPreview": "Cada módulo resuelve una necesidad puntual, pero el sistema completo crea una memoria operativa que antes suele quedar repartida entre ch...",
+      "resolvedFontSize": 24,
+      "resolvedTextStyle": {
+        "fontSize": 24,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "bold": true,
+        "alignment": "center",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Cada módulo resuelve una necesidad puntual, pero el sistema completo crea una memoria operativa"
+          },
+          {
+            "index": 2,
+            "text": "que antes suele quedar repartida entre chats, correos, hojas de cálculo y consultas manuales."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Cada módulo resuelve una necesidad puntual, pero el sistema completo crea una memoria operativa que antes suele quedar repartida entre chats, correos, hojas de cálculo y consultas manuales.",
+          "resolvedTextStyle": {
+            "fontSize": 24,
+            "color": "#101114",
+            "bold": true,
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Cada módulo resuelve una necesidad puntual, pero el sistema completo crea una memoria operativa que antes suele quedar repartida entre chats, correos, hojas de cálculo y consultas manuales.",
+              "fontSize": 24,
+              "color": "#101114",
+              "bold": true,
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/3e147e9c",
+      "id": "18",
+      "bbox": [
+        1148,
+        668,
+        60,
+        24
+      ],
+      "geometry": "rect",
+      "text": "14",
+      "textPreview": "14",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5B6068",
+        "alignment": "right",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "14"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "14",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5B6068",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "14",
+              "fontSize": 13,
+              "color": "#5B6068",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

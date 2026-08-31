@@ -1,6 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-type AdminModuleKey = 'supports' | 'inventory' | 'policies' | 'reports' | 'purchases' | 'marketing' | 'quoting' | 'calculator';
+type AdminModuleKey = 'supports' | 'inventory' | 'policies' | 'reports' | 'purchases' | 'marketing' | 'forms' | 'quoting' | 'shipping_quotes' | 'calculator';
 type AdminUserRole = 'sales_agent' | 'manager' | 'marketing_agent' | 'support_agent' | 'purchase_agent' | 'owner';
 type VisibilityScope = 'all' | 'own';
 type ModulePermissionDraft = Record<AdminModuleKey, {
@@ -8,7 +8,7 @@ type ModulePermissionDraft = Record<AdminModuleKey, {
   visibility_scope: VisibilityScope;
 }>;
 
-const adminModules: AdminModuleKey[] = ['supports', 'inventory', 'policies', 'reports', 'purchases', 'marketing', 'quoting', 'calculator'];
+const adminModules: AdminModuleKey[] = ['supports', 'inventory', 'policies', 'reports', 'purchases', 'marketing', 'forms', 'quoting', 'shipping_quotes', 'calculator'];
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -81,11 +81,18 @@ Deno.serve(async (req) => {
     }
 
     const targetEmail = String(targetUser.email ?? '').trim().toLowerCase();
+    const requestedEmail = String(body.email ?? targetEmail).trim().toLowerCase();
+    if (!isValidEmail(requestedEmail)) {
+      return jsonResponse({ error: 'Indica un correo válido para el usuario.' }, 400);
+    }
     if (targetEmail === 'joeltrincadov@gmail.com') {
       role = 'owner';
       userType = 'owner';
       isActive = true;
       permissions = normalizePermissions(body.permissions, 'owner');
+    }
+    if (targetEmail === 'joeltrincadov@gmail.com' && requestedEmail !== targetEmail) {
+      return jsonResponse({ error: 'No se puede cambiar el correo del Propietario principal.' }, 409);
     }
 
     const { data: previousPermission, error: previousPermissionError } = await adminClient
@@ -132,13 +139,17 @@ Deno.serve(async (req) => {
     if (password) {
       authUpdates.password = password;
     }
+    if (requestedEmail !== targetEmail) {
+      authUpdates.email = requestedEmail;
+      authUpdates.email_confirm = true;
+    }
 
     const { error: updateError } = await adminClient.auth.admin.updateUserById(userId, authUpdates);
     if (updateError) {
       return jsonResponse({ error: updateError.message }, 400);
     }
 
-    const email = targetEmail;
+    const email = requestedEmail;
     const permissionId = await upsertPermissions(
       adminClient,
       userId,
@@ -202,6 +213,10 @@ function normalizeRole(value: unknown): AdminUserRole {
     : 'manager';
 }
 
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 function normalizePermissions(value: unknown, role: AdminUserRole): ModulePermissionDraft {
   const source = typeof value === 'object' && value !== null ? value as Record<string, unknown> : {};
 
@@ -213,7 +228,9 @@ function normalizePermissions(value: unknown, role: AdminUserRole): ModulePermis
     return {
       ...draft,
       [moduleKey]: {
-        can_access: role === 'owner' || (role === 'marketing_agent' && moduleKey === 'marketing')
+        can_access: role === 'owner' ||
+          (role === 'marketing_agent' && moduleKey === 'marketing') ||
+          (role === 'support_agent' && moduleKey === 'supports')
           ? true
           : Boolean(item.can_access),
         visibility_scope: role === 'owner'
@@ -263,7 +280,9 @@ async function upsertPermissions(
     can_access_reports: permissions.reports.can_access,
     can_access_purchases: permissions.purchases.can_access,
     can_access_marketing: permissions.marketing.can_access,
+    can_access_forms: permissions.forms.can_access,
     can_access_quoting: permissions.quoting.can_access,
+    can_access_shipping_quotes: permissions.shipping_quotes.can_access,
     can_access_calculator: permissions.calculator.can_access,
   };
 

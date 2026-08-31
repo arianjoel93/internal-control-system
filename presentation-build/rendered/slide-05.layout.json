@@ -1,0 +1,1123 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/pdckt9",
+    "id": "pdckt9",
+    "slide": 5,
+    "layoutId": "3f176916-bd07-47bf-88f1-a7edc37624ad",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "5e3e6502-836e-497c-b0d2-d680a62652af",
+    "masterLayoutName": "Master",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "+mn-lt"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "3f176916-bd07-47bf-88f1-a7edc37624ad",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "5e3e6502-836e-497c-b0d2-d680a62652af",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "5e3e6502-836e-497c-b0d2-d680a62652af",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/9ob69o7m",
+      "id": "1",
+      "bbox": [
+        72,
+        38,
+        520,
+        26
+      ],
+      "geometry": "rect",
+      "text": "MÓDULO OPERATIVO",
+      "textPreview": "MÓDULO OPERATIVO",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5B6068",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "MÓDULO OPERATIVO"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "MÓDULO OPERATIVO",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5B6068",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "MÓDULO OPERATIVO",
+              "fontSize": 13,
+              "color": "#5B6068",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/mlkny98b",
+      "id": "2",
+      "bbox": [
+        72,
+        72,
+        910,
+        58
+      ],
+      "geometry": "rect",
+      "text": "Soportes transforma tickets en trazabilidad visible para cliente y equipo",
+      "textPreview": "Soportes transforma tickets en trazabilidad visible para cliente y equipo",
+      "resolvedFontSize": 36,
+      "resolvedTextStyle": {
+        "fontSize": 36,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Soportes transforma tickets en trazabilidad visible para"
+          },
+          {
+            "index": 2,
+            "text": "cliente y equipo"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Soportes transforma tickets en trazabilidad visible para cliente y equipo",
+          "resolvedTextStyle": {
+            "fontSize": 36,
+            "color": "#101114",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Soportes transforma tickets en trazabilidad visible para cliente y equipo",
+              "fontSize": 36,
+              "color": "#101114",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/29orylk7",
+      "id": "3",
+      "bbox": [
+        1124,
+        32,
+        88,
+        56
+      ],
+      "alt": "Logo Corporación Tectronic",
+      "contentType": "image/png",
+      "imageFit": "contain",
+      "asset": {
+        "assetId": "400c8385-9c3d-4ae9-80b6-22cadcf29345",
+        "contentType": "image/png",
+        "byteLength": 29707
+      }
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0j25wzq5",
+      "id": "4",
+      "bbox": [
+        72,
+        140,
+        1136,
+        0
+      ],
+      "geometry": "line",
+      "lineColor": "#C8CDD5",
+      "lineWidth": 1
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/lkb6547q",
+      "id": "5",
+      "bbox": [
+        72,
+        172,
+        360,
+        388
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#C8CDD5",
+      "lineWidth": 1
+    },
+    {
+      "order": 6,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/f6x836lw",
+      "id": "6",
+      "bbox": [
+        112,
+        202,
+        280,
+        210
+      ],
+      "alt": "Soportes transforma tickets en trazabilidad visible para cliente y equipo",
+      "contentType": "image/png",
+      "imageFit": "contain",
+      "asset": {
+        "assetId": "3386c323-5e9d-4386-8b14-9ab6fbf99b67",
+        "contentType": "image/png",
+        "byteLength": 65228
+      }
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/zito3upk",
+      "id": "7",
+      "bbox": [
+        112,
+        424,
+        280,
+        78
+      ],
+      "geometry": "rect",
+      "text": "Menos llamadas de estatus y más trazabilidad.",
+      "textPreview": "Menos llamadas de estatus y más trazabilidad.",
+      "resolvedFontSize": 22,
+      "resolvedTextStyle": {
+        "fontSize": 22,
+        "typeface": "+mn-lt",
+        "color": "#2F80ED",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Menos llamadas de estatus"
+          },
+          {
+            "index": 2,
+            "text": "y más trazabilidad."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Menos llamadas de estatus y más trazabilidad.",
+          "resolvedTextStyle": {
+            "fontSize": 22,
+            "color": "#2F80ED",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Menos llamadas de estatus y más trazabilidad.",
+              "fontSize": 22,
+              "color": "#2F80ED",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/4fmp83q9",
+      "id": "8",
+      "bbox": [
+        112,
+        504,
+        280,
+        28
+      ],
+      "geometry": "rect",
+      "text": "Impacto esperado",
+      "textPreview": "Impacto esperado",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "+mn-lt",
+        "color": "#5B6068",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Impacto esperado"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Impacto esperado",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "color": "#5B6068",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Impacto esperado",
+              "fontSize": 15,
+              "color": "#5B6068",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/5gv6h87u",
+      "id": "9",
+      "bbox": [
+        472,
+        176,
+        660,
+        34
+      ],
+      "geometry": "rect",
+      "text": "Centraliza",
+      "textPreview": "Centraliza",
+      "resolvedFontSize": 24,
+      "resolvedTextStyle": {
+        "fontSize": 24,
+        "typeface": "+mn-lt",
+        "color": "#2F80ED",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Centraliza"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Centraliza",
+          "resolvedTextStyle": {
+            "fontSize": 24,
+            "color": "#2F80ED",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Centraliza",
+              "fontSize": 24,
+              "color": "#2F80ED",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/5s7u98ze",
+      "id": "10",
+      "bbox": [
+        472,
+        230,
+        9,
+        9
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#2F80ED",
+      "lineColor": "#2F80ED",
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/4rydg3it",
+      "id": "11",
+      "bbox": [
+        494,
+        222,
+        638,
+        44
+      ],
+      "geometry": "rect",
+      "text": "Registro de soportes técnicos y programaciones con folio, cliente, serie, modelo, agente y evidencia.",
+      "textPreview": "Registro de soportes técnicos y programaciones con folio, cliente, serie, modelo, agente y evidencia.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Registro de soportes técnicos y programaciones con folio, cliente, serie, modelo,"
+          },
+          {
+            "index": 2,
+            "text": "agente y evidencia."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Registro de soportes técnicos y programaciones con folio, cliente, serie, modelo, agente y evidencia.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101114",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Registro de soportes técnicos y programaciones con folio, cliente, serie, modelo, agente y evidencia.",
+              "fontSize": 18,
+              "color": "#101114",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/jqpc7yh8",
+      "id": "12",
+      "bbox": [
+        472,
+        266,
+        9,
+        9
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#2F80ED",
+      "lineColor": "#2F80ED",
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ipgvet0n",
+      "id": "13",
+      "bbox": [
+        494,
+        258,
+        638,
+        44
+      ],
+      "geometry": "rect",
+      "text": "Historial de eventos con estado actual, diagnóstico, reparación, cierre, notas y paquetería.",
+      "textPreview": "Historial de eventos con estado actual, diagnóstico, reparación, cierre, notas y paquetería.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Historial de eventos con estado actual, diagnóstico, reparación, cierre, notas y"
+          },
+          {
+            "index": 2,
+            "text": "paquetería."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Historial de eventos con estado actual, diagnóstico, reparación, cierre, notas y paquetería.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101114",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Historial de eventos con estado actual, diagnóstico, reparación, cierre, notas y paquetería.",
+              "fontSize": 18,
+              "color": "#101114",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ho7u5oz2",
+      "id": "14",
+      "bbox": [
+        472,
+        302,
+        9,
+        9
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#2F80ED",
+      "lineColor": "#2F80ED",
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/wnytc3ih",
+      "id": "15",
+      "bbox": [
+        494,
+        294,
+        638,
+        44
+      ],
+      "geometry": "rect",
+      "text": "Consulta pública por folio o número de serie sin pedir intervención interna.",
+      "textPreview": "Consulta pública por folio o número de serie sin pedir intervención interna.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Consulta pública por folio o número de serie sin pedir intervención interna."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Consulta pública por folio o número de serie sin pedir intervención interna.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101114",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Consulta pública por folio o número de serie sin pedir intervención interna.",
+              "fontSize": 18,
+              "color": "#101114",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/v2pc3yhc",
+      "id": "16",
+      "bbox": [
+        472,
+        338,
+        9,
+        9
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#2F80ED",
+      "lineColor": "#2F80ED",
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/u1wbat0r",
+      "id": "17",
+      "bbox": [
+        494,
+        330,
+        638,
+        44
+      ],
+      "geometry": "rect",
+      "text": "Adjuntos: imágenes y PDF de cotización de reparación.",
+      "textPreview": "Adjuntos: imágenes y PDF de cotización de reparación.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Adjuntos: imágenes y PDF de cotización de reparación."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Adjuntos: imágenes y PDF de cotización de reparación.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101114",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Adjuntos: imágenes y PDF de cotización de reparación.",
+              "fontSize": 18,
+              "color": "#101114",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/1kruhszm",
+      "id": "18",
+      "bbox": [
+        472,
+        458,
+        308,
+        122
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#F7F8FA",
+      "lineColor": "#C8CDD5",
+      "lineWidth": 1
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/gjidoni1",
+      "id": "19",
+      "bbox": [
+        496,
+        480,
+        260,
+        28
+      ],
+      "geometry": "rect",
+      "text": "Optimiza",
+      "textPreview": "Optimiza",
+      "resolvedFontSize": 22,
+      "resolvedTextStyle": {
+        "fontSize": 22,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Optimiza"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Optimiza",
+          "resolvedTextStyle": {
+            "fontSize": 22,
+            "color": "#101114",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Optimiza",
+              "fontSize": 22,
+              "color": "#101114",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 20,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0fa50va9",
+      "id": "20",
+      "bbox": [
+        496,
+        516,
+        250,
+        44
+      ],
+      "geometry": "rect",
+      "text": "Búsqueda, seguimiento y consulta pública del caso.",
+      "textPreview": "Búsqueda, seguimiento y consulta pública del caso.",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "+mn-lt",
+        "color": "#5B6068",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Búsqueda, seguimiento y"
+          },
+          {
+            "index": 2,
+            "text": "consulta pública del caso."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Búsqueda, seguimiento y consulta pública del caso.",
+          "resolvedTextStyle": {
+            "fontSize": 17,
+            "color": "#5B6068",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Búsqueda, seguimiento y consulta pública del caso.",
+              "fontSize": 17,
+              "color": "#5B6068",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 21,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/lgj690bu",
+      "id": "21",
+      "bbox": [
+        824,
+        458,
+        308,
+        122
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#F7F8FA",
+      "lineColor": "#C8CDD5",
+      "lineWidth": 1
+    },
+    {
+      "order": 22,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ydsnylsj",
+      "id": "22",
+      "bbox": [
+        848,
+        480,
+        260,
+        28
+      ],
+      "geometry": "rect",
+      "text": "Automatiza",
+      "textPreview": "Automatiza",
+      "resolvedFontSize": 22,
+      "resolvedTextStyle": {
+        "fontSize": 22,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Automatiza"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Automatiza",
+          "resolvedTextStyle": {
+            "fontSize": 22,
+            "color": "#101114",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Automatiza",
+              "fontSize": 22,
+              "color": "#101114",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 23,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ze1o7qto",
+      "id": "23",
+      "bbox": [
+        848,
+        516,
+        250,
+        44
+      ],
+      "geometry": "rect",
+      "text": "Historial por movimiento, folios públicos y estados por catálogo.",
+      "textPreview": "Historial por movimiento, folios públicos y estados por catálogo.",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "+mn-lt",
+        "color": "#5B6068",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Historial por movimiento, folios"
+          },
+          {
+            "index": 2,
+            "text": "públicos y estados por catálogo."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Historial por movimiento, folios públicos y estados por catálogo.",
+          "resolvedTextStyle": {
+            "fontSize": 17,
+            "color": "#5B6068",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Historial por movimiento, folios públicos y estados por catálogo.",
+              "fontSize": 17,
+              "color": "#5B6068",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 24,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/cba5wbad",
+      "id": "24",
+      "bbox": [
+        1148,
+        668,
+        60,
+        24
+      ],
+      "geometry": "rect",
+      "text": "05",
+      "textPreview": "05",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5B6068",
+        "alignment": "right",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "05"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "05",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5B6068",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "05",
+              "fontSize": 13,
+              "color": "#5B6068",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

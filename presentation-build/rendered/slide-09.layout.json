@@ -1,0 +1,688 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/kr5wxi",
+    "id": "kr5wxi",
+    "slide": 9,
+    "layoutId": "3f176916-bd07-47bf-88f1-a7edc37624ad",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "5e3e6502-836e-497c-b0d2-d680a62652af",
+    "masterLayoutName": "Master",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "+mn-lt"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "3f176916-bd07-47bf-88f1-a7edc37624ad",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "5e3e6502-836e-497c-b0d2-d680a62652af",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "5e3e6502-836e-497c-b0d2-d680a62652af",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0bm9kna1",
+      "id": "1",
+      "bbox": [
+        72,
+        38,
+        520,
+        26
+      ],
+      "geometry": "rect",
+      "text": "CORPORACIÓN TECTRONIC",
+      "textPreview": "CORPORACIÓN TECTRONIC",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5B6068",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "CORPORACIÓN TECTRONIC"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "CORPORACIÓN TECTRONIC",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5B6068",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "CORPORACIÓN TECTRONIC",
+              "fontSize": 13,
+              "color": "#5B6068",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/zadsbitg",
+      "id": "2",
+      "bbox": [
+        72,
+        72,
+        910,
+        58
+      ],
+      "geometry": "rect",
+      "text": "Marketing traduce ventas y CRM en campañas accionables",
+      "textPreview": "Marketing traduce ventas y CRM en campañas accionables",
+      "resolvedFontSize": 36,
+      "resolvedTextStyle": {
+        "fontSize": 36,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Marketing traduce ventas y CRM en campañas accionables"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Marketing traduce ventas y CRM en campañas accionables",
+          "resolvedTextStyle": {
+            "fontSize": 36,
+            "color": "#101114",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Marketing traduce ventas y CRM en campañas accionables",
+              "fontSize": 36,
+              "color": "#101114",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/v21wja14",
+      "id": "3",
+      "bbox": [
+        1124,
+        32,
+        88,
+        56
+      ],
+      "alt": "Logo Corporación Tectronic",
+      "contentType": "image/png",
+      "imageFit": "contain",
+      "asset": {
+        "assetId": "e250e3d7-9810-4bf0-b894-4d12726cc1ac",
+        "contentType": "image/png",
+        "byteLength": 29707
+      }
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/9gfahcry",
+      "id": "4",
+      "bbox": [
+        72,
+        140,
+        1136,
+        0
+      ],
+      "geometry": "line",
+      "lineColor": "#C8CDD5",
+      "lineWidth": 1
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/of69o7ad",
+      "id": "5",
+      "bbox": [
+        72,
+        178,
+        1030,
+        40
+      ],
+      "geometry": "rect",
+      "text": "El módulo responde a quién contactar, por qué motivo, con qué producto y con qué urgencia.",
+      "textPreview": "El módulo responde a quién contactar, por qué motivo, con qué producto y con qué urgencia.",
+      "resolvedFontSize": 23,
+      "resolvedTextStyle": {
+        "fontSize": 23,
+        "typeface": "+mn-lt",
+        "color": "#2F7D73",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "El módulo responde a quién contactar, por qué motivo, con qué producto y con qué urgencia."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "El módulo responde a quién contactar, por qué motivo, con qué producto y con qué urgencia.",
+          "resolvedTextStyle": {
+            "fontSize": 23,
+            "color": "#2F7D73",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "El módulo responde a quién contactar, por qué motivo, con qué producto y con qué urgencia.",
+              "fontSize": 23,
+              "color": "#2F7D73",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "chart",
+      "scope": "slide",
+      "aid": "ch/3qhgjmdo",
+      "id": "6",
+      "bbox": [
+        80,
+        264,
+        430,
+        300
+      ],
+      "chartType": "doughnut"
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/mdormxs7",
+      "id": "7",
+      "bbox": [
+        596,
+        276,
+        9,
+        9
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#2F7D73",
+      "lineColor": "#2F7D73",
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/x4zalcru",
+      "id": "8",
+      "bbox": [
+        618,
+        268,
+        498,
+        50
+      ],
+      "geometry": "rect",
+      "text": "Segmentación RFM y clientes prioritarios para recuperación o venta cruzada.",
+      "textPreview": "Segmentación RFM y clientes prioritarios para recuperación o venta cruzada.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Segmentación RFM y clientes prioritarios para recuperación o"
+          },
+          {
+            "index": 2,
+            "text": "venta cruzada."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Segmentación RFM y clientes prioritarios para recuperación o venta cruzada.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101114",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Segmentación RFM y clientes prioritarios para recuperación o venta cruzada.",
+              "fontSize": 18,
+              "color": "#101114",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/w3qts7a9",
+      "id": "9",
+      "bbox": [
+        596,
+        318,
+        9,
+        9
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#2F7D73",
+      "lineColor": "#2F7D73",
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/6twru9o7",
+      "id": "10",
+      "bbox": [
+        618,
+        310,
+        498,
+        50
+      ],
+      "geometry": "rect",
+      "text": "Campañas sugeridas por comportamiento, categoría y etapa comercial.",
+      "textPreview": "Campañas sugeridas por comportamiento, categoría y etapa comercial.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Campañas sugeridas por comportamiento, categoría y etapa"
+          },
+          {
+            "index": 2,
+            "text": "comercial."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Campañas sugeridas por comportamiento, categoría y etapa comercial.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101114",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Campañas sugeridas por comportamiento, categoría y etapa comercial.",
+              "fontSize": 18,
+              "color": "#101114",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/7u5s3e5s",
+      "id": "11",
+      "bbox": [
+        596,
+        360,
+        9,
+        9
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#2F7D73",
+      "lineColor": "#2F7D73",
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/sve9wj6d",
+      "id": "12",
+      "bbox": [
+        618,
+        352,
+        498,
+        50
+      ],
+      "geometry": "rect",
+      "text": "Embudo CRM, pipeline ponderado y oportunidades sin seguimiento.",
+      "textPreview": "Embudo CRM, pipeline ponderado y oportunidades sin seguimiento.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Embudo CRM, pipeline ponderado y oportunidades sin"
+          },
+          {
+            "index": 2,
+            "text": "seguimiento."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Embudo CRM, pipeline ponderado y oportunidades sin seguimiento.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101114",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Embudo CRM, pipeline ponderado y oportunidades sin seguimiento.",
+              "fontSize": 18,
+              "color": "#101114",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/tw7a5oni",
+      "id": "13",
+      "bbox": [
+        596,
+        402,
+        9,
+        9
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#2F7D73",
+      "lineColor": "#2F7D73",
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/uxgryto3",
+      "id": "14",
+      "bbox": [
+        618,
+        394,
+        498,
+        50
+      ],
+      "geometry": "rect",
+      "text": "Reporte mensual guardado y descargable para dar continuidad al trabajo de marketing.",
+      "textPreview": "Reporte mensual guardado y descargable para dar continuidad al trabajo de marketing.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Reporte mensual guardado y descargable para dar continuidad al"
+          },
+          {
+            "index": 2,
+            "text": "trabajo de marketing."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Reporte mensual guardado y descargable para dar continuidad al trabajo de marketing.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101114",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Reporte mensual guardado y descargable para dar continuidad al trabajo de marketing.",
+              "fontSize": 18,
+              "color": "#101114",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/fyps7e5o",
+      "id": "15",
+      "bbox": [
+        1148,
+        668,
+        60,
+        24
+      ],
+      "geometry": "rect",
+      "text": "09",
+      "textPreview": "09",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5B6068",
+        "alignment": "right",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "09"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "09",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5B6068",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "09",
+              "fontSize": 13,
+              "color": "#5B6068",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

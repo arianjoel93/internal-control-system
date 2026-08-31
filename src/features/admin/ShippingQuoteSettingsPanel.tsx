@@ -26,13 +26,11 @@ const shippingModes: Array<{ value: ShippingMode; label: string }> = [
 ];
 
 const defaultDraft: ShippingQuoteSettingsDraft = {
-  fedex_base_url: 'https://apis.fedex.com',
+  fedex_base_url: 'https://apis-sandbox.fedex.com',
   fedex_origin_postal_code: '',
   fedex_client_id: '',
   fedex_client_secret: '',
   fedex_account_number: '',
-  fedex_child_key: '',
-  fedex_child_secret: '',
   is_active: true,
 };
 
@@ -112,8 +110,6 @@ export function ShippingQuoteSettingsPanel({
       fedex_client_id: emptyToNull(draft.fedex_client_id),
       fedex_client_secret: emptyToNull(draft.fedex_client_secret),
       fedex_account_number: emptyToNull(draft.fedex_account_number),
-      fedex_child_key: emptyToNull(draft.fedex_child_key),
-      fedex_child_secret: emptyToNull(draft.fedex_child_secret),
       is_active: draft.is_active,
     });
   }
@@ -150,8 +146,6 @@ export function ShippingQuoteSettingsPanel({
             <TextField label="Client ID" value={draft.fedex_client_id ?? ''} onChange={(value) => updateDraft('fedex_client_id', value)} />
             <TextField label="Client Secret" value={draft.fedex_client_secret ?? ''} onChange={(value) => updateDraft('fedex_client_secret', value)} />
             <TextField label="Account Number" value={draft.fedex_account_number ?? ''} onChange={(value) => updateDraft('fedex_account_number', value)} />
-            <TextField label="Child Key" value={draft.fedex_child_key ?? ''} onChange={(value) => updateDraft('fedex_child_key', value)} />
-            <TextField label="Child Secret" value={draft.fedex_child_secret ?? ''} onChange={(value) => updateDraft('fedex_child_secret', value)} />
           </div>
 
           <label className="check-field">
@@ -431,8 +425,6 @@ function buildDraft(settings: ShippingQuoteSettings | null): ShippingQuoteSettin
     fedex_client_id: settings.fedex_client_id ?? '',
     fedex_client_secret: settings.fedex_client_secret ?? '',
     fedex_account_number: settings.fedex_account_number ?? '',
-    fedex_child_key: settings.fedex_child_key ?? '',
-    fedex_child_secret: settings.fedex_child_secret ?? '',
     is_active: settings.is_active,
   };
 }

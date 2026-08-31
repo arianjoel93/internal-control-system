@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -61,6 +61,7 @@ export function MarketingDashboard({ session, userRole, visibilityScope, onOpenH
   const [activeDecisionDetail, setActiveDecisionDetail] = useState<MarketingDecisionDetailKey>('risk');
   const [monthlyReportStatus, setMonthlyReportStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [monthlyReportError, setMonthlyReportError] = useState<string | null>(null);
+  const [fullDatasetEnabled, setFullDatasetEnabled] = useState(false);
   const filters = useMemo(() => buildMarketingFilters(visibilityScope), [visibilityScope]);
   const previousMonthFilters = useMemo(() => buildPreviousMonthMarketingFilters(filters), [filters]);
   const cachedDataset = useMemo(
@@ -121,6 +122,7 @@ export function MarketingDashboard({ session, userRole, visibilityScope, onOpenH
     queryKey: ['marketing-dashboard-dataset', session.user.id, visibilityScope, 'full', filters],
     queryFn: () => getCommercialDataset(filters, 'sales', 'full'),
     enabled:
+      fullDatasetEnabled &&
       Boolean(fastDatasetQuery.data) &&
       !fastDatasetQuery.isFetching &&
       (!cachedDataset || cachedDatasetMode === 'fast'),
@@ -132,7 +134,18 @@ export function MarketingDashboard({ session, userRole, visibilityScope, onOpenH
   });
   const displayDataset = fullDatasetQuery.data ?? fastDatasetQuery.data ?? null;
   const datasetError = fullDatasetQuery.error ?? fastDatasetQuery.error;
-  const isDatasetFetching = fastDatasetQuery.isFetching || fullDatasetQuery.isFetching;
+
+  useEffect(() => {
+    setFullDatasetEnabled(false);
+  }, [filters, session.user.id, visibilityScope]);
+
+  useEffect(() => {
+    if (!fastDatasetQuery.data || fastDatasetQuery.isFetching) return;
+    const timeout = window.setTimeout(() => {
+      setFullDatasetEnabled(true);
+    }, 900);
+    return () => window.clearTimeout(timeout);
+  }, [fastDatasetQuery.data, fastDatasetQuery.isFetching]);
 
   useEffect(() => {
     if (displayDataset) {
@@ -203,7 +216,7 @@ export function MarketingDashboard({ session, userRole, visibilityScope, onOpenH
   return (
     <div className="admin-shell reports-shell marketing-shell">
       <OdooLoadingModal
-        open={isDatasetFetching}
+        open={!marketing && fastDatasetQuery.isFetching}
         title="Preparando inteligencia de marketing"
       />
       <aside className="admin-sidebar reports-sidebar marketing-sidebar">
@@ -258,6 +271,7 @@ export function MarketingDashboard({ session, userRole, visibilityScope, onOpenH
                 type="button"
                 className="secondary-button"
                 onClick={() => {
+                  setFullDatasetEnabled(true);
                   void fastDatasetQuery.refetch();
                   void fullDatasetQuery.refetch();
                 }}
@@ -487,138 +501,209 @@ function MarketingSectionContent({
           title="Categorías que explican la demanda"
         />
       </div>
-      <MarketingNotificationCenter
-        marketing={marketing}
-        persistedNotifications={persistedNotifications}
-        onOpenInsight={setActiveInsight}
-      />
-      <MarketingPanel title="Resumen estratégico" subtitle="KPIs principales para orientar decisiones de marketing.">
-        <div className="reports-kpi-list reports-kpi-list-roomy">
-          {marketing.kpis.map((kpi) => (
-            <MarketingKpiInfoCard
-              explanation={getMarketingKpiExplanation(kpi.label)}
-              icon={<PieChart size={18} />}
-              key={kpi.label}
-              label={kpi.label}
-              value={kpi.value}
-            />
-          ))}
-        </div>
-      </MarketingPanel>
-      <MarketingPanel title="Mapa de decisiones" subtitle="Acciones priorizadas por impacto comercial y urgencia.">
-        <div className="marketing-decision-grid">
-          {marketing.decisions.map((decision) => (
-            <article className={`marketing-decision-card marketing-decision-${decision.tone}`} key={decision.title}>
-              <span>{decision.area}</span>
-              <strong>{decision.title}</strong>
-              <p>{decision.description}</p>
-              <button
-                type="button"
-                className="marketing-decision-tag"
-                onClick={() => onSelectDecisionDetail(decision.detailKey)}
-              >
-                {decision.metric}
-              </button>
-            </article>
-          ))}
-        </div>
-        <MarketingDecisionDetail detailKey={activeDecisionDetail} marketing={marketing} />
-      </MarketingPanel>
-      <MarketingPanel title="Modelo de decisión" subtitle="Modelos con datos, KPIs y acciones recomendadas.">
-        <div className="marketing-method-grid">
-          {marketing.methods.map((method) => (
-            <article className="reports-info-card" key={method.title}>
-              <div className="reports-info-copy">
-                <strong>{method.title}</strong>
-                <p>{method.description}</p>
-              </div>
-              <div className="policy-card-quick-facts">
-                <button
-                  type="button"
-                  className="marketing-insight-chip"
-                  onClick={() => setActiveInsight(buildMarketingInsightModal({
-                    action: method.action,
-                    description: method.description,
-                    metric: method.metric,
-                    rows: method.csvRows ?? method.rows,
-                    title: method.title,
-                    type: 'method',
-                  }))}
-                >
-                  {method.metric}
-                </button>
-                <button
-                  type="button"
-                  className="marketing-insight-chip"
-                  onClick={() => setActiveInsight(buildMarketingInsightModal({
-                    action: method.action,
-                    description: method.description,
-                    metric: method.metric,
-                    rows: method.csvRows ?? method.rows,
-                    title: method.title,
-                    type: 'method',
-                  }))}
-                >
-                  {method.action}
-                </button>
-              </div>
-              <button
-                type="button"
-                className="marketing-export-button"
-                onClick={() => exportMarketingRowsCsv(method.title, method.csvRows ?? method.rows)}
-              >
-                <Download size={14} />
-                Descargar CSV
-              </button>
-              <MarketingMiniTable rows={method.rows} />
-            </article>
-          ))}
-        </div>
-      </MarketingPanel>
-      <MarketingPanel title="Lectura ejecutiva" subtitle="Qué dicen los datos y cómo actuar.">
-        <div className="marketing-card-grid">
-          {marketing.executiveNotes.map((note) => (
-            <article className="reports-info-card" key={note.title}>
-              <div className="reports-info-copy">
-                <strong>{note.title}</strong>
-                <p>{note.description}</p>
-              </div>
-              <div className="policy-card-quick-facts">
-                <button
-                  type="button"
-                  className="marketing-insight-chip"
-                  onClick={() => setActiveInsight(buildMarketingInsightModal({
-                    action: note.action,
-                    description: note.description,
-                    metric: note.metric,
-                    rows: note.rows,
-                    title: note.title,
-                    type: 'executive',
-                  }))}
-                >
-                  {note.metric}
-                </button>
-                <button
-                  type="button"
-                  className="marketing-insight-chip"
-                  onClick={() => setActiveInsight(buildMarketingInsightModal({
-                    action: note.action,
-                    description: note.description,
-                    metric: note.metric,
-                    rows: note.rows,
-                    title: note.title,
-                    type: 'executive',
-                  }))}
-                >
-                  {note.action}
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-      </MarketingPanel>
+      <LazyMarketingBlock minHeight={220}>
+        {() => (
+          <MarketingNotificationCenter
+            marketing={marketing}
+            persistedNotifications={persistedNotifications}
+            onOpenInsight={setActiveInsight}
+          />
+        )}
+      </LazyMarketingBlock>
+      <LazyMarketingBlock minHeight={190}>
+        {() => (
+          <MarketingPanel title="Resumen estratégico" subtitle="KPIs principales para orientar decisiones de marketing.">
+            <div className="reports-kpi-list reports-kpi-list-roomy">
+              {marketing.kpis.map((kpi) => (
+                <MarketingKpiInfoCard
+                  explanation={getMarketingKpiExplanation(kpi.label)}
+                  icon={<PieChart size={18} />}
+                  key={kpi.label}
+                  label={kpi.label}
+                  value={kpi.value}
+                />
+              ))}
+            </div>
+          </MarketingPanel>
+        )}
+      </LazyMarketingBlock>
+      <LazyMarketingBlock minHeight={430}>
+        {() => (
+          <MarketingPanel title="Mapa de decisiones" subtitle="Acciones priorizadas por impacto comercial y urgencia.">
+            <div className="marketing-decision-grid">
+              {marketing.decisions.map((decision) => (
+                <article className={`marketing-decision-card marketing-decision-${decision.tone}`} key={decision.title}>
+                  <span>{decision.area}</span>
+                  <strong>{decision.title}</strong>
+                  <p>{decision.description}</p>
+                  <button
+                    type="button"
+                    className="marketing-decision-tag"
+                    onClick={() => onSelectDecisionDetail(decision.detailKey)}
+                  >
+                    {decision.metric}
+                  </button>
+                </article>
+              ))}
+            </div>
+            <MarketingDecisionDetail detailKey={activeDecisionDetail} marketing={marketing} />
+          </MarketingPanel>
+        )}
+      </LazyMarketingBlock>
+      <LazyMarketingBlock minHeight={360}>
+        {() => (
+          <MarketingPanel title="Modelo de decisión" subtitle="Modelos con datos, KPIs y acciones recomendadas.">
+            <div className="marketing-method-grid">
+              {marketing.methods.map((method) => (
+                <article className="reports-info-card" key={method.title}>
+                  <div className="reports-info-copy">
+                    <strong>{method.title}</strong>
+                    <p>{method.description}</p>
+                  </div>
+                  <div className="policy-card-quick-facts">
+                    <button
+                      type="button"
+                      className="marketing-insight-chip"
+                      onClick={() => setActiveInsight(buildMarketingInsightModal({
+                        action: method.action,
+                        description: method.description,
+                        metric: method.metric,
+                        rows: method.csvRows ?? method.rows,
+                        title: method.title,
+                        type: 'method',
+                      }))}
+                    >
+                      {method.metric}
+                    </button>
+                    <button
+                      type="button"
+                      className="marketing-insight-chip"
+                      onClick={() => setActiveInsight(buildMarketingInsightModal({
+                        action: method.action,
+                        description: method.description,
+                        metric: method.metric,
+                        rows: method.csvRows ?? method.rows,
+                        title: method.title,
+                        type: 'method',
+                      }))}
+                    >
+                      {method.action}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    className="marketing-export-button"
+                    onClick={() => exportMarketingRowsCsv(method.title, method.csvRows ?? method.rows)}
+                  >
+                    <Download size={14} />
+                    Descargar CSV
+                  </button>
+                  <MarketingMiniTable rows={method.rows} />
+                </article>
+              ))}
+            </div>
+          </MarketingPanel>
+        )}
+      </LazyMarketingBlock>
+      <LazyMarketingBlock minHeight={260}>
+        {() => (
+          <MarketingPanel title="Lectura ejecutiva" subtitle="Qué dicen los datos y cómo actuar.">
+            <div className="marketing-card-grid">
+              {marketing.executiveNotes.map((note) => (
+                <article className="reports-info-card" key={note.title}>
+                  <div className="reports-info-copy">
+                    <strong>{note.title}</strong>
+                    <p>{note.description}</p>
+                  </div>
+                  <div className="policy-card-quick-facts">
+                    <button
+                      type="button"
+                      className="marketing-insight-chip"
+                      onClick={() => setActiveInsight(buildMarketingInsightModal({
+                        action: note.action,
+                        description: note.description,
+                        metric: note.metric,
+                        rows: note.rows,
+                        title: note.title,
+                        type: 'executive',
+                      }))}
+                    >
+                      {note.metric}
+                    </button>
+                    <button
+                      type="button"
+                      className="marketing-insight-chip"
+                      onClick={() => setActiveInsight(buildMarketingInsightModal({
+                        action: note.action,
+                        description: note.description,
+                        metric: note.metric,
+                        rows: note.rows,
+                        title: note.title,
+                        type: 'executive',
+                      }))}
+                    >
+                      {note.action}
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </MarketingPanel>
+        )}
+      </LazyMarketingBlock>
       {activeInsight ? <MarketingInsightModal insight={activeInsight} onClose={() => setActiveInsight(null)} /> : null}
     </div>
+  );
+}
+
+function LazyMarketingBlock({
+  children,
+  minHeight = 260,
+}: {
+  children: () => ReactNode;
+  minHeight?: number;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [shouldRender, setShouldRender] = useState(false);
+
+  useEffect(() => {
+    if (shouldRender) return;
+    const node = ref.current;
+    if (!node || typeof IntersectionObserver === 'undefined') {
+      setShouldRender(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          setShouldRender(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '360px 0px' },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [shouldRender]);
+
+  return (
+    <div ref={ref}>
+      {shouldRender ? children() : <MarketingSectionSkeleton minHeight={minHeight} />}
+    </div>
+  );
+}
+
+function MarketingSectionSkeleton({ minHeight }: { minHeight: number }) {
+  return (
+    <article className="panel reports-static-panel marketing-panel marketing-lazy-skeleton" style={{ minHeight }}>
+      <div className="marketing-skeleton-line short" />
+      <div className="marketing-skeleton-line" />
+      <div className="marketing-skeleton-grid">
+        <span />
+        <span />
+        <span />
+      </div>
+    </article>
   );
 }
 

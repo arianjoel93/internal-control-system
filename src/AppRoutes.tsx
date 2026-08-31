@@ -10,6 +10,11 @@ const SharedSalesReportPage = lazy(() =>
     default: module.SharedSalesReportPage,
   })),
 );
+const PublicFormPage = lazy(() =>
+  import('./features/forms/PublicFormPage').then((module) => ({
+    default: module.PublicFormPage,
+  })),
+);
 
 export const router = createBrowserRouter([
   {
@@ -32,6 +37,14 @@ export const router = createBrowserRouter([
     element: (
       <Suspense fallback={<div className="page">Cargando reporte compartido...</div>}>
         <SharedSalesReportPage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/formularios/:slug',
+    element: (
+      <Suspense fallback={<div className="page">Cargando formulario...</div>}>
+        <PublicFormPage />
       </Suspense>
     ),
   },

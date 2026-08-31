@@ -2,7 +2,8 @@ import type { SalesForecastDataset } from './reportsForecastService';
 
 const SALES_FORECAST_CACHE_STORAGE_KEY = 'tectronic-sales-forecast-cache-v1';
 const FORECAST_CACHE_TTL_MS = 1000 * 60 * 60 * 12;
-const MAX_FORECAST_CACHE_ENTRIES = 4;
+const MAX_FORECAST_CACHE_ENTRIES = 1;
+const MAX_FORECAST_CACHE_BYTES = 700_000;
 
 type CachedForecastEntry = {
   key: string;
@@ -57,16 +58,23 @@ export function saveStoredSalesForecastDataset(
       data,
     };
     const entries = Array.isArray(parsed.entries) ? parsed.entries : [];
-    storage.setItem(
-      SALES_FORECAST_CACHE_STORAGE_KEY,
-      JSON.stringify({
-        entries: [
-          nextEntry,
-          ...entries.filter((entry) => entry.key !== key),
-        ].slice(0, MAX_FORECAST_CACHE_ENTRIES),
-      } satisfies CachedForecastState),
-    );
-    return true;
+    const serialized = JSON.stringify({
+      entries: [
+        nextEntry,
+        ...entries.filter((entry) => entry.key !== key),
+      ].slice(0, MAX_FORECAST_CACHE_ENTRIES),
+    } satisfies CachedForecastState);
+    if (new TextEncoder().encode(serialized).byteLength > MAX_FORECAST_CACHE_BYTES) return false;
+    try {
+      storage.setItem(SALES_FORECAST_CACHE_STORAGE_KEY, serialized);
+      return true;
+    } catch {
+      storage.removeItem(SALES_FORECAST_CACHE_STORAGE_KEY);
+      const fallbackSerialized = JSON.stringify({ entries: [nextEntry] } satisfies CachedForecastState);
+      if (new TextEncoder().encode(fallbackSerialized).byteLength > MAX_FORECAST_CACHE_BYTES) return false;
+      storage.setItem(SALES_FORECAST_CACHE_STORAGE_KEY, fallbackSerialized);
+      return true;
+    }
   } catch {
     return false;
   }

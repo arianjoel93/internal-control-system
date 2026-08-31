@@ -101,23 +101,25 @@ export async function listSalesAgentNotifications(): Promise<SalesAgentNotificat
 export async function syncSalesAgentNotifications(
   sellerEmail: string,
   notifications: SalesAgentNotificationDraft[],
+  options: { dismissStale?: boolean } = {},
 ) {
   const {
     data: { user },
     error: userError,
   } = await supabase.auth.getUser();
   if (userError) throw userError;
-  if (!user) return;
+  if (!user) return { skippedCrossSell: false };
 
   const now = new Date().toISOString();
   if (!notifications.length) {
+    if (options.dismissStale === false) return { skippedCrossSell: false };
     const { error } = await supabase
       .from('sales_agent_notifications')
       .update({ dismissed_at: now })
       .eq('user_id', user.id)
       .is('dismissed_at', null);
     if (error) throw error;
-    return;
+    return { skippedCrossSell: false };
   }
 
   const fingerprints = notifications.map((notification) => notification.fingerprint);
@@ -154,20 +156,42 @@ export async function syncSalesAgentNotifications(
     dismissed_at: null,
   }));
 
+  let skippedCrossSell = false;
   if (rows.length) {
-    const { error } = await supabase
-      .from('sales_agent_notifications')
-      .upsert(rows, { onConflict: 'user_id,fingerprint' });
-    if (error) throw error;
+    const upsertNotifications = async (payload: typeof rows) =>
+      supabase
+        .from('sales_agent_notifications')
+        .upsert(payload, { onConflict: 'user_id,fingerprint' });
+    const { error } = await upsertNotifications(rows);
+    if (error) {
+      const hasCrossSellRows = rows.some((row) => row.category === 'cross_sell');
+      if (!hasCrossSellRows || !isSalesNotificationCategoryConstraintError(error)) {
+        throw error;
+      }
+
+      const rowsWithoutCrossSell = rows.filter((row) => row.category !== 'cross_sell');
+      if (rowsWithoutCrossSell.length) {
+        const { error: fallbackError } = await upsertNotifications(rowsWithoutCrossSell);
+        if (fallbackError) throw fallbackError;
+      }
+      skippedCrossSell = true;
+      console.warn(
+        'Las oportunidades de cross-selling se calcularon, pero Supabase aún no acepta la categoría cross_sell. Aplica la migración correspondiente para persistirlas.',
+      );
+    }
   }
 
-  const { error: staleError } = await supabase
-    .from('sales_agent_notifications')
-    .update({ dismissed_at: now })
-    .eq('user_id', user.id)
-    .is('dismissed_at', null)
-    .lt('last_detected_at', now);
-  if (staleError) throw staleError;
+  if (options.dismissStale !== false) {
+    const { error: staleError } = await supabase
+      .from('sales_agent_notifications')
+      .update({ dismissed_at: now })
+      .eq('user_id', user.id)
+      .is('dismissed_at', null)
+      .lt('last_detected_at', now);
+    if (staleError) throw staleError;
+  }
+
+  return { skippedCrossSell };
 }
 
 export async function markSalesAgentNotificationRead(id: string) {
@@ -214,4 +238,20 @@ export async function dismissSalesAgentNotifications(ids: string[]) {
     .eq('user_id', user.id)
     .in('id', ids);
   if (error) throw error;
+}
+
+function isSalesNotificationCategoryConstraintError(error: unknown) {
+  const payload = error as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown };
+  const text = [
+    payload.message,
+    payload.details,
+    payload.hint,
+    payload.code,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return text.includes('sales_agent_notifications_category_check') ||
+    text.includes('category') ||
+    text.includes('check constraint');
 }

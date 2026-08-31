@@ -313,8 +313,10 @@ export type AdminModulePermission = {
   can_access_reports: boolean;
   can_access_purchases: boolean;
   can_access_marketing: boolean;
+  can_access_forms: boolean;
   can_access_calculator: boolean;
   can_access_quoting: boolean;
+  can_access_shipping_quotes: boolean;
   created_by: string | null;
   updated_by: string | null;
   odoo_user_id: number | null;
@@ -327,7 +329,17 @@ export type AdminModulePermission = {
   updated_at: string;
 };
 
-export type AdminModuleKey = 'supports' | 'inventory' | 'policies' | 'reports' | 'purchases' | 'marketing' | 'calculator' | 'quoting';
+export type AdminModuleKey =
+  | 'supports'
+  | 'inventory'
+  | 'policies'
+  | 'reports'
+  | 'purchases'
+  | 'marketing'
+  | 'forms'
+  | 'calculator'
+  | 'quoting'
+  | 'shipping_quotes';
 export type AdminVisibilityScope = 'all' | 'own';
 
 export type AdminModulePermissionItem = {
@@ -389,6 +401,72 @@ export type MarketingReportExportRow = {
   created_at: string;
 };
 
+export type FormStatus = 'draft' | 'published' | 'closed';
+export type FormTheme = 'terracotta' | 'ocean' | 'forest' | 'sand' | 'graphite';
+export type FormQuestionType =
+  | 'short_text'
+  | 'long_text'
+  | 'single_choice'
+  | 'multiple_choice'
+  | 'dropdown'
+  | 'rating';
+
+export type CustomFormRow = {
+  id: string;
+  owner_user_id: string;
+  title: string;
+  description: string;
+  slug: string;
+  status: FormStatus;
+  theme: FormTheme;
+  submit_label: string;
+  thank_you_title: string;
+  thank_you_message: string;
+  settings: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type FormQuestionRow = {
+  id: string;
+  form_id: string;
+  label: string;
+  help_text: string;
+  question_type: FormQuestionType;
+  is_required: boolean;
+  options: string[];
+  placeholder: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type FormResponseRow = {
+  id: string;
+  form_id: string;
+  respondent_name: string | null;
+  respondent_email: string | null;
+  answers: Record<string, unknown>;
+  submitted_at: string;
+  user_agent: string | null;
+};
+
+export type FormNotificationRow = {
+  id: string;
+  user_id: string;
+  form_id: string;
+  response_id: string | null;
+  title: string;
+  message: string;
+  answers: Record<string, unknown>;
+  is_read: boolean;
+  created_at: string;
+};
+
+export type CustomFormWithQuestions = CustomFormRow & {
+  form_questions: FormQuestionRow[];
+};
+
 export type SalesAgentNotificationRow = {
   id: string;
   user_id: string;
@@ -401,6 +479,7 @@ export type SalesAgentNotificationRow = {
     | 'new_customer_gap'
     | 'expired_quotes'
     | 'crm_lead'
+    | 'cross_sell'
     | 'sales_decline'
     | 'portfolio_concentration';
   severity: 'info' | 'opportunity' | 'warning' | 'critical';
@@ -481,6 +560,172 @@ export type ShippingBox = {
   enabled: boolean;
   created_at: string;
   updated_at: string;
+};
+
+export type ShippingCarrierEnvironment = 'SANDBOX' | 'PRODUCTION';
+export type ShippingWeightInputMode = 'NET_CONTENT' | 'GROSS_PACKAGE';
+export type ShippingDimensionUnit = 'CM' | 'IN';
+export type ShippingWeightUnit = 'KG' | 'LB';
+export type ShippingQuoteStatus = 'SUCCESS' | 'ERROR';
+
+export type ShippingCarrierConfig = {
+  id: string;
+  carrier: 'FEDEX';
+  environment: ShippingCarrierEnvironment;
+  is_active: boolean;
+  fedex_base_url: string;
+  account_number_masked: string | null;
+  client_id_masked: string | null;
+  origin_country_code: string;
+  origin_postal_code: string | null;
+  origin_state_code: string | null;
+  origin_city: string | null;
+  origin_street: string | null;
+  preferred_currency: string;
+  pickup_type: string;
+  return_transit_times: boolean;
+  rate_request_types: string[];
+  rate_display_option: string;
+  weight_input_mode: ShippingWeightInputMode;
+  final_volume_padding_enabled: boolean;
+  final_padding_length_cm: number;
+  final_padding_width_cm: number;
+  final_padding_height_cm: number;
+  final_packaging_cost_enabled: boolean;
+  final_packaging_material_cost: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ShippingPackageType = {
+  id: string;
+  carrier: 'FEDEX';
+  name: string;
+  internal_code: string;
+  description: string | null;
+  length: number | null;
+  width: number | null;
+  height: number | null;
+  internal_length?: number | null;
+  internal_width?: number | null;
+  internal_height?: number | null;
+  external_length?: number | null;
+  external_width?: number | null;
+  external_height?: number | null;
+  max_fill_percent?: number | null;
+  box_cost?: number | null;
+  dimension_unit: ShippingDimensionUnit;
+  empty_weight: number | null;
+  weight_unit: ShippingWeightUnit;
+  max_weight: number | null;
+  is_active: boolean;
+  sort_order: number;
+  fedex_packaging_type: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ShippingProductDimension = {
+  id: string;
+  sku: string;
+  normalized_sku: string;
+  product_name: string | null;
+  unit_weight_kg: number | null;
+  volumetric_weight_kg: number | null;
+  billable_weight_kg: number | null;
+  width_cm: number;
+  length_cm: number;
+  height_cm: number;
+  source_file_name: string | null;
+  source_row: number | null;
+  uploaded_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ShippingAddressSnapshot = {
+  countryCode: string;
+  postalCode: string;
+  stateOrProvinceCode: string | null;
+  city: string | null;
+  neighborhood?: string | null;
+  street: string | null;
+};
+
+export type ShippingQuoteRow = {
+  id: string;
+  quote_number: string;
+  user_id: string;
+  user_email: string | null;
+  carrier: 'FEDEX';
+  environment: ShippingCarrierEnvironment;
+  status: ShippingQuoteStatus;
+  calculation_method: 'MULTI_PACKAGE_RATE' | 'INDIVIDUAL_PACKAGE_SUM';
+  origin: ShippingAddressSnapshot;
+  destination: ShippingAddressSnapshot;
+  requested_ship_date: string | null;
+  package_count: number;
+  total_content_weight: number;
+  total_billable_weight: number;
+  weight_unit: ShippingWeightUnit;
+  best_rate_id: string | null;
+  best_total_amount: number | null;
+  best_currency: string | null;
+  best_service_code: string | null;
+  best_service_name: string | null;
+  best_delivery_label: string | null;
+  error_message: string | null;
+  technical_error: string | null;
+  odoo_order_name?: string | null;
+  odoo_order_id?: number | null;
+  selected_packing_plan?: Record<string, unknown> | null;
+  packing_source?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ShippingQuotePackageRow = {
+  id: string;
+  quote_id: string;
+  package_type_id: string | null;
+  package_snapshot: Record<string, unknown>;
+  package_index: number;
+  content_weight: number;
+  tare_weight: number;
+  billable_weight: number;
+  weight_unit: ShippingWeightUnit;
+  length: number;
+  width: number;
+  height: number;
+  dimension_unit: ShippingDimensionUnit;
+  created_at: string;
+};
+
+export type ShippingQuoteRateRow = {
+  id: string;
+  quote_id: string;
+  carrier: 'FEDEX';
+  service_code: string;
+  service_name: string;
+  currency: string;
+  base_amount: number | null;
+  discount_amount: number | null;
+  surcharge_amount: number | null;
+  tax_amount: number | null;
+  total_amount: number;
+  transit_days: number | null;
+  estimated_delivery_date: string | null;
+  delivery_timestamp: string | null;
+  delivery_label: string | null;
+  rate_type: string | null;
+  raw_summary: Record<string, unknown>;
+  created_at: string;
+};
+
+export type ShippingQuoteDetail = ShippingQuoteRow & {
+  packages: ShippingQuotePackageRow[];
+  rates: ShippingQuoteRateRow[];
 };
 
 export type Database = {
@@ -732,7 +977,7 @@ export type Database = {
       };
       admin_module_permissions: {
         Row: AdminModulePermission;
-        Insert: Omit<AdminModulePermission, 'id' | 'created_at' | 'updated_at' | 'full_name' | 'role' | 'is_active' | 'created_by' | 'updated_by' | 'odoo_user_id' | 'odoo_partner_id' | 'odoo_salesperson_id' | 'odoo_email' | 'odoo_link_status' | 'odoo_linked_at' | 'can_access_purchases' | 'can_access_marketing'> & {
+        Insert: Omit<AdminModulePermission, 'id' | 'created_at' | 'updated_at' | 'full_name' | 'role' | 'is_active' | 'created_by' | 'updated_by' | 'odoo_user_id' | 'odoo_partner_id' | 'odoo_salesperson_id' | 'odoo_email' | 'odoo_link_status' | 'odoo_linked_at' | 'can_access_purchases' | 'can_access_marketing' | 'can_access_forms' | 'can_access_shipping_quotes'> & {
           id?: string;
           full_name?: string | null;
           role?: AdminUserRole;
@@ -747,6 +992,8 @@ export type Database = {
           odoo_linked_at?: string | null;
           can_access_purchases?: boolean;
           can_access_marketing?: boolean;
+          can_access_forms?: boolean;
+          can_access_shipping_quotes?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -808,6 +1055,45 @@ export type Database = {
         Update: Partial<Omit<SalesAgentNotificationRow, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
         Relationships: [];
       };
+      forms: {
+        Row: CustomFormRow;
+        Insert: Omit<CustomFormRow, 'id' | 'created_at' | 'updated_at'> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<CustomFormRow, 'id' | 'created_at'>>;
+        Relationships: [];
+      };
+      form_questions: {
+        Row: FormQuestionRow;
+        Insert: Omit<FormQuestionRow, 'id' | 'created_at' | 'updated_at'> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<FormQuestionRow, 'id' | 'form_id' | 'created_at'>>;
+        Relationships: [];
+      };
+      form_responses: {
+        Row: FormResponseRow;
+        Insert: Omit<FormResponseRow, 'id' | 'submitted_at'> & {
+          id?: string;
+          submitted_at?: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
+      form_notifications: {
+        Row: FormNotificationRow;
+        Insert: Omit<FormNotificationRow, 'id' | 'is_read' | 'created_at'> & {
+          id?: string;
+          is_read?: boolean;
+          created_at?: string;
+        };
+        Update: Partial<Pick<FormNotificationRow, 'is_read'>>;
+        Relationships: [];
+      };
       shipping_quote_settings: {
         Row: ShippingQuoteSettings;
         Insert: Omit<ShippingQuoteSettings, 'id' | 'created_at' | 'updated_at'> & {
@@ -816,6 +1102,16 @@ export type Database = {
           updated_at?: string;
         };
         Update: Partial<Omit<ShippingQuoteSettings, 'id' | 'created_at' | 'updated_at'>>;
+        Relationships: [];
+      };
+      shipping_product_dimensions: {
+        Row: ShippingProductDimension;
+        Insert: Omit<ShippingProductDimension, 'id' | 'normalized_sku' | 'created_at' | 'updated_at'> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<ShippingProductDimension, 'id' | 'normalized_sku' | 'created_at' | 'updated_at'>>;
         Relationships: [];
       };
     };

@@ -173,6 +173,54 @@ test('genera alertas operativas actuales desde historial de Odoo sin usar filtro
   );
 });
 
+test('notifica cotizaciones abiertas abandonadas y excluye órdenes confirmadas', () => {
+  const dataset = {
+    scopeApplied: 'own',
+    viewerRole: 'sales_agent',
+    fetchedAt: '2026-07-27T15:00:00.000Z',
+    sellerScope: { id: 7, label: 'Agente de prueba' },
+    invoices: [],
+    invoiceLines: [],
+    orders: [
+      order(201, 'SO-ABIERTA', 'Cliente cotizado', '2026-07-10', 45_000, 'sent'),
+      order(202, 'SO-CONFIRMADA', 'Cliente confirmado', '2026-07-10', 75_000, 'sale'),
+    ],
+  } as unknown as OdooCommercialDataset;
+
+  const notifications = buildSalesAgentNotifications(dataset);
+
+  assert.ok(notifications.some((notification) => notification.fingerprint === 'abandoned-quotation:201'));
+  assert.ok(notifications.some((notification) => notification.title === 'Cotización abandonada: SO-ABIERTA'));
+  assert.ok(!notifications.some((notification) => notification.fingerprint === 'abandoned-quotation:202'));
+});
+
+test('detecta oportunidades de cross-selling desde lineas facturadas de Odoo', () => {
+  const dataset = {
+    scopeApplied: 'own',
+    viewerRole: 'sales_agent',
+    fetchedAt: '2026-07-27T15:00:00.000Z',
+    sellerScope: { id: 7, label: 'Agente de prueba' },
+    invoices: [],
+    orders: [],
+    invoiceLines: [
+      invoiceLine(100, 'Cliente etiquetas', '2026-07-20', 'Etiqueta térmica 4x2', 'Etiquetas', 18_500),
+      invoiceLine(101, 'Cliente etiquetas', '2026-07-24', 'Etiqueta couché digital', 'Consumibles', 12_000),
+    ],
+  } as unknown as OdooCommercialDataset;
+
+  const notifications = buildSalesAgentNotifications(dataset);
+  const crossSellNotifications = notifications.filter(
+    (notification) => notification.category === 'cross_sell',
+  );
+
+  assert.ok(crossSellNotifications.length > 0);
+  assert.ok(
+    crossSellNotifications.some((notification) =>
+      notification.title.includes('Cross-selling'),
+    ),
+  );
+});
+
 function invoice(
   id: number,
   customerName: string,
@@ -198,6 +246,49 @@ function invoice(
     totalAmountSigned: amount,
     invoiceOrigin: null,
     paymentState: 'not_paid',
+  };
+}
+
+function invoiceLine(
+  id: number,
+  customerName: string,
+  invoiceDate: string,
+  productName: string,
+  categoryName: string,
+  amount: number,
+) {
+  return {
+    id,
+    invoiceId: id + 1000,
+    invoiceName: `INV/${id}`,
+    invoiceState: 'posted',
+    moveType: 'out_invoice',
+    invoiceDate,
+    customerId: testCustomerId(customerName),
+    customerName,
+    sellerId: 7,
+    sellerName: 'Agente de prueba',
+    teamId: null,
+    teamName: null,
+    companyId: 1,
+    companyName: 'Corporación Tectronic',
+    currencyCode: 'MXN',
+    productId: id + 2000,
+    productName,
+    categoryId: id + 3000,
+    categoryName,
+    quantity: 1,
+    untaxedAmount: amount,
+    totalAmount: amount,
+    unitCost: null,
+    costAmount: null,
+    marginAmount: null,
+    linePurchaseUnitCost: null,
+    standardUnitCost: null,
+    discount: null,
+    sourceOrderIds: [],
+    sourceOrderNames: [],
+    sourceSaleLineIds: [],
   };
 }
 

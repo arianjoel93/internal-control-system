@@ -1,6 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-type AdminModuleKey = 'supports' | 'inventory' | 'policies' | 'reports' | 'purchases' | 'marketing' | 'quoting' | 'calculator';
+type AdminModuleKey = 'supports' | 'inventory' | 'policies' | 'reports' | 'purchases' | 'marketing' | 'forms' | 'quoting' | 'shipping_quotes' | 'calculator';
 type AdminUserRole = 'sales_agent' | 'manager' | 'marketing_agent' | 'support_agent' | 'purchase_agent' | 'owner';
 type VisibilityScope = 'all' | 'own';
 type ModulePermissionDraft = Record<AdminModuleKey, {
@@ -8,7 +8,7 @@ type ModulePermissionDraft = Record<AdminModuleKey, {
   visibility_scope: VisibilityScope;
 }>;
 
-const adminModules: AdminModuleKey[] = ['supports', 'inventory', 'policies', 'reports', 'purchases', 'marketing', 'quoting', 'calculator'];
+const adminModules: AdminModuleKey[] = ['supports', 'inventory', 'policies', 'reports', 'purchases', 'marketing', 'forms', 'quoting', 'shipping_quotes', 'calculator'];
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -149,7 +149,9 @@ function normalizePermissions(value: unknown, role: AdminUserRole): ModulePermis
     return {
       ...draft,
       [moduleKey]: {
-        can_access: role === 'owner' || (role === 'marketing_agent' && moduleKey === 'marketing')
+        can_access: role === 'owner' ||
+          (role === 'marketing_agent' && moduleKey === 'marketing') ||
+          (role === 'support_agent' && moduleKey === 'supports')
           ? true
           : Boolean(item.can_access),
         visibility_scope: role === 'owner'
@@ -188,7 +190,9 @@ async function upsertPermissions(
     can_access_reports: permissions.reports.can_access,
     can_access_purchases: permissions.purchases.can_access,
     can_access_marketing: permissions.marketing.can_access,
+    can_access_forms: permissions.forms.can_access,
     can_access_quoting: permissions.quoting.can_access,
+    can_access_shipping_quotes: permissions.shipping_quotes.can_access,
     can_access_calculator: permissions.calculator.can_access,
   };
 

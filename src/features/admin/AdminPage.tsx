@@ -9,6 +9,7 @@ import {
   BarChart3,
   Calculator,
   CalendarPlus,
+  ClipboardList,
   PackageSearch,
   Edit2,
   Eye,
@@ -25,6 +26,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Trash2,
+  Truck,
   UsersRound,
   Warehouse,
   X,
@@ -91,8 +93,13 @@ import { InventoryDashboard } from "./InventoryDashboard";
 import { PolicyDashboard } from "./PolicyDashboard";
 import { CalculatorDashboard } from "./CalculatorDashboard";
 import { QuoterDashboard } from "../quoting/QuoterDashboard";
+import { ShippingQuotesDashboard } from "../shipping/ShippingQuotesDashboard";
 import { MarketingDashboard } from "../marketing/MarketingDashboard";
-import { buildDefaultFilters, ReportsDashboard } from "../reports/ReportsDashboard";
+import { FormsDashboard } from "../forms/FormsDashboard";
+import {
+  buildDefaultFilters,
+  ReportsDashboard,
+} from "../reports/ReportsDashboard";
 import { getCommercialDataset } from "../reports/reportsService";
 import { saveStoredCommercialDataset } from "../reports/reportsDatasetCache";
 import type { ReportRequestedDomain } from "../reports/odooSalesCore";
@@ -104,6 +111,7 @@ import {
   buildEmptyPermissionDraft,
   buildModulePermissionDraft,
   createAdminUser,
+  deleteAdminUser,
   getCurrentModulePermission,
   getModulePermissions,
   getSupportMailerSettings,
@@ -118,7 +126,18 @@ import {
 } from "./settingsService";
 
 type AdminSection = "register" | "manufacturers" | "events" | "agents";
-type AdminModule = "home" | "supports" | "inventory" | "policies" | "reports" | "marketing" | "quoting" | "calculator" | "settings";
+type AdminModule =
+  | "home"
+  | "supports"
+  | "inventory"
+  | "policies"
+  | "reports"
+  | "marketing"
+  | "forms"
+  | "quoting"
+  | "shipping_quotes"
+  | "calculator"
+  | "settings";
 type SettingsSection = "permissions" | "support_mailer";
 type ModuleAccess = {
   supports: { can_access: boolean; visibility_scope: "all" | "own" };
@@ -126,7 +145,9 @@ type ModuleAccess = {
   policies: { can_access: boolean; visibility_scope: "all" | "own" };
   reports: { can_access: boolean; visibility_scope: "all" | "own" };
   marketing: { can_access: boolean; visibility_scope: "all" | "own" };
+  forms: { can_access: boolean; visibility_scope: "all" | "own" };
   quoting: { can_access: boolean; visibility_scope: "all" | "own" };
+  shipping_quotes: { can_access: boolean; visibility_scope: "all" | "own" };
   calculator: { can_access: boolean; visibility_scope: "all" | "own" };
 };
 
@@ -161,7 +182,9 @@ function normalizeAdminModule(value: string | null): AdminModule | null {
     value === "policies" ||
     value === "reports" ||
     value === "marketing" ||
+    value === "forms" ||
     value === "quoting" ||
+    value === "shipping_quotes" ||
     value === "calculator" ||
     value === "settings"
   ) {
@@ -224,11 +247,13 @@ function AdminDashboard({ session }: { session: Session }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [isOdooPreloading, setIsOdooPreloading] = useState(false);
   const queryClient = useQueryClient();
-  const activeModule = normalizeAdminModule(searchParams.get("module")) ?? "home";
+  const activeModule =
+    normalizeAdminModule(searchParams.get("module")) ?? "home";
   const designatedOwner = isDesignatedOwnerEmail(session.user.email);
   const permissionsQuery = useQuery({
     queryKey: ["current-module-permissions", session.user.id],
-    queryFn: () => getCurrentModulePermission(session.user.id, session.user.email),
+    queryFn: () =>
+      getCurrentModulePermission(session.user.id, session.user.email),
     enabled: !designatedOwner,
   });
   const owner = designatedOwner || isPermissionOwner(permissionsQuery.data);
@@ -236,48 +261,94 @@ function AdminDashboard({ session }: { session: Session }) {
     ? "owner"
     : getPermissionRole(permissionsQuery.data as AdminUserModulePermissions);
   const permissionActive = owner || permissionsQuery.data?.is_active !== false;
-  const canAccessPurchases = owner || (
-    permissionActive &&
-    (
-      currentRole === "purchase_agent" ||
-      Boolean(
-        permissionsQuery.data?.module_permissions.some(
-          (item) => item.module_key === "purchases" && item.can_access,
-        ),
-      )
-    )
-  );
+  const supportAgentAccess: ModuleAccess = {
+    supports: { can_access: true, visibility_scope: "all" },
+    inventory: { can_access: false, visibility_scope: "all" },
+    policies: { can_access: false, visibility_scope: "all" },
+    reports: { can_access: false, visibility_scope: "all" },
+    marketing: { can_access: false, visibility_scope: "all" },
+    forms: { can_access: false, visibility_scope: "all" },
+    quoting: { can_access: false, visibility_scope: "all" },
+    shipping_quotes: { can_access: false, visibility_scope: "all" },
+    calculator: { can_access: false, visibility_scope: "all" },
+  };
+  const canAccessPurchases =
+    currentRole !== "support_agent" &&
+    (owner ||
+      (permissionActive &&
+        (currentRole === "purchase_agent" ||
+          Boolean(
+            permissionsQuery.data?.module_permissions.some(
+              (item) => item.module_key === "purchases" && item.can_access,
+            ),
+          ))));
   const moduleAccess: ModuleAccess = owner
+    ? {
+        supports: { can_access: true, visibility_scope: "all" },
+        inventory: { can_access: true, visibility_scope: "all" },
+        policies: { can_access: true, visibility_scope: "all" },
+        reports: { can_access: true, visibility_scope: "all" },
+        marketing: { can_access: true, visibility_scope: "all" },
+        forms: { can_access: true, visibility_scope: "all" },
+        quoting: { can_access: true, visibility_scope: "all" },
+        shipping_quotes: { can_access: true, visibility_scope: "all" },
+        calculator: { can_access: true, visibility_scope: "all" },
+      }
+    : currentRole === "support_agent"
+      ? supportAgentAccess
+    : !permissionActive
       ? {
-          supports: { can_access: true, visibility_scope: "all" },
-          inventory: { can_access: true, visibility_scope: "all" },
-          policies: { can_access: true, visibility_scope: "all" },
-          reports: { can_access: true, visibility_scope: "all" },
-          marketing: { can_access: true, visibility_scope: "all" },
-          quoting: { can_access: true, visibility_scope: "all" },
-          calculator: { can_access: true, visibility_scope: "all" },
+          supports: { can_access: false, visibility_scope: "all" },
+          inventory: { can_access: false, visibility_scope: "all" },
+          policies: { can_access: false, visibility_scope: "all" },
+          reports: { can_access: false, visibility_scope: "all" },
+          marketing: { can_access: false, visibility_scope: "all" },
+          forms: { can_access: false, visibility_scope: "all" },
+          quoting: { can_access: false, visibility_scope: "all" },
+          shipping_quotes: { can_access: false, visibility_scope: "all" },
+          calculator: { can_access: false, visibility_scope: "all" },
         }
-      : !permissionActive
-        ? {
-            supports: { can_access: false, visibility_scope: "all" },
-            inventory: { can_access: false, visibility_scope: "all" },
-            policies: { can_access: false, visibility_scope: "all" },
-            reports: { can_access: false, visibility_scope: "all" },
-            marketing: { can_access: false, visibility_scope: "all" },
-            quoting: { can_access: false, visibility_scope: "all" },
-            calculator: { can_access: false, visibility_scope: "all" },
-          }
       : {
-          supports: getModuleAccessFromPermission(permissionsQuery.data, "supports"),
-          inventory: getModuleAccessFromPermission(permissionsQuery.data, "inventory"),
-          policies: getModuleAccessFromPermission(permissionsQuery.data, "policies"),
-          reports: getModuleAccessFromPermission(permissionsQuery.data, "reports"),
-          marketing: getModuleAccessFromPermission(permissionsQuery.data, "marketing"),
-          quoting: getModuleAccessFromPermission(permissionsQuery.data, "quoting"),
-          calculator: getModuleAccessFromPermission(permissionsQuery.data, "calculator"),
+          supports: getModuleAccessFromPermission(
+            permissionsQuery.data,
+            "supports",
+          ),
+          inventory: getModuleAccessFromPermission(
+            permissionsQuery.data,
+            "inventory",
+          ),
+          policies: getModuleAccessFromPermission(
+            permissionsQuery.data,
+            "policies",
+          ),
+          reports: getModuleAccessFromPermission(
+            permissionsQuery.data,
+            "reports",
+          ),
+          marketing: getModuleAccessFromPermission(
+            permissionsQuery.data,
+            "marketing",
+          ),
+          forms: getModuleAccessFromPermission(
+            permissionsQuery.data,
+            "forms",
+          ),
+          quoting: getModuleAccessFromPermission(
+            permissionsQuery.data,
+            "quoting",
+          ),
+          shipping_quotes: getModuleAccessFromPermission(
+            permissionsQuery.data,
+            "shipping_quotes",
+          ),
+          calculator: getModuleAccessFromPermission(
+            permissionsQuery.data,
+            "calculator",
+          ),
         };
   const canAccessSalesReports = moduleAccess.reports.can_access;
   const canOpenReports = canAccessSalesReports || canAccessPurchases;
+  const canManageReportsSettings = owner || currentRole === "manager";
 
   const visibleModule: AdminModule =
     (activeModule === "supports" && !moduleAccess.supports.can_access) ||
@@ -285,7 +356,9 @@ function AdminDashboard({ session }: { session: Session }) {
     (activeModule === "policies" && !moduleAccess.policies.can_access) ||
     (activeModule === "reports" && !canOpenReports) ||
     (activeModule === "marketing" && !moduleAccess.marketing.can_access) ||
+    (activeModule === "forms" && !moduleAccess.forms.can_access) ||
     (activeModule === "quoting" && !moduleAccess.quoting.can_access) ||
+    (activeModule === "shipping_quotes" && !moduleAccess.shipping_quotes.can_access) ||
     (activeModule === "calculator" && !moduleAccess.calculator.can_access) ||
     (activeModule === "settings" && !owner)
       ? "home"
@@ -296,9 +369,10 @@ function AdminDashboard({ session }: { session: Session }) {
     : canAccessPurchases
       ? "purchases"
       : null;
-  const preloadVisibilityScope = currentRole === "sales_agent"
-    ? "own"
-    : moduleAccess.reports.visibility_scope;
+  const preloadVisibilityScope =
+    currentRole === "sales_agent"
+      ? "own"
+      : moduleAccess.reports.visibility_scope;
 
   useEffect(() => {
     let active = true;
@@ -317,23 +391,33 @@ function AdminDashboard({ session }: { session: Session }) {
       if (active) setIsOdooPreloading(true);
     });
 
-    void queryClient.fetchQuery({
-      queryKey: ["commercial-dashboard-dataset", session.user.id, preloadDomain, "fast", filters],
-      queryFn: () => getCommercialDataset(filters, preloadDomain, "fast"),
-      staleTime: 1000 * 60 * 3,
-    }).then((dataset) => {
-      saveStoredCommercialDataset(
-        filters,
-        dataset,
-        preloadDomain,
-        session.user.id,
-        "fast",
-      );
-    }).catch((error) => {
-      console.error("No se pudo completar la precarga de Odoo.", error);
-    }).finally(() => {
-      if (active) setIsOdooPreloading(false);
-    });
+    void queryClient
+      .fetchQuery({
+        queryKey: [
+          "commercial-dashboard-dataset",
+          session.user.id,
+          preloadDomain,
+          "fast",
+          filters,
+        ],
+        queryFn: () => getCommercialDataset(filters, preloadDomain, "fast"),
+        staleTime: 1000 * 60 * 3,
+      })
+      .then((dataset) => {
+        saveStoredCommercialDataset(
+          filters,
+          dataset,
+          preloadDomain,
+          session.user.id,
+          "fast",
+        );
+      })
+      .catch((error) => {
+        console.error("No se pudo completar la precarga de Odoo.", error);
+      })
+      .finally(() => {
+        if (active) setIsOdooPreloading(false);
+      });
 
     return () => {
       active = false;
@@ -352,15 +436,18 @@ function AdminDashboard({ session }: { session: Session }) {
       return;
     }
 
-    setSearchParams((currentParams) => {
-      const nextParams = new URLSearchParams(currentParams);
-      if (visibleModule === "home") {
-        nextParams.delete("module");
-      } else {
-        nextParams.set("module", visibleModule);
-      }
-      return nextParams;
-    }, { replace: true });
+    setSearchParams(
+      (currentParams) => {
+        const nextParams = new URLSearchParams(currentParams);
+        if (visibleModule === "home") {
+          nextParams.delete("module");
+        } else {
+          nextParams.set("module", visibleModule);
+        }
+        return nextParams;
+      },
+      { replace: true },
+    );
   }, [activeModule, setSearchParams, visibleModule]);
 
   function openModule(module: AdminModule) {
@@ -401,7 +488,9 @@ function AdminDashboard({ session }: { session: Session }) {
   if (!designatedOwner && permissionsQuery.isLoading) {
     return (
       <div className="page">
-        <EmptyState title="Cargando permisos">Validando módulos disponibles...</EmptyState>
+        <EmptyState title="Cargando permisos">
+          Validando módulos disponibles...
+        </EmptyState>
       </div>
     );
   }
@@ -410,7 +499,8 @@ function AdminDashboard({ session }: { session: Session }) {
     return (
       <div className="page permission-error-page">
         <EmptyState title="No se pudieron cargar tus permisos">
-          No fue posible consultar los módulos asignados. Reintenta para recuperar tu acceso.
+          No fue posible consultar los módulos asignados. Reintenta para
+          recuperar tu acceso.
         </EmptyState>
         <button
           type="button"
@@ -437,7 +527,9 @@ function AdminDashboard({ session }: { session: Session }) {
         onOpenPolicies={() => openModule("policies")}
         onOpenReports={openReportsModule}
         onOpenMarketing={() => openModule("marketing")}
+        onOpenForms={() => openModule("forms")}
         onOpenQuoting={() => openModule("quoting")}
+        onOpenShippingQuotes={() => openModule("shipping_quotes")}
         onOpenCalculator={() => openModule("calculator")}
         onOpenSettings={() => openModule("settings")}
       />,
@@ -475,9 +567,14 @@ function AdminDashboard({ session }: { session: Session }) {
     return (
       <ReportsDashboard
         session={session}
-        visibilityScope={currentRole === "sales_agent" ? "own" : moduleAccess.reports.visibility_scope}
+        visibilityScope={
+          currentRole === "sales_agent"
+            ? "own"
+            : moduleAccess.reports.visibility_scope
+        }
         canAccessSales={canAccessSalesReports}
         canAccessPurchases={canAccessPurchases}
+        canManageReportsSettings={canManageReportsSettings}
         onOpenHub={() => openModule("home")}
       />
     );
@@ -494,9 +591,28 @@ function AdminDashboard({ session }: { session: Session }) {
     );
   }
 
+  if (visibleModule === "forms" && moduleAccess.forms.can_access) {
+    return withOdooPreload(
+      <FormsDashboard
+        session={session}
+        visibilityScope={moduleAccess.forms.visibility_scope}
+        onOpenHub={() => openModule("home")}
+      />,
+    );
+  }
+
   if (visibleModule === "quoting" && moduleAccess.quoting.can_access) {
     return withOdooPreload(
       <QuoterDashboard
+        session={session}
+        onOpenHub={() => openModule("home")}
+      />,
+    );
+  }
+
+  if (visibleModule === "shipping_quotes" && moduleAccess.shipping_quotes.can_access) {
+    return withOdooPreload(
+      <ShippingQuotesDashboard
         session={session}
         onOpenHub={() => openModule("home")}
       />,
@@ -524,7 +640,9 @@ function AdminDashboard({ session }: { session: Session }) {
         onOpenPolicies={() => openModule("policies")}
         onOpenReports={openReportsModule}
         onOpenMarketing={() => openModule("marketing")}
+        onOpenForms={() => openModule("forms")}
         onOpenQuoting={() => openModule("quoting")}
+        onOpenShippingQuotes={() => openModule("shipping_quotes")}
         onOpenCalculator={() => openModule("calculator")}
         onOpenSettings={() => openModule("settings")}
       />,
@@ -549,7 +667,9 @@ function ModuleHub({
   onOpenPolicies,
   onOpenReports,
   onOpenMarketing,
+  onOpenForms,
   onOpenQuoting,
+  onOpenShippingQuotes,
   onOpenCalculator,
   onOpenSettings,
 }: {
@@ -562,7 +682,9 @@ function ModuleHub({
   onOpenPolicies: () => void;
   onOpenReports: () => void;
   onOpenMarketing: () => void;
+  onOpenForms: () => void;
   onOpenQuoting: () => void;
+  onOpenShippingQuotes: () => void;
   onOpenCalculator: () => void;
   onOpenSettings: () => void;
 }) {
@@ -572,7 +694,9 @@ function ModuleHub({
     moduleAccess.policies.can_access ||
     canOpenReports ||
     moduleAccess.marketing.can_access ||
+    moduleAccess.forms.can_access ||
     moduleAccess.quoting.can_access ||
+    moduleAccess.shipping_quotes.can_access ||
     moduleAccess.calculator.can_access ||
     canOpenSettings;
 
@@ -601,100 +725,124 @@ function ModuleHub({
       <main className="module-grid-wrap">
         <div className="module-grid">
           {moduleAccess.supports.can_access ? (
-          <button
-            type="button"
-            className="module-tile"
-            onClick={onOpenSupports}
-          >
-            <span className="module-icon support-module">
-              <CalendarPlus size={34} />
-            </span>
-            <strong>Soportes</strong>
-          </button>
+            <button
+              type="button"
+              className="module-tile"
+              onClick={onOpenSupports}
+            >
+              <span className="module-icon support-module">
+                <CalendarPlus size={34} />
+              </span>
+              <strong>Soportes</strong>
+            </button>
           ) : null}
           {moduleAccess.inventory.can_access ? (
-          <button
-            type="button"
-            className="module-tile"
-            onClick={onOpenInventory}
-          >
-            <span className="module-icon inventory-module">
-              <Warehouse size={34} />
-            </span>
-            <strong>Inventario</strong>
-          </button>
+            <button
+              type="button"
+              className="module-tile"
+              onClick={onOpenInventory}
+            >
+              <span className="module-icon inventory-module">
+                <Warehouse size={34} />
+              </span>
+              <strong>Inventario</strong>
+            </button>
           ) : null}
           {moduleAccess.policies.can_access ? (
-          <button
-            type="button"
-            className="module-tile"
-            onClick={onOpenPolicies}
-          >
-            <span className="module-icon policies-module">
-              <FileText size={34} />
-            </span>
-            <strong>Pólizas</strong>
-          </button>
+            <button
+              type="button"
+              className="module-tile"
+              onClick={onOpenPolicies}
+            >
+              <span className="module-icon policies-module">
+                <FileText size={34} />
+              </span>
+              <strong>Pólizas</strong>
+            </button>
           ) : null}
           {canOpenReports ? (
-          <button
-            type="button"
-            className="module-tile"
-            onClick={onOpenReports}
-          >
-            <span className="module-icon reports-module">
-              <BarChart3 size={34} />
-            </span>
-            <strong>Reportes</strong>
-          </button>
+            <button
+              type="button"
+              className="module-tile"
+              onClick={onOpenReports}
+            >
+              <span className="module-icon reports-module">
+                <BarChart3 size={34} />
+              </span>
+              <strong>Reportes</strong>
+            </button>
           ) : null}
           {moduleAccess.marketing.can_access ? (
-          <button
-            type="button"
-            className="module-tile"
-            onClick={onOpenMarketing}
-          >
-            <span className="module-icon marketing-module">
-              <Megaphone size={34} />
-            </span>
-            <strong>Marketing</strong>
-          </button>
+            <button
+              type="button"
+              className="module-tile"
+              onClick={onOpenMarketing}
+            >
+              <span className="module-icon marketing-module">
+                <Megaphone size={34} />
+              </span>
+              <strong>Marketing</strong>
+            </button>
+          ) : null}
+          {moduleAccess.forms.can_access ? (
+            <button
+              type="button"
+              className="module-tile"
+              onClick={onOpenForms}
+            >
+              <span className="module-icon forms-module">
+                <ClipboardList size={34} />
+              </span>
+              <strong>Formularios</strong>
+            </button>
           ) : null}
           {moduleAccess.quoting.can_access ? (
-          <button
-            type="button"
-            className="module-tile"
-            onClick={onOpenQuoting}
-          >
-            <span className="module-icon quoting-module">
-              <PackageSearch size={34} />
-            </span>
-            <strong>Cotizador IMEBA</strong>
-          </button>
+            <button
+              type="button"
+              className="module-tile"
+              onClick={onOpenQuoting}
+            >
+              <span className="module-icon quoting-module">
+                <PackageSearch size={34} />
+              </span>
+              <strong>Cotizador IMEBA</strong>
+            </button>
+          ) : null}
+          {moduleAccess.shipping_quotes.can_access ? (
+            <button
+              type="button"
+              className="module-tile"
+              onClick={onOpenShippingQuotes}
+            >
+              <span className="module-icon shipping-quotes-module">
+                <Truck size={34} />
+              </span>
+              <strong>Cotizador de Envíos</strong>
+            </button>
           ) : null}
           {moduleAccess.calculator.can_access ? (
-          <button
-            type="button"
-            className="module-tile"
-            onClick={onOpenCalculator}
-          >
-            <span className="module-icon calculator-module">
-              <Calculator size={34} />
-            </span>
-            <strong>Calculadora</strong>
-          </button>
+            <button
+              type="button"
+              className="module-tile"
+              onClick={onOpenCalculator}
+            >
+              <span className="module-icon calculator-module">
+                <Calculator size={34} />
+              </span>
+              <strong>Calculadora</strong>
+            </button>
           ) : null}
           {canOpenSettings ? (
-          <button
-            type="button"
-            className="module-tile"
-            onClick={onOpenSettings}
-          >
-            <span className="module-icon settings-module">
-              <Settings size={34} />
-            </span>
-            <strong>Ajustes</strong>
-          </button>
+            <button
+              type="button"
+              className="module-tile"
+              onClick={onOpenSettings}
+            >
+              <span className="module-icon settings-module">
+                <Settings size={34} />
+              </span>
+              <strong>Ajustes</strong>
+            </button>
           ) : null}
           {!hasVisibleModules ? (
             <div className="module-empty" role="status">
@@ -704,7 +852,8 @@ function ModuleHub({
               <p className="eyebrow">Acceso pendiente</p>
               <h2>No tienes módulos asignados</h2>
               <p>
-                Solicita a un administrador que habilite los módulos que necesitas para trabajar.
+                Solicita a un administrador que habilite los módulos que
+                necesitas para trabajar.
               </p>
             </div>
           ) : null}
@@ -718,15 +867,21 @@ function getModuleAccessFromPermission(
   permission: AdminUserModulePermissions | null | undefined,
   moduleKey: keyof ModuleAccess,
 ) {
-  const modulePermission = permission?.module_permissions.find((item) => item.module_key === moduleKey);
+  const modulePermission = permission?.module_permissions.find(
+    (item) => item.module_key === moduleKey,
+  );
   return {
     can_access: Boolean(modulePermission?.can_access),
     visibility_scope: modulePermission?.visibility_scope ?? "all",
   };
 }
 
-function getPermissionRole(permission: AdminUserModulePermissions | null | undefined): AdminUserRole {
-  return permission?.role ?? (isPermissionOwner(permission) ? "owner" : "manager");
+function getPermissionRole(
+  permission: AdminUserModulePermissions | null | undefined,
+): AdminUserRole {
+  return (
+    permission?.role ?? (isPermissionOwner(permission) ? "owner" : "manager")
+  );
 }
 
 function roleLabel(role: AdminUserRole) {
@@ -741,16 +896,30 @@ function SettingsDashboard({
   onOpenHub: () => void;
 }) {
   const queryClient = useQueryClient();
-  const [activeSettingsSection, setActiveSettingsSection] = useState<SettingsSection>("permissions");
-  const [selectedPermissionId, setSelectedPermissionId] = useState<string | null>(null);
-  const [permissionDraft, setPermissionDraft] = useState<ModulePermissionDraft | null>(null);
-  const [draftPermissionId, setDraftPermissionId] = useState<string | null>(null);
-  const [editingUserRole, setEditingUserRole] = useState<AdminUserRole>("manager");
+  const [activeSettingsSection, setActiveSettingsSection] =
+    useState<SettingsSection>("permissions");
+  const [selectedPermissionId, setSelectedPermissionId] = useState<
+    string | null
+  >(null);
+  const [permissionDraft, setPermissionDraft] =
+    useState<ModulePermissionDraft | null>(null);
+  const [draftPermissionId, setDraftPermissionId] = useState<string | null>(
+    null,
+  );
+  const [editingUserRole, setEditingUserRole] =
+    useState<AdminUserRole>("manager");
   const [editingFullName, setEditingFullName] = useState("");
+  const [editingEmail, setEditingEmail] = useState("");
   const [editingActive, setEditingActive] = useState(true);
   const [editingPassword, setEditingPassword] = useState("");
+  const [deleteTarget, setDeleteTarget] =
+    useState<AdminUserModulePermissions | null>(null);
   const [createUserModalOpen, setCreateUserModalOpen] = useState(false);
-  const [resultModal, setResultModal] = useState<{ title: string; message: string; tone: "success" | "error" } | null>(null);
+  const [resultModal, setResultModal] = useState<{
+    title: string;
+    message: string;
+    tone: "success" | "error";
+  } | null>(null);
   const permissionsQuery = useQuery({
     queryKey: ["module-permissions", session.user.id],
     queryFn: getModulePermissions,
@@ -767,17 +936,22 @@ function SettingsDashboard({
       full_name: string;
       is_active: boolean;
       password: string;
-    }) => updateAdminUser({
-      permission: payload.permission,
-      permissions: payload.draft,
-      role: payload.role,
-      full_name: payload.full_name,
-      is_active: payload.is_active,
-      password: payload.password,
-    }),
+      email: string;
+    }) =>
+      updateAdminUser({
+        permission: payload.permission,
+        permissions: payload.draft,
+        role: payload.role,
+        email: payload.email,
+        full_name: payload.full_name,
+        is_active: payload.is_active,
+        password: payload.password,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["module-permissions"] });
-      queryClient.invalidateQueries({ queryKey: ["current-module-permissions"] });
+      queryClient.invalidateQueries({
+        queryKey: ["current-module-permissions"],
+      });
       closePermissionEditor();
       setResultModal({
         title: "Cambios guardados",
@@ -788,7 +962,10 @@ function SettingsDashboard({
     onError: (error) => {
       setResultModal({
         title: "No se pudieron guardar",
-        message: error instanceof Error ? error.message : "Ocurrió un error al guardar los permisos.",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Ocurrió un error al guardar los permisos.",
         tone: "error",
       });
     },
@@ -797,7 +974,9 @@ function SettingsDashboard({
     mutationFn: createAdminUser,
     onSuccess: (createdUser) => {
       queryClient.invalidateQueries({ queryKey: ["module-permissions"] });
-      queryClient.invalidateQueries({ queryKey: ["current-module-permissions"] });
+      queryClient.invalidateQueries({
+        queryKey: ["current-module-permissions"],
+      });
       setCreateUserModalOpen(false);
       setResultModal({
         title: "Usuario creado",
@@ -808,9 +987,33 @@ function SettingsDashboard({
     onError: (error) => {
       setResultModal({
         title: "No se pudo crear",
-        message: error instanceof Error ? error.message : "Ocurrió un error al crear el usuario.",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Ocurrió un error al crear el usuario.",
         tone: "error",
       });
+    },
+  });
+  const deleteUserMutation = useMutation({
+    mutationFn: deleteAdminUser,
+    onSuccess: (deletedUser) => {
+      queryClient.invalidateQueries({ queryKey: ["module-permissions"] });
+      queryClient.invalidateQueries({
+        queryKey: ["current-module-permissions"],
+      });
+      setDeleteTarget(null);
+      if (selectedPermissionId === deletedUser.permission_id) {
+        closePermissionEditor();
+      }
+      setResultModal({
+        title: "Usuario eliminado",
+        message: `El usuario ${deletedUser.email} se eliminó correctamente.`,
+        tone: "success",
+      });
+    },
+    onError: (error) => {
+      console.error("No se pudo eliminar el usuario.", error);
     },
   });
   const saveSupportMailerMutation = useMutation({
@@ -819,41 +1022,55 @@ function SettingsDashboard({
       queryClient.invalidateQueries({ queryKey: ["support-mailer-settings"] });
       setResultModal({
         title: "Correo guardado",
-        message: "La configuración del correo saliente de soportes se guardó con éxito.",
+        message:
+          "La configuración del correo saliente de soportes se guardó con éxito.",
         tone: "success",
       });
     },
     onError: (error) => {
       setResultModal({
         title: "No se pudo guardar",
-        message: error instanceof Error ? error.message : "Ocurrió un error al guardar el correo saliente.",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Ocurrió un error al guardar el correo saliente.",
         tone: "error",
       });
     },
   });
   const permissions = permissionsQuery.data ?? [];
   const selectedPermission =
-    permissions.find((permission) => permission.id === selectedPermissionId) ?? null;
+    permissions.find((permission) => permission.id === selectedPermissionId) ??
+    null;
   const selectedOwner = editingUserRole === "owner";
   const activePermissionDraft =
-    selectedPermission && draftPermissionId === selectedPermission.id && permissionDraft
+    selectedPermission &&
+    draftPermissionId === selectedPermission.id &&
+    permissionDraft
       ? permissionDraft
       : selectedPermission
         ? buildModulePermissionDraft(selectedPermission)
         : null;
   const hasPendingDraft =
     selectedPermission && activePermissionDraft
-      ? JSON.stringify(activePermissionDraft) !== JSON.stringify(buildModulePermissionDraft(selectedPermission)) ||
+      ? JSON.stringify(activePermissionDraft) !==
+          JSON.stringify(buildModulePermissionDraft(selectedPermission)) ||
         editingUserRole !== getPermissionRole(selectedPermission) ||
         editingFullName !== (selectedPermission.full_name ?? "") ||
+        editingEmail.trim().toLowerCase() !== selectedPermission.email.trim().toLowerCase() ||
         editingActive !== selectedPermission.is_active ||
         Boolean(editingPassword.trim())
       : false;
   const showInlinePermissionEditor = Boolean(
-    selectedPermission && activePermissionDraft && selectedPermissionId === "__inline-permission-editor__",
+    selectedPermission &&
+    activePermissionDraft &&
+    selectedPermissionId === "__inline-permission-editor__",
   );
 
-  function updateDraft(moduleKey: keyof ModulePermissionDraft, patch: Partial<ModulePermissionDraft[keyof ModulePermissionDraft]>) {
+  function updateDraft(
+    moduleKey: keyof ModulePermissionDraft,
+    patch: Partial<ModulePermissionDraft[keyof ModulePermissionDraft]>,
+  ) {
     if (!selectedPermission || !activePermissionDraft || selectedOwner) return;
     setDraftPermissionId(selectedPermission.id);
     setPermissionDraft({
@@ -867,9 +1084,16 @@ function SettingsDashboard({
 
   function changeEditingUserRole(role: AdminUserRole) {
     setEditingUserRole(role);
-    if (!selectedPermission || !activePermissionDraft || role !== "marketing_agent") return;
+    if (
+      !selectedPermission ||
+      !activePermissionDraft ||
+      (role !== "marketing_agent" && role !== "support_agent")
+    )
+      return;
     setDraftPermissionId(selectedPermission.id);
-    setPermissionDraft(applyRolePermissionDefaults(activePermissionDraft, role));
+    setPermissionDraft(
+      applyRolePermissionDefaults(activePermissionDraft, role),
+    );
   }
 
   function cancelChanges() {
@@ -878,6 +1102,7 @@ function SettingsDashboard({
       setPermissionDraft(buildModulePermissionDraft(selectedPermission));
       setEditingUserRole(getPermissionRole(selectedPermission));
       setEditingFullName(selectedPermission.full_name ?? "");
+      setEditingEmail(selectedPermission.email);
       setEditingActive(selectedPermission.is_active);
       setEditingPassword("");
     }
@@ -890,6 +1115,7 @@ function SettingsDashboard({
       permission: selectedPermission,
       draft: activePermissionDraft,
       role: editingUserRole,
+      email: editingEmail,
       full_name: editingFullName,
       is_active: editingActive,
       password: editingPassword,
@@ -902,6 +1128,7 @@ function SettingsDashboard({
     setPermissionDraft(buildModulePermissionDraft(permission));
     setEditingUserRole(getPermissionRole(permission));
     setEditingFullName(permission.full_name ?? "");
+    setEditingEmail(permission.email);
     setEditingActive(permission.is_active);
     setEditingPassword("");
   }
@@ -912,6 +1139,7 @@ function SettingsDashboard({
     setPermissionDraft(null);
     setEditingUserRole("manager");
     setEditingFullName("");
+    setEditingEmail("");
     setEditingActive(true);
     setEditingPassword("");
   }
@@ -927,14 +1155,20 @@ function SettingsDashboard({
     <div className="admin-shell">
       <aside className="admin-sidebar">
         <div>
-          <button type="button" className="admin-module-back" onClick={onOpenHub}>
+          <button
+            type="button"
+            className="admin-module-back"
+            onClick={onOpenHub}
+          >
             <i className="bi bi-arrow-left"></i>
             <span className="admin-module-back-label">Ajustes</span>
           </button>
         </div>
         <nav className="admin-nav" aria-label="Secciones de ajustes">
           <button
-            className={activeSettingsSection === "permissions" ? "active" : undefined}
+            className={
+              activeSettingsSection === "permissions" ? "active" : undefined
+            }
             type="button"
             onClick={() => setActiveSettingsSection("permissions")}
           >
@@ -942,7 +1176,9 @@ function SettingsDashboard({
             Usuarios y permisos
           </button>
           <button
-            className={activeSettingsSection === "support_mailer" ? "active" : undefined}
+            className={
+              activeSettingsSection === "support_mailer" ? "active" : undefined
+            }
             type="button"
             onClick={() => setActiveSettingsSection("support_mailer")}
           >
@@ -975,185 +1211,247 @@ function SettingsDashboard({
               </h2>
             </div>
             {activeSettingsSection === "permissions" ? (
-              <button type="button" onClick={() => setCreateUserModalOpen(true)}>
+              <button
+                type="button"
+                onClick={() => setCreateUserModalOpen(true)}
+              >
                 <Plus size={18} />
                 Crear usuario
               </button>
             ) : null}
           </div>
           {activeSettingsSection === "permissions" ? (
-          <article className="panel">
-            <div className="catalog-note">
-              Activa solamente los módulos que cada usuario puede ver en el panel.
-            </div>
-            <div className="table-wrap">
-              <table className="records-table permissions-table">
-                <thead>
-                  <tr>
-                    <th>Usuario</th>
-                    <th>Servicios</th>
-                    <th>Inventario</th>
-                    <th>Pólizas</th>
-                    <th>Reportes</th>
-                    <th>Compras</th>
-                    <th>Marketing</th>
-                    <th>Cotizador IMEBA</th>
-                    <th>Calculadora</th>
-                    <th>Rol / estado</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {permissions.map((permission) => {
-                    const owner = isPermissionOwner(permission);
-                    const rowDraft = getDraftForPermission(permission);
+            <article className="panel">
+              <div className="catalog-note">
+                Activa solamente los módulos que cada usuario puede ver en el
+                panel.
+              </div>
+              <div className="table-wrap">
+                <table className="records-table permissions-table">
+                  <thead>
+                    <tr>
+                      <th>Usuario</th>
+                      <th>Rol / estado</th>
+                      <th>Módulos activos</th>
+                      <th>Alcance</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {permissions.map((permission) => {
+                      const owner = isPermissionOwner(permission);
+                      const rowDraft = getDraftForPermission(permission);
 
-                    return (
-                      <tr
-                        key={permission.id}
-                        className={selectedPermission?.id === permission.id ? "clickable-row selected-row" : "clickable-row"}
-                        onClick={() => selectPermission(permission)}
-                      >
-                        <td>
-                          <strong>{permission.email}</strong>
-                          <small>{permission.user_id}</small>
-                        </td>
-                        <td>
-                          <PermissionSummary value={owner ? { can_access: true, visibility_scope: "all" } : rowDraft.supports} />
-                        </td>
-                        <td>
-                          <PermissionSummary value={owner ? { can_access: true, visibility_scope: "all" } : rowDraft.inventory} />
-                        </td>
-                        <td>
-                          <PermissionSummary value={owner ? { can_access: true, visibility_scope: "all" } : rowDraft.policies} />
-                        </td>
-                        <td>
-                          <PermissionSummary value={owner ? { can_access: true, visibility_scope: "all" } : rowDraft.reports} />
-                        </td>
-                        <td>
-                          <PermissionSummary value={owner ? { can_access: true, visibility_scope: "all" } : rowDraft.purchases} />
-                        </td>
-                        <td>
-                          <PermissionSummary value={owner ? { can_access: true, visibility_scope: "all" } : rowDraft.marketing} />
-                        </td>
-                        <td>
-                          <PermissionSummary value={owner ? { can_access: true, visibility_scope: "all" } : rowDraft.quoting} />
-                        </td>
-                        <td>
-                          <PermissionSummary value={owner ? { can_access: true, visibility_scope: "all" } : rowDraft.calculator} />
-                        </td>
-                        <td>
-                          <strong>{roleLabel(permission.role ?? (owner ? "owner" : "manager"))}</strong>
-                          <small>{permission.is_active ? "Activo" : "Inactivo"}</small>
-                        </td>
-                        <td>
-                          <div className="row-actions">
-                            <button
-                              className="icon-button"
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                selectPermission(permission);
-                              }}
-                              aria-label={`Ver permisos de ${permission.email}`}
-                              title="Ver permisos"
-                            >
-                              <Eye size={16} />
-                            </button>
-                            <button
-                              className="icon-button"
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                selectPermission(permission);
-                              }}
-                              aria-label={`Editar permisos de ${permission.email}`}
-                              title="Editar permisos"
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {showInlinePermissionEditor && selectedPermission && activePermissionDraft ? (
-                <div className="settings-permission-editor">
-                  <div className="settings-editor-head">
-                    <div>
-                      <span className="inventory-category">{selectedOwner ? "Propietario" : "Usuario"}</span>
-                      <h3>{selectedPermission.email}</h3>
-                      <p>Activa solamente los módulos que este usuario puede ver en el panel.</p>
-                      <p>Define si cada módulo muestra todo el contenido o solo lo creado por este usuario.</p>
-                    </div>
-                    <SlidersHorizontal size={22} />
-                  </div>
-                  <div className="permissions-module-list">
-                    {adminModules.map((module) => {
-                      const moduleDraft = activePermissionDraft[module.key];
                       return (
-                        <div className="permission-module-card" key={module.key}>
-                          <div>
-                            <strong>{module.label}</strong>
-                            <small>{moduleDraft.can_access ? "Módulo visible" : "Módulo oculto"}</small>
-                          </div>
-                          <PermissionToggle
-                            checked={moduleDraft.can_access}
-                            disabled={selectedOwner || savePermissionMutation.isPending}
-                            onChange={(checked) => updateDraft(module.key, { can_access: checked })}
-                          />
-                          <label className="field">
-                            <span>Contenido visible</span>
-                            <select
-                              value={moduleDraft.visibility_scope}
-                              disabled={!moduleDraft.can_access || selectedOwner || savePermissionMutation.isPending}
-                              onChange={(event) =>
-                                updateDraft(module.key, { visibility_scope: event.target.value as "all" | "own" })
-                              }
-                            >
-                              <option value="all">Todo el contenido del módulo</option>
-                              <option value="own">Solo lo creado por él</option>
-                            </select>
-                          </label>
-                        </div>
+                        <tr
+                          key={permission.id}
+                          className={
+                            selectedPermission?.id === permission.id
+                              ? "clickable-row selected-row"
+                              : "clickable-row"
+                          }
+                          onClick={() => selectPermission(permission)}
+                        >
+                          <td>
+                            <strong>{permission.email}</strong>
+                            <small>{permission.user_id}</small>
+                          </td>
+                          <td>
+                            <div className="permission-role-summary">
+                              <span className="permission-chip neutral">
+                                {roleLabel(
+                                  permission.role ??
+                                    (owner ? "owner" : "manager"),
+                                )}
+                              </span>
+                              <small>{permission.is_active ? "Activo" : "Inactivo"}</small>
+                            </div>
+                          </td>
+                          <td>
+                            <PermissionModulesSummary
+                              draft={rowDraft}
+                              owner={owner}
+                            />
+                          </td>
+                          <td>
+                            <PermissionScopeSummary draft={rowDraft} owner={owner} />
+                          </td>
+                          <td>
+                            <div className="row-actions">
+                              <button
+                                className="icon-button"
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  selectPermission(permission);
+                                }}
+                                aria-label={`Ver permisos de ${permission.email}`}
+                                title="Ver permisos"
+                              >
+                                <Eye size={16} />
+                              </button>
+                              <button
+                                className="icon-button"
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  selectPermission(permission);
+                                }}
+                                aria-label={`Editar permisos de ${permission.email}`}
+                                title="Editar permisos"
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                              <button
+                                className="icon-button danger-action"
+                                type="button"
+                                disabled={owner || deleteUserMutation.isPending}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  deleteUserMutation.reset();
+                                  setDeleteTarget(permission);
+                                }}
+                                aria-label={`Eliminar usuario ${permission.email}`}
+                                title={owner ? "Los propietarios no se eliminan desde aquí" : "Eliminar usuario"}
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
                       );
                     })}
+                  </tbody>
+                </table>
+                {showInlinePermissionEditor &&
+                selectedPermission &&
+                activePermissionDraft ? (
+                  <div className="settings-permission-editor">
+                    <div className="settings-editor-head">
+                      <div>
+                        <span className="inventory-category">
+                          {selectedOwner ? "Propietario" : "Usuario"}
+                        </span>
+                        <h3>{selectedPermission.email}</h3>
+                        <p>
+                          Activa solamente los módulos que este usuario puede
+                          ver en el panel.
+                        </p>
+                        <p>
+                          Define si cada módulo muestra todo el contenido o solo
+                          lo creado por este usuario.
+                        </p>
+                      </div>
+                      <SlidersHorizontal size={22} />
+                    </div>
+                    <div className="permissions-module-list">
+                      {adminModules.map((module) => {
+                        const moduleDraft = activePermissionDraft[module.key];
+                        return (
+                          <div
+                            className="permission-module-card"
+                            key={module.key}
+                          >
+                            <div>
+                              <strong>{module.label}</strong>
+                              <small>
+                                {moduleDraft.can_access
+                                  ? "Módulo visible"
+                                  : "Módulo oculto"}
+                              </small>
+                            </div>
+                            <PermissionToggle
+                              checked={moduleDraft.can_access}
+                              disabled={
+                                selectedOwner ||
+                                savePermissionMutation.isPending
+                              }
+                              onChange={(checked) =>
+                                updateDraft(module.key, { can_access: checked })
+                              }
+                            />
+                            <label className="field">
+                              <span>Contenido visible</span>
+                              <select
+                                value={moduleDraft.visibility_scope}
+                                disabled={
+                                  !moduleDraft.can_access ||
+                                  selectedOwner ||
+                                  savePermissionMutation.isPending
+                                }
+                                onChange={(event) =>
+                                  updateDraft(module.key, {
+                                    visibility_scope: event.target.value as
+                                      | "all"
+                                      | "own",
+                                  })
+                                }
+                              >
+                                <option value="all">
+                                  Todo el contenido del módulo
+                                </option>
+                                <option value="own">
+                                  Solo lo creado por él
+                                </option>
+                              </select>
+                            </label>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                ) : null}
+                {permissionsQuery.isLoading ? (
+                  <EmptyState title="Cargando">
+                    Consultando usuarios registrados...
+                  </EmptyState>
+                ) : null}
+                {!permissionsQuery.isLoading && permissions.length === 0 ? (
+                  <EmptyState title="Sin usuarios">
+                    No hay usuarios autenticados para mostrar.
+                  </EmptyState>
+                ) : null}
+              </div>
+              {savePermissionMutation.error ? (
+                <p className="form-error permissions-error">
+                  {savePermissionMutation.error.message}
+                </p>
               ) : null}
-              {permissionsQuery.isLoading ? (
-                <EmptyState title="Cargando">Consultando usuarios registrados...</EmptyState>
-              ) : null}
-              {!permissionsQuery.isLoading && permissions.length === 0 ? (
-                <EmptyState title="Sin usuarios">No hay usuarios autenticados para mostrar.</EmptyState>
-              ) : null}
-            </div>
-            {savePermissionMutation.error ? (
-              <p className="form-error permissions-error">{savePermissionMutation.error.message}</p>
-            ) : null}
-          </article>
+            </article>
           ) : (
             <SupportMailerSettingsPanel
-              key={supportMailerQuery.data?.updated_at ?? "support-mailer-panel"}
+              key={
+                supportMailerQuery.data?.updated_at ?? "support-mailer-panel"
+              }
               settings={supportMailerQuery.data}
               isLoading={supportMailerQuery.isLoading}
               isSaving={saveSupportMailerMutation.isPending}
-              error={supportMailerQuery.error?.message ?? saveSupportMailerMutation.error?.message}
+              error={
+                supportMailerQuery.error?.message ??
+                saveSupportMailerMutation.error?.message
+              }
               onSave={(payload) => saveSupportMailerMutation.mutate(payload)}
             />
           )}
         </section>
       </main>
       {selectedPermission && activePermissionDraft ? (
-        <Modal title={`Permisos de ${selectedPermission.email}`} onClose={cancelChanges} size="wide">
+        <Modal
+          title={`Permisos de ${selectedPermission.email}`}
+          onClose={cancelChanges}
+          size="wide"
+        >
           <div className="settings-permission-editor modal-permission-editor">
             <div className="settings-editor-head">
               <div>
-                <span className="inventory-category">{selectedOwner ? "Propietario" : "Usuario"}</span>
+                <span className="inventory-category">
+                  {selectedOwner ? "Propietario" : "Usuario"}
+                </span>
                 <h3>{selectedPermission.email}</h3>
-                <p>Actualiza el tipo de usuario, cambia su contraseña o ajusta sus permisos por módulo.</p>
+                <p>
+                  Actualiza el tipo de usuario, cambia su contraseña o ajusta
+                  sus permisos por módulo.
+                </p>
               </div>
               <SlidersHorizontal size={22} />
             </div>
@@ -1167,14 +1465,32 @@ function SettingsDashboard({
                 />
               </label>
               <label className="field">
+                <span>Correo</span>
+                <input
+                  type="email"
+                  value={editingEmail}
+                  onChange={(event) => setEditingEmail(event.target.value)}
+                  disabled={
+                    savePermissionMutation.isPending ||
+                    isDesignatedOwnerEmail(selectedPermission.email)
+                  }
+                  placeholder="usuario@tectronic.mx"
+                  required
+                />
+              </label>
+              <label className="field">
                 <span>Rol</span>
                 <select
                   value={editingUserRole}
                   disabled={savePermissionMutation.isPending}
-                  onChange={(event) => changeEditingUserRole(event.target.value as AdminUserRole)}
+                  onChange={(event) =>
+                    changeEditingUserRole(event.target.value as AdminUserRole)
+                  }
                 >
                   {adminUserRoles.map((role) => (
-                    <option key={role.value} value={role.value}>{role.label}</option>
+                    <option key={role.value} value={role.value}>
+                      {role.label}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -1183,7 +1499,9 @@ function SettingsDashboard({
                 <select
                   value={editingActive ? "active" : "inactive"}
                   disabled={savePermissionMutation.isPending || selectedOwner}
-                  onChange={(event) => setEditingActive(event.target.value === "active")}
+                  onChange={(event) =>
+                    setEditingActive(event.target.value === "active")
+                  }
                 >
                   <option value="active">Activo</option>
                   <option value="inactive">Inactivo</option>
@@ -1203,7 +1521,8 @@ function SettingsDashboard({
             </div>
             {selectedPermission.role === "owner" ? (
               <div className="catalog-note">
-                Este correo es propietario fijo del sistema. Puedes cambiar su contraseña, pero el tipo se mantiene como Propietario.
+                Este correo es propietario fijo del sistema. Puedes cambiar su
+                contraseña, pero el tipo se mantiene como Propietario.
               </div>
             ) : null}
             <div className="permissions-module-list">
@@ -1215,23 +1534,41 @@ function SettingsDashboard({
                   <div className="permission-module-card" key={module.key}>
                     <div>
                       <strong>{module.label}</strong>
-                      <small>{moduleDraft.can_access ? "Módulo visible" : "Módulo oculto"}</small>
+                      <small>
+                        {moduleDraft.can_access
+                          ? "Módulo visible"
+                          : "Módulo oculto"}
+                      </small>
                     </div>
                     <PermissionToggle
                       checked={moduleDraft.can_access}
-                      disabled={selectedOwner || savePermissionMutation.isPending}
-                      onChange={(checked) => updateDraft(module.key, { can_access: checked })}
+                      disabled={
+                        selectedOwner || savePermissionMutation.isPending
+                      }
+                      onChange={(checked) =>
+                        updateDraft(module.key, { can_access: checked })
+                      }
                     />
                     <label className="field">
                       <span>Contenido visible</span>
                       <select
                         value={moduleDraft.visibility_scope}
-                        disabled={!moduleDraft.can_access || selectedOwner || savePermissionMutation.isPending}
+                        disabled={
+                          !moduleDraft.can_access ||
+                          selectedOwner ||
+                          savePermissionMutation.isPending
+                        }
                         onChange={(event) =>
-                          updateDraft(module.key, { visibility_scope: event.target.value as "all" | "own" })
+                          updateDraft(module.key, {
+                            visibility_scope: event.target.value as
+                              | "all"
+                              | "own",
+                          })
                         }
                       >
-                        <option value="all">Todo el contenido del módulo</option>
+                        <option value="all">
+                          Todo el contenido del módulo
+                        </option>
                         <option value="own">Solo lo creado por él</option>
                       </select>
                     </label>
@@ -1240,7 +1577,9 @@ function SettingsDashboard({
               })}
             </div>
             {savePermissionMutation.error ? (
-              <p className="form-error permissions-error">{savePermissionMutation.error.message}</p>
+              <p className="form-error permissions-error">
+                {savePermissionMutation.error.message}
+              </p>
             ) : null}
             <div className="permission-modal-actions">
               <button
@@ -1263,7 +1602,11 @@ function SettingsDashboard({
         </Modal>
       ) : null}
       {createUserModalOpen ? (
-        <Modal title="Crear usuario" onClose={() => setCreateUserModalOpen(false)} size="wide">
+        <Modal
+          title="Crear usuario"
+          onClose={() => setCreateUserModalOpen(false)}
+          size="wide"
+        >
           <CreateAdminUserForm
             isSaving={createUserMutation.isPending}
             error={createUserMutation.error?.message}
@@ -1272,10 +1615,53 @@ function SettingsDashboard({
           />
         </Modal>
       ) : null}
+      {deleteTarget ? (
+        <Modal
+          title="Eliminar usuario"
+          onClose={() => {
+            if (!deleteUserMutation.isPending) setDeleteTarget(null);
+          }}
+        >
+          <div className="permission-result-modal">
+            <span className="policy-notification-icon danger">
+              <Trash2 size={26} />
+            </span>
+            <p>
+              ¿Seguro que deseas eliminar a <strong>{deleteTarget.email}</strong>?
+              Esta acción quitará su acceso al sistema y sus permisos guardados.
+            </p>
+            {deleteUserMutation.error ? (
+              <p className="form-error permissions-error">
+                {deleteUserMutation.error.message}
+              </p>
+            ) : null}
+            <div className="permission-modal-actions">
+              <button
+                type="button"
+                className="danger-button"
+                disabled={deleteUserMutation.isPending}
+                onClick={() => deleteUserMutation.mutate(deleteTarget)}
+              >
+                {deleteUserMutation.isPending ? "Eliminando..." : "Eliminar usuario"}
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                disabled={deleteUserMutation.isPending}
+                onClick={() => setDeleteTarget(null)}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </Modal>
+      ) : null}
       {resultModal ? (
         <Modal title={resultModal.title} onClose={() => setResultModal(null)}>
           <div className="permission-result-modal">
-            <span className={`policy-notification-icon ${resultModal.tone === "success" ? "success" : "danger"}`}>
+            <span
+              className={`policy-notification-icon ${resultModal.tone === "success" ? "success" : "danger"}`}
+            >
               <ShieldCheck size={26} />
             </span>
             <p>{resultModal.message}</p>
@@ -1309,11 +1695,14 @@ function SupportMailerSettingsPanel({
   return (
     <article className="panel">
       <div className="catalog-note">
-        Configura el correo desde el que se envían las actualizaciones de estado del módulo de soportes.
+        Configura el correo desde el que se envían las actualizaciones de estado
+        del módulo de soportes.
       </div>
       {isLoading ? (
         <div className="reports-panel-body">
-          <EmptyState title="Cargando">Consultando la configuración actual del correo...</EmptyState>
+          <EmptyState title="Cargando">
+            Consultando la configuración actual del correo...
+          </EmptyState>
         </div>
       ) : (
         <form
@@ -1329,7 +1718,12 @@ function SupportMailerSettingsPanel({
               <input
                 type="text"
                 value={draft.subject_template}
-                onChange={(event) => setDraft((current) => ({ ...current, subject_template: event.target.value }))}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    subject_template: event.target.value,
+                  }))
+                }
                 placeholder="Actualización de soporte {{folio}}: {{event_label}}"
                 disabled={isSaving}
               />
@@ -1338,7 +1732,12 @@ function SupportMailerSettingsPanel({
               <span>Texto plano del correo</span>
               <textarea
                 value={draft.text_template}
-                onChange={(event) => setDraft((current) => ({ ...current, text_template: event.target.value }))}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    text_template: event.target.value,
+                  }))
+                }
                 rows={10}
                 disabled={isSaving}
               />
@@ -1347,7 +1746,12 @@ function SupportMailerSettingsPanel({
               <span>Plantilla HTML del correo</span>
               <textarea
                 value={draft.html_template}
-                onChange={(event) => setDraft((current) => ({ ...current, html_template: event.target.value }))}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    html_template: event.target.value,
+                  }))
+                }
                 rows={16}
                 disabled={isSaving}
               />
@@ -1357,7 +1761,12 @@ function SupportMailerSettingsPanel({
               <input
                 type="text"
                 value={draft.smtp_username}
-                onChange={(event) => setDraft((current) => ({ ...current, smtp_username: event.target.value }))}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    smtp_username: event.target.value,
+                  }))
+                }
                 disabled={isSaving}
               />
             </label>
@@ -1366,7 +1775,12 @@ function SupportMailerSettingsPanel({
               <input
                 type="password"
                 value={draft.smtp_password}
-                onChange={(event) => setDraft((current) => ({ ...current, smtp_password: event.target.value }))}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    smtp_password: event.target.value,
+                  }))
+                }
                 disabled={isSaving}
               />
             </label>
@@ -1375,7 +1789,12 @@ function SupportMailerSettingsPanel({
               <input
                 type="email"
                 value={draft.sender_email}
-                onChange={(event) => setDraft((current) => ({ ...current, sender_email: event.target.value }))}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    sender_email: event.target.value,
+                  }))
+                }
                 disabled={isSaving}
               />
             </label>
@@ -1384,7 +1803,12 @@ function SupportMailerSettingsPanel({
               <input
                 type="text"
                 value={draft.sender_name}
-                onChange={(event) => setDraft((current) => ({ ...current, sender_name: event.target.value }))}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    sender_name: event.target.value,
+                  }))
+                }
                 disabled={isSaving}
               />
             </label>
@@ -1393,7 +1817,12 @@ function SupportMailerSettingsPanel({
               <input
                 type="email"
                 value={draft.reply_to_email ?? ""}
-                onChange={(event) => setDraft((current) => ({ ...current, reply_to_email: event.target.value || null }))}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    reply_to_email: event.target.value || null,
+                  }))
+                }
                 placeholder="soporte@tectronic.mx"
                 disabled={isSaving}
               />
@@ -1404,7 +1833,12 @@ function SupportMailerSettingsPanel({
               <input
                 type="checkbox"
                 checked={draft.smtp_secure}
-                onChange={(event) => setDraft((current) => ({ ...current, smtp_secure: event.target.checked }))}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    smtp_secure: event.target.checked,
+                  }))
+                }
                 disabled={isSaving}
               />
               <span>Usar conexión segura SMTP</span>
@@ -1413,16 +1847,25 @@ function SupportMailerSettingsPanel({
               <input
                 type="checkbox"
                 checked={draft.is_active}
-                onChange={(event) => setDraft((current) => ({ ...current, is_active: event.target.checked }))}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    is_active: event.target.checked,
+                  }))
+                }
                 disabled={isSaving}
               />
               <span>Configuración activa para envíos</span>
             </label>
           </div>
           <div className="catalog-note settings-mailer-note">
-            En el correo al cliente se resaltarán en verde y subrayados la descripción del movimiento, el movimiento y el estado actual del soporte.
+            En el correo al cliente se resaltarán en verde y subrayados la
+            descripción del movimiento, el movimiento y el estado actual del
+            soporte.
           </div>
-          {error ? <p className="form-error permissions-error">{error}</p> : null}
+          {error ? (
+            <p className="form-error permissions-error">{error}</p>
+          ) : null}
           <div className="permission-modal-actions">
             <button type="submit" disabled={isSaving}>
               {isSaving ? "Guardando..." : "Guardar configuración"}
@@ -1434,19 +1877,67 @@ function SupportMailerSettingsPanel({
   );
 }
 
-function PermissionSummary({
-  value,
+function PermissionModulesSummary({
+  draft,
+  owner,
 }: {
-  value: { can_access: boolean; visibility_scope: "all" | "own" };
+  draft: ModulePermissionDraft;
+  owner: boolean;
 }) {
-  if (!value.can_access) {
-    return <span className="permission-chip denied">Sin acceso</span>;
+  const activeModules = adminModules.filter(
+    (module) => owner || draft[module.key]?.can_access,
+  );
+  const visibleModules = activeModules.slice(0, 4);
+  const hiddenCount = activeModules.length - visibleModules.length;
+
+  if (!activeModules.length) {
+    return <span className="permission-chip denied">Sin módulos</span>;
   }
 
   return (
-    <span className="permission-chip allowed">
-      {value.visibility_scope === "own" ? "Solo propios" : "Todo"}
-    </span>
+    <div className="permissions-module-summary">
+      {visibleModules.map((module) => (
+        <span className="permission-chip allowed" key={module.key}>
+          {module.label}
+        </span>
+      ))}
+      {hiddenCount > 0 ? (
+        <span className="permission-chip neutral">+{hiddenCount} más</span>
+      ) : null}
+    </div>
+  );
+}
+
+function PermissionScopeSummary({
+  draft,
+  owner,
+}: {
+  draft: ModulePermissionDraft;
+  owner: boolean;
+}) {
+  if (owner) {
+    return <span className="permission-chip neutral">Todo el sistema</span>;
+  }
+
+  const activeModules = adminModules.filter((module) => draft[module.key]?.can_access);
+  const allScopeCount = activeModules.filter(
+    (module) => draft[module.key]?.visibility_scope === "all",
+  ).length;
+  const ownScopeCount = activeModules.length - allScopeCount;
+
+  if (!activeModules.length) {
+    return <span className="permission-chip denied">Sin alcance</span>;
+  }
+
+  return (
+    <div className="permissions-scope-summary">
+      {allScopeCount > 0 ? (
+        <span className="permission-chip neutral">Todo: {allScopeCount}</span>
+      ) : null}
+      {ownScopeCount > 0 ? (
+        <span className="permission-chip neutral">Propios: {ownScopeCount}</span>
+      ) : null}
+    </div>
   );
 }
 
@@ -1466,7 +1957,7 @@ function buildDefaultSupportMailerDraft(): SupportMailerSettingsDraft {
     text_template:
       "Hola {{customer_name}},\n\nTe compartimos una actualización de tu soporte.\n\n{{details_text}}\n\nSi necesitas más información, responde a este correo o ponte en contacto con Soportes Tectronic.",
     html_template:
-      "<div style=\"font-family: Arial, sans-serif; color: #24313f; line-height: 1.6;\">\n  <h2 style=\"margin-bottom: 12px;\">Actualización de soporte</h2>\n  <p>Hola <strong>{{customer_name}}</strong>,</p>\n  <p>Te compartimos una actualización de tu soporte.</p>\n  {{details_html}}\n  <p>Si necesitas más información, responde a este correo o ponte en contacto con Soportes Tectronic.</p>\n</div>",
+      '<div style="font-family: Arial, sans-serif; color: #24313f; line-height: 1.6;">\n  <h2 style="margin-bottom: 12px;">Actualización de soporte</h2>\n  <p>Hola <strong>{{customer_name}}</strong>,</p>\n  <p>Te compartimos una actualización de tu soporte.</p>\n  {{details_html}}\n  <p>Si necesitas más información, responde a este correo o ponte en contacto con Soportes Tectronic.</p>\n</div>',
   };
 }
 
@@ -1490,7 +1981,8 @@ function buildSupportMailerDraftFromSettings(
     sender_name: settings.sender_name,
     reply_to_email: settings.reply_to_email,
     is_active: settings.is_active,
-    subject_template: settings.subject_template?.trim() || defaults.subject_template,
+    subject_template:
+      settings.subject_template?.trim() || defaults.subject_template,
     text_template: settings.text_template?.trim() || defaults.text_template,
     html_template: settings.html_template?.trim() || defaults.html_template,
   };
@@ -1511,7 +2003,9 @@ function CreateAdminUserForm({
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [userRole, setUserRole] = useState<AdminUserRole>("manager");
-  const [draft, setDraft] = useState<ModulePermissionDraft>(buildEmptyPermissionDraft());
+  const [draft, setDraft] = useState<ModulePermissionDraft>(
+    buildEmptyPermissionDraft(),
+  );
   const [localError, setLocalError] = useState("");
   const isOwner = userRole === "owner";
 
@@ -1555,11 +2049,17 @@ function CreateAdminUserForm({
   }
 
   return (
-    <form className="settings-permission-editor modal-permission-editor" onSubmit={submit}>
+    <form
+      className="settings-permission-editor modal-permission-editor"
+      onSubmit={submit}
+    >
       <div className="form-grid">
         <label className="field">
           <span>Nombre</span>
-          <input value={fullName} onChange={(event) => setFullName(event.target.value)} />
+          <input
+            value={fullName}
+            onChange={(event) => setFullName(event.target.value)}
+          />
         </label>
         <label className="field">
           <span>Correo</span>
@@ -1576,9 +2076,16 @@ function CreateAdminUserForm({
         </label>
         <label className="field">
           <span>Rol</span>
-          <select value={userRole} onChange={(event) => changeNewUserRole(event.target.value as AdminUserRole)}>
+          <select
+            value={userRole}
+            onChange={(event) =>
+              changeNewUserRole(event.target.value as AdminUserRole)
+            }
+          >
             {adminUserRoles.map((role) => (
-              <option key={role.value} value={role.value}>{role.label}</option>
+              <option key={role.value} value={role.value}>
+                {role.label}
+              </option>
             ))}
           </select>
         </label>
@@ -1603,17 +2110,23 @@ function CreateAdminUserForm({
       </div>
       <div className="permissions-module-list">
         {adminModules.map((module) => {
-          const moduleDraft = isOwner ? { can_access: true, visibility_scope: "all" as const } : draft[module.key];
+          const moduleDraft = isOwner
+            ? { can_access: true, visibility_scope: "all" as const }
+            : draft[module.key];
           return (
             <div className="permission-module-card" key={module.key}>
               <div>
                 <strong>{module.label}</strong>
-                <small>{moduleDraft.can_access ? "Módulo visible" : "Módulo oculto"}</small>
+                <small>
+                  {moduleDraft.can_access ? "Módulo visible" : "Módulo oculto"}
+                </small>
               </div>
               <PermissionToggle
                 checked={moduleDraft.can_access}
                 disabled={isOwner || isSaving}
-                onChange={(checked) => updateNewUserDraft(module.key, { can_access: checked })}
+                onChange={(checked) =>
+                  updateNewUserDraft(module.key, { can_access: checked })
+                }
               />
               <label className="field">
                 <span>Contenido visible</span>
@@ -1621,7 +2134,9 @@ function CreateAdminUserForm({
                   value={moduleDraft.visibility_scope}
                   disabled={!moduleDraft.can_access || isOwner || isSaving}
                   onChange={(event) =>
-                    updateNewUserDraft(module.key, { visibility_scope: event.target.value as "all" | "own" })
+                    updateNewUserDraft(module.key, {
+                      visibility_scope: event.target.value as "all" | "own",
+                    })
                   }
                 >
                   <option value="all">Todo el contenido del módulo</option>
@@ -1639,7 +2154,12 @@ function CreateAdminUserForm({
         <button type="submit" disabled={isSaving}>
           {isSaving ? "Creando..." : "Crear usuario"}
         </button>
-        <button className="secondary-button" type="button" onClick={onCancel} disabled={isSaving}>
+        <button
+          className="secondary-button"
+          type="button"
+          onClick={onCancel}
+          disabled={isSaving}
+        >
           Cancelar
         </button>
       </div>
@@ -1868,7 +2388,11 @@ function SupportAdminDashboard({
     <div className="admin-shell">
       <aside className="admin-sidebar">
         <div>
-          <button type="button" className="admin-module-back" onClick={onOpenHub}>
+          <button
+            type="button"
+            className="admin-module-back"
+            onClick={onOpenHub}
+          >
             <i className="bi bi-arrow-left"></i>
             <span className="admin-module-back-label">Soportes</span>
           </button>
@@ -2101,7 +2625,9 @@ function SupportImageManager({
       return;
     }
 
-    const incomingPdfCount = selectedFiles.filter((file) => file.type === "application/pdf").length;
+    const incomingPdfCount = selectedFiles.filter(
+      (file) => file.type === "application/pdf",
+    ).length;
     const incomingImageCount = selectedFiles.length - incomingPdfCount;
 
     if (incomingImageCount > remainingImageSlots) {
@@ -2127,7 +2653,8 @@ function SupportImageManager({
       <div>
         <h3>Archivos del soporte</h3>
         <p>
-          {images.length} de {MAX_SUPPORT_IMAGES} imágenes y {pdfs.length} de {MAX_SUPPORT_PDFS} PDFs cargados.
+          {images.length} de {MAX_SUPPORT_IMAGES} imágenes y {pdfs.length} de{" "}
+          {MAX_SUPPORT_PDFS} PDFs cargados.
         </p>
       </div>
       <label className="image-input-label">
@@ -2137,7 +2664,9 @@ function SupportImageManager({
           type="file"
           accept="image/png,image/jpeg,application/pdf"
           multiple
-          disabled={(remainingImageSlots <= 0 && remainingPdfSlots <= 0) || isAdding}
+          disabled={
+            (remainingImageSlots <= 0 && remainingPdfSlots <= 0) || isAdding
+          }
           onChange={(event) => {
             handleFiles(event.target.files);
             event.target.value = "";
@@ -2158,12 +2687,12 @@ function SupportImageManager({
                   <span className="support-pdf-preview">
                     <FileText size={24} />
                     <small>
-                    {image?.original_name
-                      ? image.original_name.length > 10
-                        ? `${image.original_name.slice(0, 10)}...`
-                        : image.original_name
-                      : "PDF del soporte"}
-                  </small>
+                      {image?.original_name
+                        ? image.original_name.length > 10
+                          ? `${image.original_name.slice(0, 10)}...`
+                          : image.original_name
+                        : "PDF del soporte"}
+                    </small>
                   </span>
                 ) : (
                   <img
@@ -2178,7 +2707,9 @@ function SupportImageManager({
                 className="icon-button danger-action"
                 onClick={() => onDelete(image)}
                 disabled={isDeleting}
-                aria-label={isSupportPdf(image) ? "Eliminar PDF" : "Eliminar imagen"}
+                aria-label={
+                  isSupportPdf(image) ? "Eliminar PDF" : "Eliminar imagen"
+                }
               >
                 <Trash2 size={16} />
               </button>
@@ -2221,7 +2752,9 @@ function SupportMovementForm({
   const [repairRequestError, setRepairRequestError] = useState("");
   const [repairQuoteFile, setRepairQuoteFile] = useState<File | null>(null);
   const [repairQuoteError, setRepairQuoteError] = useState("");
-  const [shippingCarrier, setShippingCarrier] = useState(supportShippingCarriers[0]);
+  const [shippingCarrier, setShippingCarrier] = useState(
+    supportShippingCarriers[0],
+  );
   const [trackingNumber, setTrackingNumber] = useState("");
   const [shippingError, setShippingError] = useState("");
   const selectedEventTypeId = activeEventTypes.some(
@@ -2237,7 +2770,8 @@ function SupportMovementForm({
     support.support_type === "technical" &&
     selectedEventType?.code === "diagnostico";
   const canRegisterShipment =
-    support.support_type === "programming" && selectedEventType?.code === "enviada";
+    support.support_type === "programming" &&
+    selectedEventType?.code === "enviada";
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -2257,7 +2791,9 @@ function SupportMovementForm({
       !repairQuoteFile &&
       !support.repair_quote_pdf_path
     ) {
-      setRepairQuoteError("Carga una cotización en PDF para solicitar autorización.");
+      setRepairQuoteError(
+        "Carga una cotización en PDF para solicitar autorización.",
+      );
       return;
     }
 
@@ -2296,7 +2832,8 @@ function SupportMovementForm({
         <small>Folio {support.folio}</small>
         {support.repair_approval_status ? (
           <small>
-            Reparación: {repairApprovalLabel(
+            Reparación:{" "}
+            {repairApprovalLabel(
               support.repair_approval_status,
               support.repair_approval_response_source,
             )}
@@ -2304,7 +2841,8 @@ function SupportMovementForm({
         ) : null}
         {support.repair_approval_response_source ? (
           <small>
-            Origen: {repairApprovalSourceLabel(support.repair_approval_response_source)}
+            Origen:{" "}
+            {repairApprovalSourceLabel(support.repair_approval_response_source)}
           </small>
         ) : null}
       </div>
@@ -2361,7 +2899,8 @@ function SupportMovementForm({
                   }
                 }}
               />
-              Mostrar al cliente que su equipo necesita reparación y pedir autorización
+              Mostrar al cliente que su equipo necesita reparación y pedir
+              autorización
             </label>
             {requiresRepair ? (
               <label className="field">
@@ -2382,11 +2921,13 @@ function SupportMovementForm({
                   }}
                 />
                 <small>
-                  Este archivo se mostrará al cliente junto con la solicitud de autorización.
+                  Este archivo se mostrará al cliente junto con la solicitud de
+                  autorización.
                 </small>
                 {!repairQuoteFile && support.repair_quote_pdf_path ? (
                   <small>
-                    Si no cargas una nueva cotización, se reutilizará la ya guardada para este folio.
+                    Si no cargas una nueva cotización, se reutilizará la ya
+                    guardada para este folio.
                   </small>
                 ) : null}
                 {repairQuoteFile ? (
@@ -2403,7 +2944,10 @@ function SupportMovementForm({
           <div className="form-grid">
             <label className="field">
               <span>Paquetería</span>
-              <select value={shippingCarrier} onChange={(event) => setShippingCarrier(event.target.value)}>
+              <select
+                value={shippingCarrier}
+                onChange={(event) => setShippingCarrier(event.target.value)}
+              >
                 {supportShippingCarriers.map((carrier) => (
                   <option key={carrier} value={carrier}>
                     {carrier}
@@ -3144,8 +3688,17 @@ function AdminLogin() {
     <div className="login-page">
       <form className="login-card" onSubmit={handleSubmit}>
         <img className="login-logo" src="/tectronic-logo.png" alt="Tectronic" />
-        <p className="eyebrow">Administrador</p>
-        <h1>Acceso al panel</h1>
+        <p
+          style={{ textAlign: "center", marginTop: "20px", fontSize: "24px" }}
+          className="eyebrow"
+        >
+          sistema interno de trabajo
+        </p>
+        <h3
+          style={{ textAlign: "center", marginTop: "20px", fontSize: "24px" }}
+        >
+          Corporación Tectronic
+        </h3>
         <label>
           Correo
           <input
@@ -3165,7 +3718,7 @@ function AdminLogin() {
           />
         </label>
         {error ? <p className="form-error">{error}</p> : null}
-        <button type="submit" disabled={loading}>
+        <button style={{ width: "100%" }} type="submit" disabled={loading}>
           {loading ? "Entrando..." : "Entrar"}
         </button>
       </form>

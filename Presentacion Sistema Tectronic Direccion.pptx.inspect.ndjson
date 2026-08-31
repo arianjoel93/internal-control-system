@@ -1,0 +1,380 @@
+{"kind":"deck","id":"pr/hhad6w","name":"Deck"}
+{"kind":"layout","layoutId":"5e3e6502-836e-497c-b0d2-d680a62652af","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"3f176916-bd07-47bf-88f1-a7edc37624ad","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/c3lzoq","slide":1,"title":"Sistema interno de trabajo","textShapes":5}
+{"kind":"shape","id":"sh/l4japofm","slide":1,"bbox":[0,0,1280,720]}
+{"kind":"textbox","id":"sh/761srexc","slide":1,"text":"Sistema interno de trabajo","textPreview":"Sistema interno de trabajo","textChars":26,"textLines":1,"bbox":[72,180,820,32]}
+{"kind":"textbox","id":"sh/m5sbitw7","slide":1,"text":"Presentación integral de la aplicación","textPreview":"Presentación integral de la aplicación","textChars":38,"textLines":1,"bbox":[72,228,910,130]}
+{"kind":"textbox","id":"sh/98jatofi","slide":1,"text":"Centralización operativa, inteligencia comercial y automatización de procesos para dirección.","textPreview":"Centralización operativa, inteligencia comercial y automatización de procesos para dirección.","textChars":93,"textLines":1,"bbox":[72,386,760,70]}
+{"kind":"shape","id":"sh/87atkjex","slide":1,"bbox":[72,516,490,0]}
+{"kind":"textbox","id":"sh/naxsfux8","slide":1,"text":"Presenta: Joel Trincado\nDepartamento de Sistemas\nCorporación Tectronic","textPreview":"Presenta: Joel Trincado | Departamento de Sistemas | Corporación Tectronic","textChars":70,"textLines":3,"bbox":[72,546,650,96]}
+{"kind":"textbox","id":"sh/29or6pwn","slide":1,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[1148,668,60,24]}
+{"kind":"image","id":"im/rip8jap8","slide":1,"name":"","alt":"Fondo del hub de módulos","bbox":[0,0,1280,720]}
+{"kind":"image","id":"im/dk7qlk7y","slide":1,"name":"","alt":"Logo Corporación Tectronic","bbox":[72,54,120,78]}
+{"kind":"notes","id":"nt/c3lzoq","slide":1,"text":"[Sources]\nAssets locales: public/tectronic-logo.png y public/module-hub-background.png.\nContexto revisado: README.md y src/features/admin/AdminPage.tsx."}
+{"kind":"slide","id":"sl/0q65ud","slide":2,"title":"CORPORACIÓN TECTRONIC","textShapes":12}
+{"kind":"textbox","id":"sh/7ilknytw","slide":2,"text":"CORPORACIÓN TECTRONIC","textPreview":"CORPORACIÓN TECTRONIC","textChars":21,"textLines":1,"bbox":[72,38,520,26]}
+{"kind":"textbox","id":"sh/sju1g3ah","slide":2,"text":"La aplicación convierte operación dispersa en una plataforma de control","textPreview":"La aplicación convierte operación dispersa en una plataforma de control","textChars":71,"textLines":1,"bbox":[72,72,910,58]}
+{"kind":"shape","id":"sh/elw3idsn","slide":2,"bbox":[72,140,1136,0]}
+{"kind":"textbox","id":"sh/fm5krit8","slide":2,"text":"Mensaje ejecutivo","textPreview":"Mensaje ejecutivo","textChars":17,"textLines":1,"bbox":[72,174,360,36]}
+{"kind":"textbox","id":"sh/gnelknat","slide":2,"text":"El sistema concentra soporte, inventario, pólizas, reportes, marketing, formularios, cotización, envíos, cálculo comercial y administración de permisos en un solo entorno con datos trazables.","textPreview":"El sistema concentra soporte, inventario, pólizas, reportes, marketing, formularios, cotización, envíos, cálculo comercial y administraci...","textChars":191,"textLines":1,"bbox":[72,224,1030,72]}
+{"kind":"shape","id":"sh/1on2tsby","slide":2,"bbox":[72,354,245,108]}
+{"kind":"textbox","id":"sh/2pw3mxsj","slide":2,"text":"10","textPreview":"10","textChars":2,"textLines":1,"bbox":[92,374,205,36]}
+{"kind":"textbox","id":"sh/3q5kv294","slide":2,"text":"módulos principales centralizados","textPreview":"módulos principales centralizados","textChars":33,"textLines":1,"bbox":[92,416,205,34]}
+{"kind":"shape","id":"sh/jydk7exg","slide":2,"bbox":[352,354,350,108]}
+{"kind":"textbox","id":"sh/ix4jytwv","slide":2,"text":"Odoo + FedEx + Supabase","textPreview":"Odoo + FedEx + Supabase","textChars":23,"textLines":1,"bbox":[372,374,310,36]}
+{"kind":"textbox","id":"sh/5kv29ofm","slide":2,"text":"integraciones operativas","textPreview":"integraciones operativas","textChars":24,"textLines":1,"bbox":[372,416,310,34]}
+{"kind":"shape","id":"sh/kjm10je1","slide":2,"bbox":[736,354,400,108]}
+{"kind":"textbox","id":"sh/vudk3exk","slide":2,"text":"Consulta + Formularios + Reportes","textPreview":"Consulta + Formularios + Reportes","textChars":33,"textLines":1,"bbox":[756,374,360,36]}
+{"kind":"textbox","id":"sh/atkju9wz","slide":2,"text":"puertas de entrada públicas","textPreview":"puertas de entrada públicas","textChars":27,"textLines":1,"bbox":[756,416,360,34]}
+{"kind":"textbox","id":"sh/xwv25ofa","slide":2,"text":"Resultado para dirección: visibilidad transversal, menor retrabajo y una base única para decidir qué atender, vender, comprar o automatizar.","textPreview":"Resultado para dirección: visibilidad transversal, menor retrabajo y una base única para decidir qué atender, vender, comprar o automatizar.","textChars":140,"textLines":1,"bbox":[72,528,980,54]}
+{"kind":"textbox","id":"sh/wvm1wjep","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[1148,668,60,24]}
+{"kind":"image","id":"im/ozexwbu1","slide":2,"name":"","alt":"Logo Corporación Tectronic","bbox":[1124,32,88,56]}
+{"kind":"notes","id":"nt/0q65ud","slide":2,"text":"[Sources]\nMódulos visibles en src/features/admin/AdminPage.tsx y src/features/admin/settingsService.ts.\nRutas públicas en src/AppRoutes.tsx."}
+{"kind":"slide","id":"sl/9hgqg7","slide":3,"title":"CORPORACIÓN TECTRONIC","textShapes":23}
+{"kind":"textbox","id":"sh/jupgrahk","slide":3,"text":"CORPORACIÓN TECTRONIC","textPreview":"CORPORACIÓN TECTRONIC","textChars":21,"textLines":1,"bbox":[72,38,520,26]}
+{"kind":"textbox","id":"sh/kvyxkfy5","slide":3,"text":"El mapa funcional cubre operación, comercial, logística y gobierno","textPreview":"El mapa funcional cubre operación, comercial, logística y gobierno","textChars":66,"textLines":1,"bbox":[72,72,910,58]}
+{"kind":"shape","id":"sh/6x0fmpgb","slide":3,"bbox":[72,140,1136,0]}
+{"kind":"textbox","id":"sh/7i9gvuxw","slide":3,"text":"Operación","textPreview":"Operación","textChars":9,"textLines":1,"bbox":[72,184,230,30]}
+{"kind":"shape","id":"sh/sjixozy1","slide":3,"bbox":[72,238,230,52]}
+{"kind":"textbox","id":"sh/tkryx4fm","slide":3,"text":"Soportes","textPreview":"Soportes","textChars":8,"textLines":1,"bbox":[90,251,196,24]}
+{"kind":"shape","id":"sh/m1wfa5gr","slide":3,"bbox":[72,310,230,52]}
+{"kind":"textbox","id":"sh/nm5wjqhc","slide":3,"text":"Inventario","textPreview":"Inventario","textChars":10,"textLines":1,"bbox":[90,323,196,24]}
+{"kind":"shape","id":"sh/fi5crulw","slide":3,"bbox":[72,382,230,52]}
+{"kind":"textbox","id":"sh/uhwbipkb","slide":3,"text":"Pólizas","textPreview":"Pólizas","textChars":7,"textLines":1,"bbox":[90,395,196,24]}
+{"kind":"shape","id":"sh/hknutk32","slide":3,"bbox":[72,454,230,52]}
+{"kind":"textbox","id":"sh/gjetkz2h","slide":3,"text":"Formularios","textPreview":"Formularios","textChars":11,"textLines":1,"bbox":[90,467,196,24]}
+{"kind":"textbox","id":"sh/7e5cnal0","slide":3,"text":"Comercial","textPreview":"Comercial","textChars":9,"textLines":1,"bbox":[362,184,230,30]}
+{"kind":"shape","id":"sh/6dcbe5kf","slide":3,"bbox":[362,238,230,52]}
+{"kind":"textbox","id":"sh/tgnupk3q","slide":3,"text":"Reportes","textPreview":"Reportes","textChars":8,"textLines":1,"bbox":[380,251,196,24]}
+{"kind":"shape","id":"sh/sfetgf2l","slide":3,"bbox":[362,310,230,52]}
+{"kind":"textbox","id":"sh/jalcjalo","slide":3,"text":"Marketing","textPreview":"Marketing","textChars":9,"textLines":1,"bbox":[380,323,196,24]}
+{"kind":"shape","id":"sh/i9cba5k3","slide":3,"bbox":[362,382,230,52]}
+{"kind":"textbox","id":"sh/mlsvm5ob","slide":3,"text":"Cotizador IMEBA","textPreview":"Cotizador IMEBA","textChars":15,"textLines":1,"bbox":[380,395,196,24]}
+{"kind":"shape","id":"sh/nm1cva5w","slide":3,"bbox":[362,454,230,52]}
+{"kind":"textbox","id":"sh/87udov61","slide":3,"text":"Calculadora","textPreview":"Calculadora","textChars":11,"textLines":1,"bbox":[380,467,196,24]}
+{"kind":"textbox","id":"sh/983ux0nm","slide":3,"text":"Logística","textPreview":"Logística","textChars":9,"textLines":1,"bbox":[652,184,230,30]}
+{"kind":"shape","id":"sh/a9cvq5o7","slide":3,"bbox":[652,238,230,52]}
+{"kind":"textbox","id":"sh/valcza5s","slide":3,"text":"Cotizador de Envíos","textPreview":"Cotizador de Envíos","textChars":19,"textLines":1,"bbox":[670,251,196,24]}
+{"kind":"shape","id":"sh/wbudsf6d","slide":3,"bbox":[652,310,230,52]}
+{"kind":"textbox","id":"sh/xc3u1kny","slide":3,"text":"Odoo","textPreview":"Odoo","textChars":4,"textLines":1,"bbox":[670,323,196,24]}
+{"kind":"shape","id":"sh/idcvupoj","slide":3,"bbox":[652,382,230,52]}
+{"kind":"textbox","id":"sh/je5c3u5o","slide":3,"text":"FedEx","textPreview":"FedEx","textChars":5,"textLines":1,"bbox":[670,395,196,24]}
+{"kind":"textbox","id":"sh/t87yto76","slide":3,"text":"Gobierno","textPreview":"Gobierno","textChars":8,"textLines":1,"bbox":[942,184,230,30]}
+{"kind":"shape","id":"sh/s7yxkjql","slide":3,"bbox":[942,238,230,52]}
+{"kind":"textbox","id":"sh/76pgrep0","slide":3,"text":"Ajustes","textPreview":"Ajustes","textChars":7,"textLines":1,"bbox":[960,251,196,24]}
+{"kind":"shape","id":"sh/65wfi98f","slide":3,"bbox":[942,310,230,52]}
+{"kind":"textbox","id":"sh/hc7yxo72","slide":3,"text":"Roles","textPreview":"Roles","textChars":5,"textLines":1,"bbox":[960,323,196,24]}
+{"kind":"shape","id":"sh/gbyxojqh","slide":3,"bbox":[942,382,230,52]}
+{"kind":"textbox","id":"sh/fapgvepw","slide":3,"text":"Permisos","textPreview":"Permisos","textChars":8,"textLines":1,"bbox":[960,395,196,24]}
+{"kind":"shape","id":"sh/u9gfmt8r","slide":3,"bbox":[942,454,230,52]}
+{"kind":"textbox","id":"sh/p0ry187e","slide":3,"text":"Alcance: propio/global","textPreview":"Alcance: propio/global","textChars":22,"textLines":1,"bbox":[960,467,196,24]}
+{"kind":"textbox","id":"sh/ozixs3qt","slide":3,"text":"La dirección no ve módulos aislados: ve una cadena donde los datos operativos alimentan decisiones comerciales, logística y administración.","textPreview":"La dirección no ve módulos aislados: ve una cadena donde los datos operativos alimentan decisiones comerciales, logística y administración.","textChars":139,"textLines":1,"bbox":[96,590,1080,44]}
+{"kind":"textbox","id":"sh/k7m9gred","slide":3,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[1148,668,60,24]}
+{"kind":"image","id":"im/8ze54nmp","slide":3,"name":"","alt":"Logo Corporación Tectronic","bbox":[1124,32,88,56]}
+{"kind":"notes","id":"nt/9hgqg7","slide":3,"text":"[Sources]\nHub y control de acceso revisados en src/features/admin/AdminPage.tsx.\nLista de módulos revisada en src/features/admin/settingsService.ts."}
+{"kind":"slide","id":"sl/3w3uci","slide":4,"title":"CORPORACIÓN TECTRONIC","textShapes":12}
+{"kind":"textbox","id":"sh/8jud4r6x","slide":4,"text":"CORPORACIÓN TECTRONIC","textPreview":"CORPORACIÓN TECTRONIC","textChars":21,"textLines":1,"bbox":[72,38,520,26]}
+{"kind":"textbox","id":"sh/nilcbmpc","slide":4,"text":"Arquitectura: una aplicación React con datos seguros y conectores especializados","textPreview":"Arquitectura: una aplicación React con datos seguros y conectores especializados","textChars":80,"textLines":1,"bbox":[72,72,910,58]}
+{"kind":"shape","id":"sh/x8nuhw7e","slide":4,"bbox":[72,140,1136,0]}
+{"kind":"shape","id":"sh/w7ud8r6t","slide":4,"bbox":[90,272,170,92]}
+{"kind":"textbox","id":"sh/v6lcf6po","slide":4,"text":"Usuarios","textPreview":"Usuarios","textChars":8,"textLines":1,"bbox":[108,292,134,54]}
+{"kind":"shape","id":"sh/alcv61o3","slide":4,"bbox":[310,272,170,92]}
+{"kind":"textbox","id":"sh/dcju5c7a","slide":4,"text":"React + Vite","textPreview":"React + Vite","textChars":12,"textLines":1,"bbox":[328,292,134,54]}
+{"kind":"shape","id":"sh/cbatw76p","slide":4,"bbox":[552,250,170,92]}
+{"kind":"textbox","id":"sh/yhovm9kv","slide":4,"text":"Supabase\nAuth, Postgres, RLS, Storage","textPreview":"Supabase | Auth, Postgres, RLS, Storage","textChars":37,"textLines":2,"bbox":[570,270,134,54]}
+{"kind":"shape","id":"sh/zixcvelg","slide":4,"bbox":[820,196,170,92]}
+{"kind":"textbox","id":"sh/0j6doj21","slide":4,"text":"Odoo\nventas, compras, CRM","textPreview":"Odoo | ventas, compras, CRM","textChars":25,"textLines":2,"bbox":[838,216,134,54]}
+{"kind":"shape","id":"sh/lkfux43m","slide":4,"bbox":[820,356,170,92]}
+{"kind":"textbox","id":"sh/mlovq9k7","slide":4,"text":"FedEx\nRate + Transit","textPreview":"FedEx | Rate + Transit","textChars":20,"textLines":2,"bbox":[838,376,134,54]}
+{"kind":"shape","id":"sh/7mhczels","slide":4,"bbox":[260,318,50,0]}
+{"kind":"shape","id":"sh/87qdsj2d","slide":4,"bbox":[480,318,72,0]}
+{"kind":"shape","id":"sh/98zu1o3i","slide":4,"bbox":[722,296,98,0]}
+{"kind":"shape","id":"sh/u98vutk3","slide":4,"bbox":[820,242,0,54]}
+{"kind":"shape","id":"sh/vahc3ylo","slide":4,"bbox":[722,342,98,0]}
+{"kind":"shape","id":"sh/re1cryhw","slide":4,"bbox":[820,342,0,60]}
+{"kind":"shape","id":"sh/6dsbit0b","slide":4,"bbox":[120,514,9,9]}
+{"kind":"textbox","id":"sh/tgjut8z2","slide":4,"text":"Autenticación y permisos por módulo desde Supabase.","textPreview":"Autenticación y permisos por módulo desde Supabase.","textChars":51,"textLines":1,"bbox":[142,506,958,40]}
+{"kind":"shape","id":"sh/sfatk3ih","slide":4,"bbox":[120,546,9,9]}
+{"kind":"textbox","id":"sh/jahcnehk","slide":4,"text":"Lectura de Odoo mediante Edge Functions de solo consulta.","textPreview":"Lectura de Odoo mediante Edge Functions de solo consulta.","textChars":57,"textLines":1,"bbox":[142,538,958,40]}
+{"kind":"shape","id":"sh/i98be90f","slide":4,"bbox":[120,578,9,9]}
+{"kind":"textbox","id":"sh/5czupozq","slide":4,"text":"Cotización logística con configuración segura de FedEx.","textPreview":"Cotización logística con configuración segura de FedEx.","textChars":55,"textLines":1,"bbox":[142,570,958,40]}
+{"kind":"shape","id":"sh/4bqtgji5","slide":4,"bbox":[120,610,9,9]}
+{"kind":"textbox","id":"sh/vmhsjeho","slide":4,"text":"Rutas públicas para consulta de soporte, formularios y reportes compartidos.","textPreview":"Rutas públicas para consulta de soporte, formularios y reportes compartidos.","textChars":76,"textLines":1,"bbox":[142,602,958,40]}
+{"kind":"textbox","id":"sh/ul8ba903","slide":4,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[1148,668,60,24]}
+{"kind":"image","id":"im/fe9ozql0","slide":4,"name":"","alt":"Logo Corporación Tectronic","bbox":[1124,32,88,56]}
+{"kind":"notes","id":"nt/3w3uci","slide":4,"text":"[Sources]\nREADME.md describe stack React + Supabase y conector Odoo de lectura.\nsrc/AppRoutes.tsx define rutas públicas; supabase/functions contiene conectores Odoo y FedEx."}
+{"kind":"slide","id":"sl/pdckt9","slide":5,"title":"MÓDULO OPERATIVO","textShapes":14}
+{"kind":"textbox","id":"sh/9ob69o7m","slide":5,"text":"MÓDULO OPERATIVO","textPreview":"MÓDULO OPERATIVO","textChars":16,"textLines":1,"bbox":[72,38,520,26]}
+{"kind":"textbox","id":"sh/mlkny98b","slide":5,"text":"Soportes transforma tickets en trazabilidad visible para cliente y equipo","textPreview":"Soportes transforma tickets en trazabilidad visible para cliente y equipo","textChars":73,"textLines":1,"bbox":[72,72,910,58]}
+{"kind":"shape","id":"sh/0j25wzq5","slide":5,"bbox":[72,140,1136,0]}
+{"kind":"shape","id":"sh/lkb6547q","slide":5,"bbox":[72,172,360,388]}
+{"kind":"textbox","id":"sh/zito3upk","slide":5,"text":"Menos llamadas de estatus y más trazabilidad.","textPreview":"Menos llamadas de estatus y más trazabilidad.","textChars":45,"textLines":1,"bbox":[112,424,280,78]}
+{"kind":"textbox","id":"sh/4fmp83q9","slide":5,"text":"Impacto esperado","textPreview":"Impacto esperado","textChars":16,"textLines":1,"bbox":[112,504,280,28]}
+{"kind":"textbox","id":"sh/5gv6h87u","slide":5,"text":"Centraliza","textPreview":"Centraliza","textChars":10,"textLines":1,"bbox":[472,176,660,34]}
+{"kind":"shape","id":"sh/5s7u98ze","slide":5,"bbox":[472,230,9,9]}
+{"kind":"textbox","id":"sh/4rydg3it","slide":5,"text":"Registro de soportes técnicos y programaciones con folio, cliente, serie, modelo, agente y evidencia.","textPreview":"Registro de soportes técnicos y programaciones con folio, cliente, serie, modelo, agente y evidencia.","textChars":101,"textLines":1,"bbox":[494,222,638,44]}
+{"kind":"shape","id":"sh/jqpc7yh8","slide":5,"bbox":[472,266,9,9]}
+{"kind":"textbox","id":"sh/ipgvet0n","slide":5,"text":"Historial de eventos con estado actual, diagnóstico, reparación, cierre, notas y paquetería.","textPreview":"Historial de eventos con estado actual, diagnóstico, reparación, cierre, notas y paquetería.","textChars":92,"textLines":1,"bbox":[494,258,638,44]}
+{"kind":"shape","id":"sh/ho7u5oz2","slide":5,"bbox":[472,302,9,9]}
+{"kind":"textbox","id":"sh/wnytc3ih","slide":5,"text":"Consulta pública por folio o número de serie sin pedir intervención interna.","textPreview":"Consulta pública por folio o número de serie sin pedir intervención interna.","textChars":76,"textLines":1,"bbox":[494,294,638,44]}
+{"kind":"shape","id":"sh/v2pc3yhc","slide":5,"bbox":[472,338,9,9]}
+{"kind":"textbox","id":"sh/u1wbat0r","slide":5,"text":"Adjuntos: imágenes y PDF de cotización de reparación.","textPreview":"Adjuntos: imágenes y PDF de cotización de reparación.","textChars":53,"textLines":1,"bbox":[494,330,638,44]}
+{"kind":"shape","id":"sh/1kruhszm","slide":5,"bbox":[472,458,308,122]}
+{"kind":"textbox","id":"sh/gjidoni1","slide":5,"text":"Optimiza","textPreview":"Optimiza","textChars":8,"textLines":1,"bbox":[496,480,260,28]}
+{"kind":"textbox","id":"sh/0fa50va9","slide":5,"text":"Búsqueda, seguimiento y consulta pública del caso.","textPreview":"Búsqueda, seguimiento y consulta pública del caso.","textChars":50,"textLines":1,"bbox":[496,516,250,44]}
+{"kind":"shape","id":"sh/lgj690bu","slide":5,"bbox":[824,458,308,122]}
+{"kind":"textbox","id":"sh/ydsnylsj","slide":5,"text":"Automatiza","textPreview":"Automatiza","textChars":10,"textLines":1,"bbox":[848,480,260,28]}
+{"kind":"textbox","id":"sh/ze1o7qto","slide":5,"text":"Historial por movimiento, folios públicos y estados por catálogo.","textPreview":"Historial por movimiento, folios públicos y estados por catálogo.","textChars":65,"textLines":1,"bbox":[848,516,250,44]}
+{"kind":"textbox","id":"sh/cba5wbad","slide":5,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[1148,668,60,24]}
+{"kind":"image","id":"im/29orylk7","slide":5,"name":"","alt":"Logo Corporación Tectronic","bbox":[1124,32,88,56]}
+{"kind":"image","id":"im/f6x836lw","slide":5,"name":"","alt":"Soportes transforma tickets en trazabilidad visible para cliente y equipo","bbox":[112,202,280,210]}
+{"kind":"notes","id":"nt/pdckt9","slide":5,"text":"[Sources]\nCódigo revisado: src/features/admin/AdminPage.tsx, src/lib/types.ts y módulos específicos en src/features."}
+{"kind":"slide","id":"sl/hrjhc0","slide":6,"title":"MÓDULO OPERATIVO","textShapes":14}
+{"kind":"textbox","id":"sh/36dg76xc","slide":6,"text":"MÓDULO OPERATIVO","textPreview":"MÓDULO OPERATIVO","textChars":16,"textLines":1,"bbox":[72,38,520,26]}
+{"kind":"textbox","id":"sh/47mhgbex","slide":6,"text":"Inventario da control de existencias, almacenes y movimientos","textPreview":"Inventario da control de existencias, almacenes y movimientos","textChars":61,"textLines":1,"bbox":[72,72,910,58]}
+{"kind":"shape","id":"sh/q94zilw3","slide":6,"bbox":[72,140,1136,0]}
+{"kind":"shape","id":"sh/rad0b6xo","slide":6,"bbox":[72,172,360,388]}
+{"kind":"textbox","id":"sh/dcvidgfe","slide":6,"text":"Menos capturas manuales y menor riesgo de faltantes.","textPreview":"Menos capturas manuales y menor riesgo de faltantes.","textChars":52,"textLines":1,"bbox":[112,424,280,78]}
+{"kind":"textbox","id":"sh/6d0z6hgz","slide":6,"text":"Impacto esperado","textPreview":"Impacto esperado","textChars":16,"textLines":1,"bbox":[112,504,280,28]}
+{"kind":"textbox","id":"sh/7etgzmx4","slide":6,"text":"Centraliza","textPreview":"Centraliza","textChars":10,"textLines":1,"bbox":[472,176,660,34]}
+{"kind":"shape","id":"sh/nyhsrepg","slide":6,"bbox":[472,230,9,9]}
+{"kind":"textbox","id":"sh/mx8ri98v","slide":6,"text":"Productos con categoría, marca, unidad, mínimos, requeridos, código de barras y condición.","textPreview":"Productos con categoría, marca, unidad, mínimos, requeridos, código de barras y condición.","textChars":90,"textLines":1,"bbox":[494,222,638,44]}
+{"kind":"shape","id":"sh/90zato7m","slide":6,"bbox":[472,266,9,9]}
+{"kind":"textbox","id":"sh/8zq9kjq1","slide":6,"text":"Almacenes activos con ubicación y resumen de stock.","textPreview":"Almacenes activos con ubicación y resumen de stock.","textChars":51,"textLines":1,"bbox":[494,258,638,44]}
+{"kind":"shape","id":"sh/zaxsnepk","slide":6,"bbox":[472,302,9,9]}
+{"kind":"textbox","id":"sh/y9ore98z","slide":6,"text":"Movimientos por lote: entrada, salida, ajuste y transferencia.","textPreview":"Movimientos por lote: entrada, salida, ajuste y transferencia.","textChars":62,"textLines":1,"bbox":[494,294,638,44]}
+{"kind":"shape","id":"sh/lwfap47a","slide":6,"bbox":[472,338,9,9]}
+{"kind":"textbox","id":"sh/0b69gzqp","slide":6,"text":"Importación mediante plantilla CSV para carga masiva.","textPreview":"Importación mediante plantilla CSV para carga masiva.","textChars":53,"textLines":1,"bbox":[494,330,638,44]}
+{"kind":"shape","id":"sh/b6xsjup8","slide":6,"bbox":[472,458,308,122]}
+{"kind":"textbox","id":"sh/q54rap8n","slide":6,"text":"Optimiza","textPreview":"Optimiza","textChars":8,"textLines":1,"bbox":[496,480,260,28]}
+{"kind":"textbox","id":"sh/e14bmpsv","slide":6,"text":"Control de stock y ubicación por almacén.","textPreview":"Control de stock y ubicación por almacén.","textChars":41,"textLines":1,"bbox":[496,516,250,44]}
+{"kind":"shape","id":"sh/f2dsvut0","slide":6,"bbox":[824,458,308,122]}
+{"kind":"textbox","id":"sh/g3mtozal","slide":6,"text":"Automatiza","textPreview":"Automatiza","textChars":10,"textLines":1,"bbox":[848,480,260,28]}
+{"kind":"textbox","id":"sh/14vax4b6","slide":6,"text":"Lotes de movimientos e importación de productos.","textPreview":"Lotes de movimientos e importación de productos.","textChars":48,"textLines":1,"bbox":[848,516,250,44]}
+{"kind":"textbox","id":"sh/254bq9sr","slide":6,"text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[1148,668,60,24]}
+{"kind":"image","id":"im/0bu1s76h","slide":6,"name":"","alt":"Logo Corporación Tectronic","bbox":[1124,32,88,56]}
+{"kind":"image","id":"im/d8jixsnq","slide":6,"name":"","alt":"Inventario da control de existencias, almacenes y movimientos","bbox":[112,202,280,210]}
+{"kind":"notes","id":"nt/hrjhc0","slide":6,"text":"[Sources]\nCódigo revisado: src/features/admin/AdminPage.tsx, src/lib/types.ts y módulos específicos en src/features."}
+{"kind":"slide","id":"sl/jufbax","slide":7,"title":"MÓDULO OPERATIVO","textShapes":14}
+{"kind":"textbox","id":"sh/ipkbap8n","slide":7,"text":"MÓDULO OPERATIVO","textPreview":"MÓDULO OPERATIVO","textChars":16,"textLines":1,"bbox":[72,38,520,26]}
+{"kind":"textbox","id":"sh/5sbu54ry","slide":7,"text":"Pólizas convierte horas contratadas en saldo operativo controlado","textPreview":"Pólizas convierte horas contratadas en saldo operativo controlado","textChars":65,"textLines":1,"bbox":[72,72,910,58]}
+{"kind":"shape","id":"sh/v2tszu9w","slide":7,"bbox":[72,140,1136,0]}
+{"kind":"shape","id":"sh/u10b6p8b","slide":7,"bbox":[72,172,360,388]}
+{"kind":"textbox","id":"sh/w32t8fqh","slide":7,"text":"Mayor control de rentabilidad por póliza.","textPreview":"Mayor control de rentabilidad por póliza.","textChars":41,"textLines":1,"bbox":[112,424,280,78]}
+{"kind":"textbox","id":"sh/7y9sva90","slide":7,"text":"Impacto esperado","textPreview":"Impacto esperado","textChars":16,"textLines":1,"bbox":[112,504,280,28]}
+{"kind":"textbox","id":"sh/mx0b258f","slide":7,"text":"Centraliza","textPreview":"Centraliza","textChars":10,"textLines":1,"bbox":[472,176,660,34]}
+{"kind":"shape","id":"sh/ojq9cri5","slide":7,"bbox":[472,230,9,9]}
+{"kind":"textbox","id":"sh/pkja5wjq","slide":7,"text":"Clientes con pólizas por horas, horas adicionales y datos fiscales/comerciales.","textPreview":"Clientes con pólizas por horas, horas adicionales y datos fiscales/comerciales.","textChars":79,"textLines":1,"bbox":[494,222,638,44]}
+{"kind":"shape","id":"sh/2h8rah0z","slide":7,"bbox":[472,266,9,9]}
+{"kind":"textbox","id":"sh/nihs3m1k","slide":7,"text":"Servicios registrados por tipo, inicio, fin, duración y notas.","textPreview":"Servicios registrados por tipo, inicio, fin, duración y notas.","textChars":62,"textLines":1,"bbox":[494,258,638,44]}
+{"kind":"shape","id":"sh/0fq987it","slide":7,"bbox":[472,302,9,9]}
+{"kind":"textbox","id":"sh/1gza1cje","slide":7,"text":"Cálculo de horas consumidas, restantes y total disponible.","textPreview":"Cálculo de horas consumidas, restantes y total disponible.","textChars":58,"textLines":1,"bbox":[494,294,638,44]}
+{"kind":"shape","id":"sh/ed8r6h03","slide":7,"bbox":[472,338,9,9]}
+{"kind":"textbox","id":"sh/fehszm18","slide":7,"text":"Archivo temporal y restauración de clientes para evitar pérdidas accidentales.","textPreview":"Archivo temporal y restauración de clientes para evitar pérdidas accidentales.","textChars":78,"textLines":1,"bbox":[494,330,638,44]}
+{"kind":"shape","id":"sh/kbatkbid","slide":7,"bbox":[472,458,308,122]}
+{"kind":"textbox","id":"sh/lc3adgji","slide":7,"text":"Optimiza","textPreview":"Optimiza","textChars":8,"textLines":1,"bbox":[496,480,260,28]}
+{"kind":"textbox","id":"sh/tszaxgb2","slide":7,"text":"Consumo y disponibilidad de horas por cliente.","textPreview":"Consumo y disponibilidad de horas por cliente.","textChars":46,"textLines":1,"bbox":[496,516,250,44]}
+{"kind":"shape","id":"sh/srq9obah","slide":7,"bbox":[824,458,308,122]}
+{"kind":"textbox","id":"sh/7qxsv6tw","slide":7,"text":"Automatiza","textPreview":"Automatiza","textChars":10,"textLines":1,"bbox":[848,480,260,28]}
+{"kind":"textbox","id":"sh/65orm1sb","slide":7,"text":"Devolución de horas al borrar servicios y archivo por 30 días.","textPreview":"Devolución de horas al borrar servicios y archivo por 30 días.","textChars":62,"textLines":1,"bbox":[848,516,250,44]}
+{"kind":"textbox","id":"sh/54fatwbq","slide":7,"text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[1148,668,60,24]}
+{"kind":"image","id":"im/hkje14ry","slide":7,"name":"","alt":"Logo Corporación Tectronic","bbox":[1124,32,88,56]}
+{"kind":"image","id":"im/47axwjap","slide":7,"name":"","alt":"Pólizas convierte horas contratadas en saldo operativo controlado","bbox":[112,202,280,210]}
+{"kind":"notes","id":"nt/jufbax","slide":7,"text":"[Sources]\nCódigo revisado: src/features/admin/AdminPage.tsx, src/lib/types.ts y módulos específicos en src/features."}
+{"kind":"slide","id":"sl/1szvbd","slide":8,"title":"CORPORACIÓN TECTRONIC","textShapes":8}
+{"kind":"textbox","id":"sh/cf69wvix","slide":8,"text":"CORPORACIÓN TECTRONIC","textPreview":"CORPORACIÓN TECTRONIC","textChars":21,"textLines":1,"bbox":[72,38,520,26]}
+{"kind":"textbox","id":"sh/bex83qhs","slide":8,"text":"Reportes y Compras convierten Odoo en lectura ejecutiva","textPreview":"Reportes y Compras convierten Odoo en lectura ejecutiva","textChars":55,"textLines":1,"bbox":[72,72,910,58]}
+{"kind":"shape","id":"sh/lkzq90zu","slide":8,"bbox":[72,140,1136,0]}
+{"kind":"textbox","id":"sh/0jq90vi9","slide":8,"text":"Centraliza datos de ventas, facturación, cotizaciones, clientes, productos, vendedores y compras para producir una lectura accionable por rol.","textPreview":"Centraliza datos de ventas, facturación, cotizaciones, clientes, productos, vendedores y compras para producir una lectura accionable por...","textChars":142,"textLines":1,"bbox":[72,178,1040,54]}
+{"kind":"shape","id":"sh/yh8ry503","slide":8,"bbox":[770,288,9,9]}
+{"kind":"textbox","id":"sh/98zaxkzq","slide":8,"text":"Resumen ejecutivo, conversión, clientes, productos, vendedores, Pareto, abandonadas y pronósticos.","textPreview":"Resumen ejecutivo, conversión, clientes, productos, vendedores, Pareto, abandonadas y pronósticos.","textChars":98,"textLines":1,"bbox":[792,280,368,50]}
+{"kind":"shape","id":"sh/87q94fy5","slide":8,"bbox":[770,330,9,9]}
+{"kind":"textbox","id":"sh/e1ovyxgz","slide":8,"text":"Compras por proveedor, producto, comprador y categoría.","textPreview":"Compras por proveedor, producto, comprador y categoría.","textChars":55,"textLines":1,"bbox":[792,322,368,50]}
+{"kind":"shape","id":"sh/f2xwr2xk","slide":8,"bbox":[770,372,9,9]}
+{"kind":"textbox","id":"sh/036d07y5","slide":8,"text":"Reportes HTML descargables y enlaces compartidos con token.","textPreview":"Reportes HTML descargables y enlaces compartidos con token.","textChars":59,"textLines":1,"bbox":[792,364,368,50]}
+{"kind":"shape","id":"sh/14fetcfq","slide":8,"bbox":[770,414,9,9]}
+{"kind":"textbox","id":"sh/m5ov2hgb","slide":8,"text":"Alertas comerciales para clientes inactivos, baja conversión, concentración y cross-sell.","textPreview":"Alertas comerciales para clientes inactivos, baja conversión, concentración y cross-sell.","textChars":89,"textLines":1,"bbox":[792,406,368,50]}
+{"kind":"textbox","id":"sh/n6hwvmxw","slide":8,"text":"08","textPreview":"08","textChars":2,"textLines":1,"bbox":[1148,668,60,24]}
+{"kind":"chart","id":"ch/buh47exk","slide":8,"name":"","chartType":"bar","bbox":[80,276,640,300]}
+{"kind":"image","id":"im/3q54nydw","slide":8,"name":"","alt":"Logo Corporación Tectronic","bbox":[1124,32,88,56]}
+{"kind":"notes","id":"nt/1szvbd","slide":8,"text":"[Sources]\nsrc/features/reports/ReportsDashboard.tsx y public/docs/reportes.html.\nsupabase/functions/odoo-sales-report y odoo-sales-forecast. Gráfica cualitativa basada en cobertura funcional del módulo."}
+{"kind":"slide","id":"sl/kr5wxi","slide":9,"title":"CORPORACIÓN TECTRONIC","textShapes":8}
+{"kind":"textbox","id":"sh/0bm9kna1","slide":9,"text":"CORPORACIÓN TECTRONIC","textPreview":"CORPORACIÓN TECTRONIC","textChars":21,"textLines":1,"bbox":[72,38,520,26]}
+{"kind":"textbox","id":"sh/zadsbitg","slide":9,"text":"Marketing traduce ventas y CRM en campañas accionables","textPreview":"Marketing traduce ventas y CRM en campañas accionables","textChars":54,"textLines":1,"bbox":[72,72,910,58]}
+{"kind":"shape","id":"sh/9gfahcry","slide":9,"bbox":[72,140,1136,0]}
+{"kind":"textbox","id":"sh/of69o7ad","slide":9,"text":"El módulo responde a quién contactar, por qué motivo, con qué producto y con qué urgencia.","textPreview":"El módulo responde a quién contactar, por qué motivo, con qué producto y con qué urgencia.","textChars":90,"textLines":1,"bbox":[72,178,1030,40]}
+{"kind":"shape","id":"sh/mdormxs7","slide":9,"bbox":[596,276,9,9]}
+{"kind":"textbox","id":"sh/x4zalcru","slide":9,"text":"Segmentación RFM y clientes prioritarios para recuperación o venta cruzada.","textPreview":"Segmentación RFM y clientes prioritarios para recuperación o venta cruzada.","textChars":75,"textLines":1,"bbox":[618,268,498,50]}
+{"kind":"shape","id":"sh/w3qts7a9","slide":9,"bbox":[596,318,9,9]}
+{"kind":"textbox","id":"sh/6twru9o7","slide":9,"text":"Campañas sugeridas por comportamiento, categoría y etapa comercial.","textPreview":"Campañas sugeridas por comportamiento, categoría y etapa comercial.","textChars":67,"textLines":1,"bbox":[618,310,498,50]}
+{"kind":"shape","id":"sh/7u5s3e5s","slide":9,"bbox":[596,360,9,9]}
+{"kind":"textbox","id":"sh/sve9wj6d","slide":9,"text":"Embudo CRM, pipeline ponderado y oportunidades sin seguimiento.","textPreview":"Embudo CRM, pipeline ponderado y oportunidades sin seguimiento.","textChars":63,"textLines":1,"bbox":[618,352,498,50]}
+{"kind":"shape","id":"sh/tw7a5oni","slide":9,"bbox":[596,402,9,9]}
+{"kind":"textbox","id":"sh/uxgryto3","slide":9,"text":"Reporte mensual guardado y descargable para dar continuidad al trabajo de marketing.","textPreview":"Reporte mensual guardado y descargable para dar continuidad al trabajo de marketing.","textChars":84,"textLines":1,"bbox":[618,394,498,50]}
+{"kind":"textbox","id":"sh/fyps7e5o","slide":9,"text":"09","textPreview":"09","textChars":2,"textLines":1,"bbox":[1148,668,60,24]}
+{"kind":"chart","id":"ch/3qhgjmdo","slide":9,"name":"","chartType":"doughnut","bbox":[80,264,430,300]}
+{"kind":"image","id":"im/v21wja14","slide":9,"name":"","alt":"Logo Corporación Tectronic","bbox":[1124,32,88,56]}
+{"kind":"notes","id":"nt/kr5wxi","slide":9,"text":"[Sources]\nsrc/features/marketing/MarketingDashboard.tsx y public/docs/marketing.html. Gráfica cualitativa de distribución funcional."}
+{"kind":"slide","id":"sl/f3d88q","slide":10,"title":"CORPORACIÓN TECTRONIC","textShapes":16}
+{"kind":"textbox","id":"sh/e5gfihsb","slide":10,"text":"CORPORACIÓN TECTRONIC","textPreview":"CORPORACIÓN TECTRONIC","textChars":21,"textLines":1,"bbox":[72,38,520,26]}
+{"kind":"textbox","id":"sh/187ydcb2","slide":10,"text":"Formularios reducen ambigüedad antes de programar o cotizar desarrollos","textPreview":"Formularios reducen ambigüedad antes de programar o cotizar desarrollos","textChars":71,"textLines":1,"bbox":[72,72,910,58]}
+{"kind":"shape","id":"sh/r2pg72tk","slide":10,"bbox":[72,140,1136,0]}
+{"kind":"textbox","id":"sh/6hwfexsf","slide":10,"text":"Levantamiento técnico maestro","textPreview":"Levantamiento técnico maestro","textChars":29,"textLines":1,"bbox":[72,178,480,34]}
+{"kind":"shape","id":"sh/t47y9cbq","slide":10,"bbox":[72,240,9,9]}
+{"kind":"textbox","id":"sh/s3yxg7a5","slide":10,"text":"Link público para clientes con respuestas centralizadas.","textPreview":"Link público para clientes con respuestas centralizadas.","textChars":56,"textLines":1,"bbox":[94,232,548,50]}
+{"kind":"shape","id":"sh/by9gj6t4","slide":10,"bbox":[72,282,9,9]}
+{"kind":"textbox","id":"sh/qd0zq1sj","slide":10,"text":"Secciones técnicas: impresora, material, códigos, báscula, base de datos, reportes, proceso y aprobación.","textPreview":"Secciones técnicas: impresora, material, códigos, báscula, base de datos, reportes, proceso y aprobación.","textChars":105,"textLines":1,"bbox":[94,274,548,50]}
+{"kind":"shape","id":"sh/cn218zup","slide":10,"bbox":[72,324,9,9]}
+{"kind":"textbox","id":"sh/d8b2h4ba","slide":10,"text":"Notificaciones en tiempo real y conteo de respuestas.","textPreview":"Notificaciones en tiempo real y conteo de respuestas.","textChars":53,"textLines":1,"bbox":[94,316,548,50]}
+{"kind":"shape","id":"sh/qlkj69cj","slide":10,"bbox":[72,366,9,9]}
+{"kind":"textbox","id":"sh/rmtkfet4","slide":10,"text":"Detalle ejecutivo por respuesta con pendientes, complejidad, adjuntos, CSV, JSON y especificación.","textPreview":"Detalle ejecutivo por respuesta con pendientes, complejidad, adjuntos, CSV, JSON y especificación.","textChars":98,"textLines":1,"bbox":[94,358,548,50]}
+{"kind":"shape","id":"sh/4j214zud","slide":10,"bbox":[720,234,190,86]}
+{"kind":"textbox","id":"sh/pkb2d4by","slide":10,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[736,248,48,24]}
+{"kind":"textbox","id":"sh/2h0j2pc7","slide":10,"text":"Cliente responde","textPreview":"Cliente responde","textChars":16,"textLines":1,"bbox":[736,278,150,26]}
+{"kind":"shape","id":"sh/3itkbuts","slide":10,"bbox":[950,234,190,86]}
+{"kind":"textbox","id":"sh/gfi10fuh","slide":10,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[966,248,48,24]}
+{"kind":"textbox","id":"sh/hgri9kb2","slide":10,"text":"Sistema notifica","textPreview":"Sistema notifica","textChars":16,"textLines":1,"bbox":[966,278,150,26]}
+{"kind":"shape","id":"sh/x0zqhcje","slide":10,"bbox":[720,380,190,86]}
+{"kind":"textbox","id":"sh/wzq9orit","slide":10,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[736,394,48,24]}
+{"kind":"textbox","id":"sh/byh8fm18","slide":10,"text":"Sistemas revisa","textPreview":"Sistemas revisa","textChars":15,"textLines":1,"bbox":[736,424,150,26]}
+{"kind":"shape","id":"sh/ax87mh03","slide":10,"bbox":[950,380,190,86]}
+{"kind":"textbox","id":"sh/9wzqdcji","slide":10,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[966,394,48,24]}
+{"kind":"textbox","id":"sh/ovqpk7ix","slide":10,"text":"Especificación lista","textPreview":"Especificación lista","textChars":20,"textLines":1,"bbox":[966,424,150,26]}
+{"kind":"textbox","id":"sh/nah8b21c","slide":10,"text":"10","textPreview":"10","textChars":2,"textLines":1,"bbox":[1148,668,60,24]}
+{"kind":"image","id":"im/t0va5cb2","slide":10,"name":"","alt":"Logo Corporación Tectronic","bbox":[1124,32,88,56]}
+{"kind":"notes","id":"nt/f3d88q","slide":10,"text":"[Sources]\nsrc/features/forms/FormsDashboard.tsx y src/features/forms/PublicFormPage.tsx."}
+{"kind":"slide","id":"sl/6s55m1","slide":11,"title":"CORPORACIÓN TECTRONIC","textShapes":11}
+{"kind":"textbox","id":"sh/falcz2t4","slide":11,"text":"CORPORACIÓN TECTRONIC","textPreview":"CORPORACIÓN TECTRONIC","textChars":21,"textLines":1,"bbox":[72,38,520,26]}
+{"kind":"textbox","id":"sh/0buds7ap","slide":11,"text":"Cotización y cálculo comercial estandarizan precios antes de vender","textPreview":"Cotización y cálculo comercial estandarizan precios antes de vender","textChars":67,"textLines":1,"bbox":[72,72,910,58]}
+{"kind":"shape","id":"sh/qlsvmxsn","slide":11,"bbox":[72,140,1136,0]}
+{"kind":"textbox","id":"sh/d8juxcby","slide":11,"text":"Cotizador IMEBA","textPreview":"Cotizador IMEBA","textChars":15,"textLines":1,"bbox":[72,348,440,34]}
+{"kind":"shape","id":"sh/ahwvy1sr","slide":11,"bbox":[72,404,9,9]}
+{"kind":"textbox","id":"sh/bi5w7mtc","slide":11,"text":"Cálculo de etiquetas por material, tinta, medidas, acabados y margen.","textPreview":"Cálculo de etiquetas por material, tinta, medidas, acabados y margen.","textChars":69,"textLines":1,"bbox":[94,396,478,44]}
+{"kind":"shape","id":"sh/3q9cb2po","slide":11,"bbox":[72,440,9,9]}
+{"kind":"textbox","id":"sh/2p0bix83","slide":11,"text":"Consulta de tipo de cambio USD/MXN y pedido mínimo.","textPreview":"Consulta de tipo de cambio USD/MXN y pedido mínimo.","textChars":51,"textLines":1,"bbox":[94,432,478,44]}
+{"kind":"shape","id":"sh/psrudc7u","slide":11,"bbox":[72,476,9,9]}
+{"kind":"textbox","id":"sh/oritk7q9","slide":11,"text":"Comparativo de precio distribuidor, público y total por millares.","textPreview":"Comparativo de precio distribuidor, público y total por millares.","textChars":65,"textLines":1,"bbox":[94,468,478,44]}
+{"kind":"textbox","id":"sh/butcfmp0","slide":11,"text":"Calculadora","textPreview":"Calculadora","textChars":11,"textLines":1,"bbox":[700,348,440,34]}
+{"kind":"shape","id":"sh/qtkbmhof","slide":11,"bbox":[700,404,9,9]}
+{"kind":"textbox","id":"sh/dwbuhc7q","slide":11,"text":"Costo base en USD o MXN, margen, tipo de cambio API o manual.","textPreview":"Costo base en USD o MXN, margen, tipo de cambio API o manual.","textChars":61,"textLines":1,"bbox":[722,396,438,44]}
+{"kind":"shape","id":"sh/cv2dor65","slide":11,"bbox":[700,440,9,9]}
+{"kind":"textbox","id":"sh/zitcjmpw","slide":11,"text":"Resultado final en MXN y USD con utilidad y margen real.","textPreview":"Resultado final en MXN y USD con utilidad y margen real.","textChars":56,"textLines":1,"bbox":[722,432,438,44]}
+{"kind":"shape","id":"sh/yhkvqhob","slide":11,"bbox":[700,476,9,9]}
+{"kind":"textbox","id":"sh/adofil8j","slide":11,"text":"Historial local por usuario para consultas recientes.","textPreview":"Historial local por usuario para consultas recientes.","textChars":53,"textLines":1,"bbox":[722,468,438,44]}
+{"kind":"textbox","id":"sh/vexwbq94","slide":11,"text":"11","textPreview":"11","textChars":2,"textLines":1,"bbox":[1148,668,60,24]}
+{"kind":"image","id":"im/4zel03ql","slide":11,"name":"","alt":"Logo Corporación Tectronic","bbox":[1124,32,88,56]}
+{"kind":"image","id":"im/q1w32t8r","slide":11,"name":"","alt":"Logo IMEBA","bbox":[88,188,220,120]}
+{"kind":"image","id":"im/do7md8r2","slide":11,"name":"","alt":"Calculadora","bbox":[842,176,240,150]}
+{"kind":"notes","id":"nt/6s55m1","slide":11,"text":"[Sources]\nsrc/features/quoting/QuoterDashboard.tsx y src/features/admin/CalculatorDashboard.tsx."}
+{"kind":"slide","id":"sl/f8zw14","slide":12,"title":"CORPORACIÓN TECTRONIC","textShapes":18}
+{"kind":"textbox","id":"sh/exwjq5g7","slide":12,"text":"CORPORACIÓN TECTRONIC","textPreview":"CORPORACIÓN TECTRONIC","textChars":21,"textLines":1,"bbox":[72,38,520,26]}
+{"kind":"textbox","id":"sh/1072lkfi","slide":12,"text":"Cotizador de Envíos une Odoo, productos y FedEx para decidir logística","textPreview":"Cotizador de Envíos une Odoo, productos y FedEx para decidir logística","textChars":70,"textLines":1,"bbox":[72,72,910,58]}
+{"kind":"shape","id":"sh/ru5kfaxg","slide":12,"bbox":[72,140,1136,0]}
+{"kind":"textbox","id":"sh/qtwjm5gv","slide":12,"text":"Proceso automatizado","textPreview":"Proceso automatizado","textChars":20,"textLines":1,"bbox":[72,178,430,34]}
+{"kind":"shape","id":"sh/dwn2h0fm","slide":12,"bbox":[72,272,176,112]}
+{"kind":"textbox","id":"sh/cve1ofy1","slide":12,"text":"Orden Odoo","textPreview":"Orden Odoo","textChars":10,"textLines":1,"bbox":[86,294,148,28]}
+{"kind":"textbox","id":"sh/bqpkruxk","slide":12,"text":"Cliente, total y destino","textPreview":"Cliente, total y destino","textChars":24,"textLines":1,"bbox":[86,328,148,36]}
+{"kind":"shape","id":"sh/apg3ypgf","slide":12,"bbox":[248,328,48,0]}
+{"kind":"shape","id":"sh/4jitobyd","slide":12,"bbox":[296,272,176,112]}
+{"kind":"textbox","id":"sh/5krahgzy","slide":12,"text":"Productos","textPreview":"Productos","textChars":9,"textLines":1,"bbox":[310,294,148,28]}
+{"kind":"textbox","id":"sh/ixgbm1g7","slide":12,"text":"peso, medidas y elegibilidad","textPreview":"peso, medidas y elegibilidad","textChars":28,"textLines":1,"bbox":[310,328,148,36]}
+{"kind":"shape","id":"sh/ji9sf6hs","slide":12,"bbox":[472,328,48,0]}
+{"kind":"shape","id":"sh/wvytkryh","slide":12,"bbox":[520,272,176,112]}
+{"kind":"textbox","id":"sh/hw7adwzm","slide":12,"text":"Paquetes","textPreview":"Paquetes","textChars":8,"textLines":1,"bbox":[534,294,148,28]}
+{"kind":"textbox","id":"sh/utgbihgb","slide":12,"text":"peso real, volumétrico y facturable","textPreview":"peso real, volumétrico y facturable","textChars":35,"textLines":1,"bbox":[534,328,148,36]}
+{"kind":"shape","id":"sh/vupsbmhw","slide":12,"bbox":[696,328,48,0]}
+{"kind":"shape","id":"sh/8rytgry5","slide":12,"bbox":[744,272,176,112]}
+{"kind":"textbox","id":"sh/9s7a9wzq","slide":12,"text":"FedEx","textPreview":"FedEx","textChars":5,"textLines":1,"bbox":[758,294,148,28]}
+{"kind":"textbox","id":"sh/9ozqd8re","slide":12,"text":"servicios, tarifa y tránsito","textPreview":"servicios, tarifa y tránsito","textChars":28,"textLines":1,"bbox":[758,328,148,36]}
+{"kind":"shape","id":"sh/onq9k3at","slide":12,"bbox":[920,328,48,0]}
+{"kind":"shape","id":"sh/nmh8bi9o","slide":12,"bbox":[968,272,176,112]}
+{"kind":"textbox","id":"sh/mlorids3","slide":12,"text":"Historial","textPreview":"Historial","textChars":9,"textLines":1,"bbox":[982,294,148,28]}
+{"kind":"textbox","id":"sh/1kfq98ri","slide":12,"text":"folios, paquetes y mejor tarifa","textPreview":"folios, paquetes y mejor tarifa","textChars":31,"textLines":1,"bbox":[982,328,148,36]}
+{"kind":"shape","id":"sh/0j69g3ax","slide":12,"bbox":[104,470,9,9]}
+{"kind":"textbox","id":"sh/zix87y9c","slide":12,"text":"Autocompleta destino desde Odoo y puede completar colonia/ciudad/estado por código postal.","textPreview":"Autocompleta destino desde Odoo y puede completar colonia/ciudad/estado por código postal.","textChars":90,"textLines":1,"bbox":[126,462,968,42]}
+{"kind":"shape","id":"sh/eho7etsr","slide":12,"bbox":[104,504,9,9]}
+{"kind":"textbox","id":"sh/lgjalsrm","slide":12,"text":"Permite corregir datos logísticos faltantes y cargar Excel de dimensiones por SKU.","textPreview":"Permite corregir datos logísticos faltantes y cargar Excel de dimensiones por SKU.","textChars":82,"textLines":1,"bbox":[126,496,968,42]}
+{"kind":"shape","id":"sh/kfa9sna1","slide":12,"bbox":[104,538,9,9]}
+{"kind":"textbox","id":"sh/2lkn6p8j","slide":12,"text":"Convierte importes USD a MXN usando tipo de cambio y muestra desglose FedEx.","textPreview":"Convierte importes USD a MXN usando tipo de cambio y muestra desglose FedEx.","textChars":76,"textLines":1,"bbox":[126,530,968,42]}
+{"kind":"shape","id":"sh/3mtofup4","slide":12,"bbox":[104,572,9,9]}
+{"kind":"textbox","id":"sh/4nm58zqp","slide":12,"text":"Administra ambiente FedEx, cuenta, origen, moneda y modo de peso.","textPreview":"Administra ambiente FedEx, cuenta, origen, moneda y modo de peso.","textChars":65,"textLines":1,"bbox":[126,564,968,42]}
+{"kind":"textbox","id":"sh/pov6h47a","slide":12,"text":"12","textPreview":"12","textChars":2,"textLines":1,"bbox":[1148,668,60,24]}
+{"kind":"image","id":"im/lgnupwje","slide":12,"name":"","alt":"Logo Corporación Tectronic","bbox":[1124,32,88,56]}
+{"kind":"notes","id":"nt/f8zw14","slide":12,"text":"[Sources]\nsrc/features/shipping/ShippingQuotesDashboard.tsx, shippingQuotesService.ts, shippingQuoteMath.ts.\nsupabase/functions/odoo-shipping-quote y shipping-quote."}
+{"kind":"slide","id":"sl/jb9ni0","slide":13,"title":"CORPORACIÓN TECTRONIC","textShapes":10}
+{"kind":"textbox","id":"sh/ojq50re5","slide":13,"text":"CORPORACIÓN TECTRONIC","textPreview":"CORPORACIÓN TECTRONIC","textChars":21,"textLines":1,"bbox":[72,38,520,26]}
+{"kind":"textbox","id":"sh/niho7mxk","slide":13,"text":"Ajustes protege el acceso y ordena responsabilidades por rol","textPreview":"Ajustes protege el acceso y ordena responsabilidades por rol","textChars":60,"textLines":1,"bbox":[72,72,910,58]}
+{"kind":"shape","id":"sh/1gz65cfe","slide":13,"bbox":[72,140,1136,0]}
+{"kind":"textbox","id":"sh/feho3mxo","slide":13,"text":"Gobierno operativo","textPreview":"Gobierno operativo","textChars":18,"textLines":1,"bbox":[472,184,520,34]}
+{"kind":"shape","id":"sh/ed8nuhw3","slide":13,"bbox":[472,252,9,9]}
+{"kind":"textbox","id":"sh/lc36hgfy","slide":13,"text":"Roles: propietario, gerente, ventas, marketing, soporte y compras.","textPreview":"Roles: propietario, gerente, ventas, marketing, soporte y compras.","textChars":66,"textLines":1,"bbox":[494,244,588,50]}
+{"kind":"shape","id":"sh/kbap8bed","slide":13,"bbox":[472,294,9,9]}
+{"kind":"textbox","id":"sh/qxsv6hkj","slide":13,"text":"Permisos por módulo con alcance global o solo registros propios.","textPreview":"Permisos por módulo con alcance global o solo registros propios.","textChars":64,"textLines":1,"bbox":[494,286,588,50]}
+{"kind":"shape","id":"sh/by1wfml4","slide":13,"bbox":[472,336,9,9]}
+{"kind":"textbox","id":"sh/czax8r2p","slide":13,"text":"Usuarios administrados desde Edge Functions autenticadas.","textPreview":"Usuarios administrados desde Edge Functions autenticadas.","textChars":57,"textLines":1,"bbox":[494,328,588,50]}
+{"kind":"shape","id":"sh/d0jehw3a","slide":13,"bbox":[472,378,9,9]}
+{"kind":"textbox","id":"sh/298v2hkn","slide":13,"text":"Configuración de correo para soportes y credenciales sensibles fuera del cliente.","textPreview":"Configuración de correo para soportes y credenciales sensibles fuera del cliente.","textChars":81,"textLines":1,"bbox":[494,370,588,50]}
+{"kind":"shape","id":"sh/3ahwbml8","slide":13,"bbox":[472,500,480,108]}
+{"kind":"textbox","id":"sh/ovqd4r2t","slide":13,"text":"View / Create / Edit / Delete / Export","textPreview":"View / Create / Edit / Delete / Export","textChars":38,"textLines":1,"bbox":[492,520,440,36]}
+{"kind":"textbox","id":"sh/pwzedc3e","slide":13,"text":"control de acceso por módulo","textPreview":"control de acceso por módulo","textChars":28,"textLines":1,"bbox":[492,562,440,34]}
+{"kind":"textbox","id":"sh/m5cfe1kr","slide":13,"text":"13","textPreview":"13","textChars":2,"textLines":1,"bbox":[1148,668,60,24]}
+{"kind":"image","id":"im/n6xsnq9o","slide":13,"name":"","alt":"Logo Corporación Tectronic","bbox":[1124,32,88,56]}
+{"kind":"image","id":"im/xczat0rq","slide":13,"name":"","alt":"Ajustes","bbox":[86,206,310,220]}
+{"kind":"notes","id":"nt/jb9ni0","slide":13,"text":"[Sources]\nsrc/features/admin/settingsService.ts, AdminPage.tsx y supabase/migrations/027_roles_scopes_and_audit.sql."}
+{"kind":"slide","id":"sl/4fqti7","slide":14,"title":"CORPORACIÓN TECTRONIC","textShapes":12}
+{"kind":"textbox","id":"sh/v21wvu9g","slide":14,"text":"CORPORACIÓN TECTRONIC","textPreview":"CORPORACIÓN TECTRONIC","textChars":21,"textLines":1,"bbox":[72,38,520,26]}
+{"kind":"textbox","id":"sh/g3ax4fq1","slide":14,"text":"El valor está en la cadena completa: captura, operación, decisión y seguimiento","textPreview":"El valor está en la cadena completa: captura, operación, decisión y seguimiento","textChars":79,"textLines":1,"bbox":[72,72,910,58]}
+{"kind":"shape","id":"sh/6x8vy58z","slide":14,"bbox":[72,140,1136,0]}
+{"kind":"shape","id":"sh/7y1wra9k","slide":14,"bbox":[92,256,220,146]}
+{"kind":"textbox","id":"sh/8zad0fq5","slide":14,"text":"Captura","textPreview":"Captura","textChars":7,"textLines":1,"bbox":[112,286,180,34]}
+{"kind":"textbox","id":"sh/t0jetkra","slide":14,"text":"Soportes, formularios, pólizas, inventario","textPreview":"Soportes, formularios, pólizas, inventario","textChars":42,"textLines":1,"bbox":[114,334,176,42]}
+{"kind":"shape","id":"sh/y98vu58n","slide":14,"bbox":[378,256,220,146]}
+{"kind":"textbox","id":"sh/jahwnq98","slide":14,"text":"Estandarización","textPreview":"Estandarización","textChars":15,"textLines":1,"bbox":[398,286,180,34]}
+{"kind":"textbox","id":"sh/z6lofy9k","slide":14,"text":"catálogos, permisos, folios, movimientos","textPreview":"catálogos, permisos, folios, movimientos","textChars":40,"textLines":1,"bbox":[400,334,176,42]}
+{"kind":"shape","id":"sh/y5cn6d8z","slide":14,"bbox":[664,256,220,146]}
+{"kind":"textbox","id":"sh/l8n6h8rq","slide":14,"text":"Automatización","textPreview":"Automatización","textChars":14,"textLines":1,"bbox":[684,286,180,34]}
+{"kind":"textbox","id":"sh/k7e583q5","slide":14,"text":"Odoo, FedEx, tipo de cambio, alertas","textPreview":"Odoo, FedEx, tipo de cambio, alertas","textChars":36,"textLines":1,"bbox":[686,334,176,42]}
+{"kind":"shape","id":"sh/7a5oji9w","slide":14,"bbox":[950,256,220,146]}
+{"kind":"textbox","id":"sh/m9wnad8b","slide":14,"text":"Decisión","textPreview":"Decisión","textChars":8,"textLines":1,"bbox":[970,286,180,34]}
+{"kind":"textbox","id":"sh/9wn6lsr2","slide":14,"text":"reportes, marketing, compras, pronóstico","textPreview":"reportes, marketing, compras, pronóstico","textChars":40,"textLines":1,"bbox":[972,334,176,42]}
+{"kind":"textbox","id":"sh/8be5cnqh","slide":14,"text":"Cada módulo resuelve una necesidad puntual, pero el sistema completo crea una memoria operativa que antes suele quedar repartida entre chats, correos, hojas de cálculo y consultas manuales.","textPreview":"Cada módulo resuelve una necesidad puntual, pero el sistema completo crea una memoria operativa que antes suele quedar repartida entre ch...","textChars":189,"textLines":1,"bbox":[110,494,1060,72]}
+{"kind":"textbox","id":"sh/3e147e9c","slide":14,"text":"14","textPreview":"14","textChars":2,"textLines":1,"bbox":[1148,668,60,24]}
+{"kind":"image","id":"im/onu5w3y5","slide":14,"name":"","alt":"Logo Corporación Tectronic","bbox":[1124,32,88,56]}
+{"kind":"notes","id":"nt/4fqti7","slide":14,"text":"[Sources]\nSíntesis inferida de los módulos revisados en src/features y supabase/migrations."}
+{"kind":"slide","id":"sl/93wexb","slide":15,"title":"CORPORACIÓN TECTRONIC","textShapes":7}
+{"kind":"textbox","id":"sh/gvytg3it","slide":15,"text":"CORPORACIÓN TECTRONIC","textPreview":"CORPORACIÓN TECTRONIC","textChars":21,"textLines":1,"bbox":[72,38,520,26]}
+{"kind":"textbox","id":"sh/fupsny18","slide":15,"text":"Potencial directivo: menos fricción operativa y más señales accionables","textPreview":"Potencial directivo: menos fricción operativa y más señales accionables","textChars":71,"textLines":1,"bbox":[72,72,910,58]}
+{"kind":"shape","id":"sh/p0rut8ja","slide":15,"bbox":[72,140,1136,0]}
+{"kind":"shape","id":"sh/3ypcry14","slide":15,"bbox":[742,246,9,9]}
+{"kind":"textbox","id":"sh/2xgbit0j","slide":15,"text":"Trazabilidad: soporte, eventos, evidencias, movimientos e historial consultable.","textPreview":"Trazabilidad: soporte, eventos, evidencias, movimientos e historial consultable.","textChars":80,"textLines":1,"bbox":[764,238,398,52]}
+{"kind":"shape","id":"sh/54nahojq","slide":15,"bbox":[742,290,9,9]}
+{"kind":"textbox","id":"sh/k3et8jil","slide":15,"text":"Velocidad: cotizaciones, formularios, importaciones y búsquedas reducen tareas repetitivas.","textPreview":"Velocidad: cotizaciones, formularios, importaciones y búsquedas reducen tareas repetitivas.","textChars":91,"textLines":1,"bbox":[764,282,398,52]}
+{"kind":"shape","id":"sh/mx8z65wr","slide":15,"bbox":[742,334,9,9]}
+{"kind":"textbox","id":"sh/nyhgfaxc","slide":15,"text":"Decisión: reportes, marketing y compras conectan Odoo con indicadores ejecutivos.","textPreview":"Decisión: reportes, marketing y compras conectan Odoo con indicadores ejecutivos.","textChars":81,"textLines":1,"bbox":[764,326,398,52]}
+{"kind":"shape","id":"sh/ozqh8fex","slide":15,"bbox":[742,378,9,9]}
+{"kind":"textbox","id":"sh/90zyhkfi","slide":15,"text":"Control: permisos por rol, alcance y configuración central.","textPreview":"Control: permisos por rol, alcance y configuración central.","textChars":59,"textLines":1,"bbox":[764,370,398,52]}
+{"kind":"textbox","id":"sh/a1sza5w3","slide":15,"text":"15","textPreview":"15","textChars":2,"textLines":1,"bbox":[1148,668,60,24]}
+{"kind":"chart","id":"ch/wnatcza5","slide":15,"name":"","chartType":"bar","bbox":[88,214,580,360]}
+{"kind":"image","id":"im/3ux8bato","slide":15,"name":"","alt":"Logo Corporación Tectronic","bbox":[1124,32,88,56]}
+{"kind":"notes","id":"nt/93wexb","slide":15,"text":"[Sources]\nGráfica cualitativa de impacto construida a partir de funcionalidades observadas en código; no representa medición histórica."}
+{"kind":"slide","id":"sl/70l6qx","slide":16,"title":"CORPORACIÓN TECTRONIC","textShapes":11}
+{"kind":"textbox","id":"sh/2tg3u9kr","slide":16,"text":"CORPORACIÓN TECTRONIC","textPreview":"CORPORACIÓN TECTRONIC","textChars":21,"textLines":1,"bbox":[72,38,520,26]}
+{"kind":"textbox","id":"sh/pgrmp432","slide":16,"text":"Cierre: el sistema ya es una base para dirigir con datos y operar con menos retrabajo","textPreview":"Cierre: el sistema ya es una base para dirigir con datos y operar con menos retrabajo","textChars":85,"textLines":1,"bbox":[72,72,910,58]}
+{"kind":"shape","id":"sh/fqpkjul0","slide":16,"bbox":[72,140,1136,0]}
+{"kind":"textbox","id":"sh/upg3qpkf","slide":16,"text":"Siguiente conversación con dirección","textPreview":"Siguiente conversación con dirección","textChars":36,"textLines":1,"bbox":[72,184,620,34]}
+{"kind":"shape","id":"sh/1s72l436","slide":16,"bbox":[72,252,9,9]}
+{"kind":"textbox","id":"sh/grylsz2l","slide":16,"text":"Priorizar módulos críticos para adopción por área y responsable.","textPreview":"Priorizar módulos críticos para adopción por área y responsable.","textChars":64,"textLines":1,"bbox":[94,244,778,50]}
+{"kind":"shape","id":"sh/7m5kfulo","slide":16,"bbox":[72,294,9,9]}
+{"kind":"textbox","id":"sh/6lw3mpkj","slide":16,"text":"Definir métricas de éxito: tiempo de respuesta, tickets consultados, cotizaciones, recuperación de clientes, exactitud de inventario.","textPreview":"Definir métricas de éxito: tiempo de respuesta, tickets consultados, cotizaciones, recuperación de clientes, exactitud de inventario.","textChars":133,"textLines":1,"bbox":[94,286,778,50]}
+{"kind":"shape","id":"sh/svydovy5","slide":16,"bbox":[72,336,9,9]}
+{"kind":"textbox","id":"sh/twrux0za","slide":16,"text":"Validar integraciones productivas: Odoo, FedEx, correo, reportes compartidos y carga de datos.","textPreview":"Validar integraciones productivas: Odoo, FedEx, correo, reportes compartidos y carga de datos.","textChars":94,"textLines":1,"bbox":[94,328,778,50]}
+{"kind":"shape","id":"sh/6tgvm5gz","slide":16,"bbox":[72,378,9,9]}
+{"kind":"textbox","id":"sh/7upcvqhk","slide":16,"text":"Convertir el backlog en roadmap: mejoras de UX, automatizaciones adicionales y tableros para dirección.","textPreview":"Convertir el backlog en roadmap: mejoras de UX, automatizaciones adicionales y tableros para dirección.","textChars":103,"textLines":1,"bbox":[94,370,778,50]}
+{"kind":"shape","id":"sh/krydkvyt","slide":16,"bbox":[930,238,230,210]}
+{"kind":"textbox","id":"sh/5s7ut0ze","slide":16,"text":"Presentado por","textPreview":"Presentado por","textChars":14,"textLines":1,"bbox":[958,272,174,26]}
+{"kind":"textbox","id":"sh/ipgvilgn","slide":16,"text":"Joel Trincado","textPreview":"Joel Trincado","textChars":13,"textLines":1,"bbox":[958,310,174,34]}
+{"kind":"textbox","id":"sh/jqpcrqh8","slide":16,"text":"Departamento de Sistemas\nCorporación Tectronic","textPreview":"Departamento de Sistemas | Corporación Tectronic","textChars":46,"textLines":2,"bbox":[958,360,174,52]}
+{"kind":"textbox","id":"sh/4n2dwfyx","slide":16,"text":"16","textPreview":"16","textChars":2,"textLines":1,"bbox":[1148,668,60,24]}
+{"kind":"image","id":"im/5g7q50b6","slide":16,"name":"","alt":"Logo Corporación Tectronic","bbox":[1124,32,88,56]}
+{"kind":"notes","id":"nt/70l6qx","slide":16,"text":"[Sources]\nSíntesis ejecutiva basada en revisión del repositorio local C:/SOFTWARE/supports_tectronic."}

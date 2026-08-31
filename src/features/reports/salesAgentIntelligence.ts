@@ -6,6 +6,7 @@ import type {
 import type {
   OdooCommercialDataset,
   OdooCrmLeadRecord,
+  OdooInvoiceLineRecord,
   OdooInvoiceRecord,
   OdooOrderRecord,
 } from './odooSalesCore';
@@ -37,6 +38,7 @@ export type SalesAgentNotificationDraft = {
     | 'new_customer_gap'
     | 'expired_quotes'
     | 'crm_lead'
+    | 'cross_sell'
     | 'sales_decline'
     | 'portfolio_concentration';
   severity: SalesNotificationSeverity;
@@ -328,9 +330,13 @@ export function buildSalesAgentNotifications(
 function buildOperationalSalesAgentNotifications(
   dataset: OdooCommercialDataset,
 ): SalesAgentNotificationDraft[] {
-  if (dataset.scopeApplied !== 'own' || dataset.viewerRole !== 'sales_agent') return [];
-
   const asOfDate = resolveOperationalAsOfDate(dataset);
+  const crossSellNotifications = buildCrossSellingNotifications(dataset, asOfDate);
+  if (dataset.scopeApplied !== 'own' || dataset.viewerRole !== 'sales_agent') {
+    return crossSellNotifications
+      .sort((left, right) => severityRank(right.severity) - severityRank(left.severity));
+  }
+
   const positiveInvoices = dataset.invoices
     .filter((invoice) => isPostedCustomerInvoice(invoice))
     .map((invoice) => ({ invoice, date: parseDateOnly(invoice.invoiceDate) }))
@@ -343,7 +349,7 @@ function buildOperationalSalesAgentNotifications(
     .filter((row): row is { invoice: OdooInvoiceRecord; date: Date } => {
       return row.date !== null && row.date <= asOfDate;
     });
-  const orders = dataset.orders
+  const commercialOrders = dataset.orders
     .map((order) => ({ order, date: parseDateOnly(order.quotationDate ?? order.createDate) }))
     .filter((row): row is { order: OdooOrderRecord; date: Date } => {
       return row.date !== null && row.date <= asOfDate && row.order.state !== 'cancel';
@@ -352,29 +358,32 @@ function buildOperationalSalesAgentNotifications(
   const customerHistories = buildCustomerHistories(positiveInvoices, invoices);
   const openQuotesByCustomer = new Map<string, Array<{ order: OdooOrderRecord; date: Date }>>();
   const notifications: SalesAgentNotificationDraft[] = [];
+  const abandonedQuotes = commercialOrders.filter(
+    (row) => isOpenQuotation(row.order) && !isOrderConverted(row.order, convertedOrderKeys),
+  );
 
-  orders.forEach((row) => {
+  abandonedQuotes.forEach((row) => {
     const key = customerKey(row.order.customerId, row.order.customerName);
     const bucket = openQuotesByCustomer.get(key) ?? [];
-    if (!isOrderConverted(row.order, convertedOrderKeys)) bucket.push(row);
+    bucket.push(row);
     openQuotesByCustomer.set(key, bucket);
   });
 
-  orders
+  abandonedQuotes
     .filter((row) => {
       const ageDays = diffDays(row.date, asOfDate);
-      return ageDays >= 7 && !isOrderConverted(row.order, convertedOrderKeys);
+      return ageDays >= 7;
     })
     .sort((left, right) => right.order.amountUntaxed - left.order.amountUntaxed)
     .slice(0, 8)
     .forEach(({ order, date }) => {
       const ageDays = diffDays(date, asOfDate);
       notifications.push({
-        fingerprint: `quote-followup:${order.id}`,
+        fingerprint: `abandoned-quotation:${order.id}`,
         category: 'expired_quotes',
         severity: ageDays >= 21 || order.amountUntaxed >= 100_000 ? 'critical' : 'warning',
-        title: `Dar seguimiento a cotización de ${order.customerName}`,
-        message: `${order.name} lleva ${formatNumber(ageDays)} días sin facturarse por ${formatCurrency(order.amountUntaxed)}.`,
+        title: `Cotización abandonada: ${order.name}`,
+        message: `${order.name} para ${order.customerName} lleva ${formatNumber(ageDays)} días sin confirmarse ni facturarse por ${formatCurrency(order.amountUntaxed)}.`,
         recommendation:
           'Contacta al cliente, confirma si falta autorización, precio, disponibilidad o tiempos de entrega y agenda el siguiente paso.',
         entityType: 'quotation',
@@ -387,6 +396,7 @@ function buildOperationalSalesAgentNotifications(
           quotationDate: dateKey(date),
           amountUntaxed: order.amountUntaxed,
           ageDays,
+          state: order.state,
         },
       });
     });
@@ -438,7 +448,7 @@ function buildOperationalSalesAgentNotifications(
       });
     });
 
-  buildLowConversionCustomers(orders, convertedOrderKeys, asOfDate)
+  buildLowConversionCustomers(commercialOrders, convertedOrderKeys, asOfDate)
     .slice(0, 6)
     .forEach((customer) => {
       notifications.push({
@@ -503,15 +513,40 @@ function buildOperationalSalesAgentNotifications(
   }
 
   notifications.push(...buildCrmLeadNotifications(dataset.crmLeads ?? [], asOfDate));
+  notifications.push(...crossSellNotifications);
 
   return notifications
     .sort((left, right) => severityRank(right.severity) - severityRank(left.severity))
-    .slice(0, 24);
+    .slice(0, 32);
 }
 
 type OperationalInvoiceRow = {
   invoice: OdooInvoiceRecord;
   date: Date;
+};
+
+type CrossSellFamily = 'labels' | 'printers' | 'ribbons' | 'software_services';
+
+type CrossSellCustomerBucket = {
+  key: string;
+  customerId: number | null;
+  customerName: string;
+  sellerId: number | null;
+  sellerName: string;
+  categoryNames: Set<string>;
+  families: Set<CrossSellFamily>;
+  firstDate: Date;
+  latestDate: Date;
+  latestProductName: string;
+  latestCategoryName: string | null;
+  latestFamily: CrossSellFamily | null;
+  latestAmount: number;
+  lineCount: number;
+  revenue: number;
+  recent90Revenue: number;
+  labelRevenue: number;
+  printerRevenue: number;
+  ribbonRevenue: number;
 };
 
 type CustomerHistory = {
@@ -522,6 +557,225 @@ type CustomerHistory = {
   invoices: OperationalInvoiceRow[];
   last365Revenue: number;
 };
+
+function buildCrossSellingNotifications(
+  dataset: OdooCommercialDataset,
+  asOfDate: Date,
+): SalesAgentNotificationDraft[] {
+  const startDate = addDays(asOfDate, -365);
+  const recentStartDate = addDays(asOfDate, -90);
+  const currentWeekKey = salesWeekKey(asOfDate);
+  const buckets = new Map<string, CrossSellCustomerBucket>();
+
+  dataset.invoiceLines
+    .map((line) => ({ line, date: parseDateOnly(line.invoiceDate) }))
+    .filter((row): row is { line: OdooInvoiceLineRecord; date: Date } =>
+      row.date !== null &&
+      row.date >= startDate &&
+      row.date <= asOfDate &&
+      isPostedCustomerInvoiceLine(row.line) &&
+      row.line.untaxedAmount > 0,
+    )
+    .forEach(({ line, date }) => {
+      const customer = customerKey(line.customerId, line.customerName);
+      const seller = sellerKey(line.sellerId, line.sellerName);
+      const key = `${seller}|${customer}`;
+      const bucket = buckets.get(key) ?? {
+        key: customer,
+        customerId: line.customerId,
+        customerName: line.customerName || 'Cliente sin nombre',
+        sellerId: line.sellerId,
+        sellerName: line.sellerName || 'Sin vendedor',
+        categoryNames: new Set<string>(),
+        families: new Set<CrossSellFamily>(),
+        firstDate: date,
+        latestDate: date,
+        latestProductName: line.productName,
+        latestCategoryName: line.categoryName,
+        latestFamily: null,
+        latestAmount: line.untaxedAmount,
+        lineCount: 0,
+        revenue: 0,
+        recent90Revenue: 0,
+        labelRevenue: 0,
+        printerRevenue: 0,
+        ribbonRevenue: 0,
+      };
+      const family = classifyCrossSellFamily(line);
+      bucket.lineCount += 1;
+      bucket.revenue += line.untaxedAmount;
+      if (date >= recentStartDate) bucket.recent90Revenue += line.untaxedAmount;
+      if (line.categoryName) bucket.categoryNames.add(line.categoryName);
+      if (family) {
+        bucket.families.add(family);
+        if (family === 'labels') bucket.labelRevenue += line.untaxedAmount;
+        if (family === 'printers') bucket.printerRevenue += line.untaxedAmount;
+        if (family === 'ribbons') bucket.ribbonRevenue += line.untaxedAmount;
+      }
+      if (date < bucket.firstDate) bucket.firstDate = date;
+      if (date > bucket.latestDate) bucket.latestDate = date;
+      if (date >= bucket.latestDate) {
+        bucket.latestProductName = line.productName;
+        bucket.latestCategoryName = line.categoryName;
+        bucket.latestFamily = family;
+        bucket.latestAmount = line.untaxedAmount;
+      }
+      buckets.set(key, bucket);
+    });
+
+  const opportunities = [...buckets.values()]
+    .flatMap((bucket) => buildCrossSellOpportunitiesForCustomer(bucket, asOfDate, currentWeekKey))
+    .sort((left, right) => Number(right.metadata.score ?? 0) - Number(left.metadata.score ?? 0));
+
+  if (dataset.scopeApplied === 'own') {
+    return opportunities.slice(0, 20);
+  }
+
+  const bySeller = new Map<string, SalesAgentNotificationDraft[]>();
+  opportunities.forEach((opportunity) => {
+    const key = String(opportunity.metadata.sellerId ?? opportunity.metadata.sellerName ?? 'sin-vendedor');
+    const bucket = bySeller.get(key) ?? [];
+    bucket.push(opportunity);
+    bySeller.set(key, bucket);
+  });
+
+  return [...bySeller.values()]
+    .flatMap((rows) => rows.slice(0, 20))
+    .sort((left, right) => Number(right.metadata.score ?? 0) - Number(left.metadata.score ?? 0))
+    .slice(0, 200);
+}
+
+function buildCrossSellOpportunitiesForCustomer(
+  bucket: CrossSellCustomerBucket,
+  asOfDate: Date,
+  weekKey: string,
+): SalesAgentNotificationDraft[] {
+  const opportunities: Array<{
+    target: string;
+    title: string;
+    message: string;
+    recommendation: string;
+    score: number;
+    evidenceFamily: string;
+    confidence: 'alta' | 'media';
+  }> = [];
+  const hasLabels = bucket.families.has('labels');
+  const hasPrinters = bucket.families.has('printers');
+  const hasRibbons = bucket.families.has('ribbons');
+  const hasServices = bucket.families.has('software_services');
+  const daysSinceLatest = diffDays(bucket.latestDate, asOfDate);
+  const recencyBoost = Math.max(0, 120 - daysSinceLatest);
+  const latestLabel = bucket.latestCategoryName
+    ? `${bucket.latestProductName} (${bucket.latestCategoryName})`
+    : bucket.latestProductName;
+  const latestPurchaseEvidence = `Última compra: ${latestLabel} el ${dateKey(bucket.latestDate)} por ${formatCurrency(bucket.latestAmount)}.`;
+  const hasRecentSignal = daysSinceLatest <= 120 && (bucket.recent90Revenue >= 5_000 || bucket.lineCount >= 2);
+
+  if (!hasRecentSignal) return [];
+
+  if (hasLabels && !hasPrinters && (bucket.latestFamily === 'labels' || bucket.labelRevenue >= 25_000)) {
+    opportunities.push({
+      target: 'impresora-termica',
+      title: `Cross-selling: impresora térmica para ${bucket.customerName}`,
+      message: `${latestPurchaseEvidence} Compra etiquetas, pero no registra compra de impresora térmica en el historial comercial disponible.`,
+      recommendation:
+        'Validar parque instalado, volumen mensual, ancho de impresión y modelo actual. Preparar propuesta de impresora térmica compatible con sus etiquetas más recientes.',
+      score: bucket.labelRevenue + bucket.recent90Revenue * 0.6 + recencyBoost * 1_200,
+      evidenceFamily: 'etiquetas',
+      confidence: bucket.latestFamily === 'labels' && bucket.labelRevenue >= 10_000 ? 'alta' : 'media',
+    });
+  }
+
+  if (hasPrinters && !hasLabels && !hasRibbons && (bucket.latestFamily === 'printers' || bucket.printerRevenue >= 10_000)) {
+    opportunities.push({
+      target: 'etiquetas-ribbon',
+      title: `Cross-selling: etiquetas y ribbon para ${bucket.customerName}`,
+      message: `${latestPurchaseEvidence} Tiene compra de impresora/equipo, pero no aparecen consumibles asociados en la facturación disponible.`,
+      recommendation:
+        'Contactar para conocer medidas, material, volumen y tipo de transferencia. Ofrecer etiquetas y ribbon como reposición recurrente para capturar consumo continuo.',
+      score: bucket.printerRevenue + bucket.recent90Revenue * 0.7 + recencyBoost * 1_400,
+      evidenceFamily: 'impresoras/equipo',
+      confidence: bucket.latestFamily === 'printers' ? 'alta' : 'media',
+    });
+  }
+
+  if (hasLabels && !hasRibbons && bucket.labelRevenue >= 10_000 && (bucket.latestFamily === 'labels' || bucket.recent90Revenue >= 15_000)) {
+    opportunities.push({
+      target: 'ribbon',
+      title: `Cross-selling: ribbon para ${bucket.customerName}`,
+      message: `${latestPurchaseEvidence} Factura ${formatCurrency(bucket.labelRevenue)} en etiquetas, pero no registra compra de ribbon contigo.`,
+      recommendation:
+        'Revisar si usa transferencia térmica. Si aplica, proponer ribbon compatible y calendarizar reposición junto con sus pedidos de etiqueta.',
+      score: bucket.labelRevenue * 0.85 + bucket.recent90Revenue * 0.45 + recencyBoost * 900,
+      evidenceFamily: 'etiquetas',
+      confidence: bucket.latestFamily === 'labels' ? 'alta' : 'media',
+    });
+  }
+
+  if ((hasPrinters || hasLabels) && !hasServices && bucket.revenue >= 50_000 && daysSinceLatest <= 90) {
+    opportunities.push({
+      target: 'servicio-software',
+      title: `Cross-selling: servicio, póliza o software para ${bucket.customerName}`,
+      message: `${latestPurchaseEvidence} Tiene consumo comercial relevante (${formatCurrency(bucket.revenue)}) sin señales de servicios o software.`,
+      recommendation:
+        'Explorar mantenimiento, instalación, integración, soporte o software relacionado con su operación de impresión/etiquetado.',
+      score: bucket.revenue * 0.45 + bucket.recent90Revenue * 0.35 + recencyBoost * 700,
+      evidenceFamily: hasPrinters ? 'impresoras/equipo' : 'etiquetas',
+      confidence: bucket.recent90Revenue >= 25_000 ? 'alta' : 'media',
+    });
+  }
+
+  return opportunities.map((opportunity) => ({
+    fingerprint: `cross-sell:${weekKey}:${sellerKey(bucket.sellerId, bucket.sellerName)}:${bucket.key}:${opportunity.target}`,
+    category: 'cross_sell',
+    severity: opportunity.score >= 150_000 ? 'warning' : 'opportunity',
+    title: opportunity.title,
+    message: opportunity.message,
+    recommendation: opportunity.recommendation,
+    entityType: 'client',
+    entityKey: bucket.key,
+    metadata: {
+      customerId: bucket.customerId,
+      customerName: bucket.customerName,
+      sellerId: bucket.sellerId,
+      sellerName: bucket.sellerName,
+      target: opportunity.target,
+      evidenceFamily: opportunity.evidenceFamily,
+      confidence: opportunity.confidence,
+      lastPurchaseDate: dateKey(bucket.latestDate),
+      daysSinceLatestPurchase: daysSinceLatest,
+      latestProductName: bucket.latestProductName,
+      latestCategoryName: bucket.latestCategoryName,
+      latestPurchaseAmount: bucket.latestAmount,
+      lineCount: bucket.lineCount,
+      revenue: bucket.revenue,
+      recent90Revenue: bucket.recent90Revenue,
+      labelRevenue: bucket.labelRevenue,
+      printerRevenue: bucket.printerRevenue,
+      ribbonRevenue: bucket.ribbonRevenue,
+      categories: [...bucket.categoryNames].slice(0, 8).join(', '),
+      score: Math.round(opportunity.score),
+      weekKey,
+    },
+  }));
+}
+
+function classifyCrossSellFamily(line: OdooInvoiceLineRecord): CrossSellFamily | null {
+  const text = normalizeSearchText(`${line.categoryName ?? ''} ${line.productName}`);
+  if (/\b(ribbon|cinta|resina|wax|cera|transferencia)\b/.test(text)) return 'ribbons';
+  if (/\b(impresora|printer|tsc|zebra|equipo|cabezal|rebobinador|aplicador|scanner|escaner)\b/.test(text)) return 'printers';
+  if (/\b(etiqueta|label|tag|adhesiv|cou.?che|bopp|termic|thermal|poliester|polipropileno)\b/.test(text)) return 'labels';
+  if (/\b(servicio|software|soporte|instalacion|instalacion|mantenimiento|poliza|licencia|desarrollo)\b/.test(text)) return 'software_services';
+  return null;
+}
+
+function isPostedCustomerInvoiceLine(line: OdooInvoiceLineRecord) {
+  return line.invoiceDate !== null &&
+    line.invoiceState !== 'draft' &&
+    line.invoiceState !== 'cancel' &&
+    line.moveType === 'out_invoice' &&
+    !line.displayType;
+}
 
 function buildCrmLeadNotifications(
   crmLeads: OdooCrmLeadRecord[],
@@ -680,6 +934,10 @@ function buildConvertedOrderKeys(dataset: OdooCommercialDataset) {
 function isOrderConverted(order: OdooOrderRecord, convertedOrderKeys: Set<string>) {
   return convertedOrderKeys.has(`id:${order.id}`) ||
     convertedOrderKeys.has(`name:${normalizeKey(order.name)}`);
+}
+
+function isOpenQuotation(order: OdooOrderRecord) {
+  return order.state === 'draft' || order.state === 'sent';
 }
 
 function buildCustomerHistories(
@@ -852,12 +1110,25 @@ function customerKey(customerId: number | null, customerName: string | null | un
     : `txt:${normalizeKey(customerName ?? 'cliente-sin-nombre')}`;
 }
 
+function sellerKey(sellerId: number | null, sellerName: string | null | undefined) {
+  return sellerId !== null && sellerId !== undefined
+    ? `id:${sellerId}`
+    : `txt:${normalizeKey(sellerName ?? 'sin-vendedor')}`;
+}
+
 function dateKey(value: Date) {
   return value.toISOString().slice(0, 10);
 }
 
 function currentMonthKey(value: Date) {
   return value.toISOString().slice(0, 7);
+}
+
+function salesWeekKey(value: Date) {
+  const start = new Date(Date.UTC(value.getUTCFullYear(), 0, 1));
+  const dayNumber = Math.floor((value.getTime() - start.getTime()) / 86400000) + 1;
+  const week = Math.ceil(dayNumber / 7);
+  return `${value.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
 }
 
 function invoiceAmount(invoice: OdooInvoiceRecord) {
@@ -913,6 +1184,13 @@ function inclusiveDays(startDate: string, endDate: string) {
 
 function normalizeKey(value: string) {
   return value.trim().toLocaleLowerCase('es-MX').replace(/\s+/g, '-');
+}
+
+function normalizeSearchText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLocaleLowerCase('es-MX');
 }
 
 function clamp(value: number, min = 0, max = 100) {

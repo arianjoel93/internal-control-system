@@ -1,0 +1,933 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/6s55m1",
+    "id": "6s55m1",
+    "slide": 11,
+    "layoutId": "3f176916-bd07-47bf-88f1-a7edc37624ad",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "5e3e6502-836e-497c-b0d2-d680a62652af",
+    "masterLayoutName": "Master",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "+mn-lt"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "3f176916-bd07-47bf-88f1-a7edc37624ad",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "5e3e6502-836e-497c-b0d2-d680a62652af",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "5e3e6502-836e-497c-b0d2-d680a62652af",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/falcz2t4",
+      "id": "1",
+      "bbox": [
+        72,
+        38,
+        520,
+        26
+      ],
+      "geometry": "rect",
+      "text": "CORPORACIÓN TECTRONIC",
+      "textPreview": "CORPORACIÓN TECTRONIC",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5B6068",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "CORPORACIÓN TECTRONIC"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "CORPORACIÓN TECTRONIC",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5B6068",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "CORPORACIÓN TECTRONIC",
+              "fontSize": 13,
+              "color": "#5B6068",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0buds7ap",
+      "id": "2",
+      "bbox": [
+        72,
+        72,
+        910,
+        58
+      ],
+      "geometry": "rect",
+      "text": "Cotización y cálculo comercial estandarizan precios antes de vender",
+      "textPreview": "Cotización y cálculo comercial estandarizan precios antes de vender",
+      "resolvedFontSize": 36,
+      "resolvedTextStyle": {
+        "fontSize": 36,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Cotización y cálculo comercial estandarizan precios antes"
+          },
+          {
+            "index": 2,
+            "text": "de vender"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Cotización y cálculo comercial estandarizan precios antes de vender",
+          "resolvedTextStyle": {
+            "fontSize": 36,
+            "color": "#101114",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Cotización y cálculo comercial estandarizan precios antes de vender",
+              "fontSize": 36,
+              "color": "#101114",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/4zel03ql",
+      "id": "3",
+      "bbox": [
+        1124,
+        32,
+        88,
+        56
+      ],
+      "alt": "Logo Corporación Tectronic",
+      "contentType": "image/png",
+      "imageFit": "contain",
+      "asset": {
+        "assetId": "98abac8f-6bf0-4a30-adea-2630ef059eee",
+        "contentType": "image/png",
+        "byteLength": 29707
+      }
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/qlsvmxsn",
+      "id": "4",
+      "bbox": [
+        72,
+        140,
+        1136,
+        0
+      ],
+      "geometry": "line",
+      "lineColor": "#C8CDD5",
+      "lineWidth": 1
+    },
+    {
+      "order": 5,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/q1w32t8r",
+      "id": "5",
+      "bbox": [
+        88,
+        188,
+        220,
+        120
+      ],
+      "alt": "Logo IMEBA",
+      "contentType": "image/png",
+      "imageFit": "contain",
+      "asset": {
+        "assetId": "3ae8c08e-fb97-4bc0-9cb8-f5a788e47720",
+        "contentType": "image/png",
+        "byteLength": 12626
+      }
+    },
+    {
+      "order": 6,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/do7md8r2",
+      "id": "6",
+      "bbox": [
+        842,
+        176,
+        240,
+        150
+      ],
+      "alt": "Calculadora",
+      "contentType": "image/png",
+      "imageFit": "contain",
+      "asset": {
+        "assetId": "82359fce-e3ff-4feb-9f9a-be81f07164e8",
+        "contentType": "image/png",
+        "byteLength": 30059
+      }
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/d8juxcby",
+      "id": "7",
+      "bbox": [
+        72,
+        348,
+        440,
+        34
+      ],
+      "geometry": "rect",
+      "text": "Cotizador IMEBA",
+      "textPreview": "Cotizador IMEBA",
+      "resolvedFontSize": 26,
+      "resolvedTextStyle": {
+        "fontSize": 26,
+        "typeface": "+mn-lt",
+        "color": "#B66A4D",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Cotizador IMEBA"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Cotizador IMEBA",
+          "resolvedTextStyle": {
+            "fontSize": 26,
+            "color": "#B66A4D",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Cotizador IMEBA",
+              "fontSize": 26,
+              "color": "#B66A4D",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ahwvy1sr",
+      "id": "8",
+      "bbox": [
+        72,
+        404,
+        9,
+        9
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#B66A4D",
+      "lineColor": "#B66A4D",
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/bi5w7mtc",
+      "id": "9",
+      "bbox": [
+        94,
+        396,
+        478,
+        44
+      ],
+      "geometry": "rect",
+      "text": "Cálculo de etiquetas por material, tinta, medidas, acabados y margen.",
+      "textPreview": "Cálculo de etiquetas por material, tinta, medidas, acabados y margen.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Cálculo de etiquetas por material, tinta, medidas, acabados y"
+          },
+          {
+            "index": 2,
+            "text": "margen."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Cálculo de etiquetas por material, tinta, medidas, acabados y margen.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101114",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Cálculo de etiquetas por material, tinta, medidas, acabados y margen.",
+              "fontSize": 18,
+              "color": "#101114",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/3q9cb2po",
+      "id": "10",
+      "bbox": [
+        72,
+        440,
+        9,
+        9
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#B66A4D",
+      "lineColor": "#B66A4D",
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/2p0bix83",
+      "id": "11",
+      "bbox": [
+        94,
+        432,
+        478,
+        44
+      ],
+      "geometry": "rect",
+      "text": "Consulta de tipo de cambio USD/MXN y pedido mínimo.",
+      "textPreview": "Consulta de tipo de cambio USD/MXN y pedido mínimo.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Consulta de tipo de cambio USD/MXN y pedido mínimo."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Consulta de tipo de cambio USD/MXN y pedido mínimo.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101114",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Consulta de tipo de cambio USD/MXN y pedido mínimo.",
+              "fontSize": 18,
+              "color": "#101114",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/psrudc7u",
+      "id": "12",
+      "bbox": [
+        72,
+        476,
+        9,
+        9
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#B66A4D",
+      "lineColor": "#B66A4D",
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/oritk7q9",
+      "id": "13",
+      "bbox": [
+        94,
+        468,
+        478,
+        44
+      ],
+      "geometry": "rect",
+      "text": "Comparativo de precio distribuidor, público y total por millares.",
+      "textPreview": "Comparativo de precio distribuidor, público y total por millares.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Comparativo de precio distribuidor, público y total por"
+          },
+          {
+            "index": 2,
+            "text": "millares."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Comparativo de precio distribuidor, público y total por millares.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101114",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Comparativo de precio distribuidor, público y total por millares.",
+              "fontSize": 18,
+              "color": "#101114",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/butcfmp0",
+      "id": "14",
+      "bbox": [
+        700,
+        348,
+        440,
+        34
+      ],
+      "geometry": "rect",
+      "text": "Calculadora",
+      "textPreview": "Calculadora",
+      "resolvedFontSize": 26,
+      "resolvedTextStyle": {
+        "fontSize": 26,
+        "typeface": "+mn-lt",
+        "color": "#2F80ED",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Calculadora"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Calculadora",
+          "resolvedTextStyle": {
+            "fontSize": 26,
+            "color": "#2F80ED",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Calculadora",
+              "fontSize": 26,
+              "color": "#2F80ED",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/qtkbmhof",
+      "id": "15",
+      "bbox": [
+        700,
+        404,
+        9,
+        9
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#2F80ED",
+      "lineColor": "#2F80ED",
+      "lineWidth": 0
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/dwbuhc7q",
+      "id": "16",
+      "bbox": [
+        722,
+        396,
+        438,
+        44
+      ],
+      "geometry": "rect",
+      "text": "Costo base en USD o MXN, margen, tipo de cambio API o manual.",
+      "textPreview": "Costo base en USD o MXN, margen, tipo de cambio API o manual.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Costo base en USD o MXN, margen, tipo de cambio API o"
+          },
+          {
+            "index": 2,
+            "text": "manual."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Costo base en USD o MXN, margen, tipo de cambio API o manual.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101114",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Costo base en USD o MXN, margen, tipo de cambio API o manual.",
+              "fontSize": 18,
+              "color": "#101114",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/cv2dor65",
+      "id": "17",
+      "bbox": [
+        700,
+        440,
+        9,
+        9
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#2F80ED",
+      "lineColor": "#2F80ED",
+      "lineWidth": 0
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/zitcjmpw",
+      "id": "18",
+      "bbox": [
+        722,
+        432,
+        438,
+        44
+      ],
+      "geometry": "rect",
+      "text": "Resultado final en MXN y USD con utilidad y margen real.",
+      "textPreview": "Resultado final en MXN y USD con utilidad y margen real.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Resultado final en MXN y USD con utilidad y margen real."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Resultado final en MXN y USD con utilidad y margen real.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101114",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Resultado final en MXN y USD con utilidad y margen real.",
+              "fontSize": 18,
+              "color": "#101114",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/yhkvqhob",
+      "id": "19",
+      "bbox": [
+        700,
+        476,
+        9,
+        9
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#2F80ED",
+      "lineColor": "#2F80ED",
+      "lineWidth": 0
+    },
+    {
+      "order": 20,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/adofil8j",
+      "id": "20",
+      "bbox": [
+        722,
+        468,
+        438,
+        44
+      ],
+      "geometry": "rect",
+      "text": "Historial local por usuario para consultas recientes.",
+      "textPreview": "Historial local por usuario para consultas recientes.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Historial local por usuario para consultas recientes."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Historial local por usuario para consultas recientes.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101114",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Historial local por usuario para consultas recientes.",
+              "fontSize": 18,
+              "color": "#101114",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 21,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/vexwbq94",
+      "id": "21",
+      "bbox": [
+        1148,
+        668,
+        60,
+        24
+      ],
+      "geometry": "rect",
+      "text": "11",
+      "textPreview": "11",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5B6068",
+        "alignment": "right",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "11"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "11",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5B6068",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "11",
+              "fontSize": 13,
+              "color": "#5B6068",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}
