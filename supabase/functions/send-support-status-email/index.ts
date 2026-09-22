@@ -78,6 +78,9 @@ Deno.serve(async (req) => {
       host: mailerSettings.smtp_host,
       port: mailerSettings.smtp_port,
       secure: mailerSettings.smtp_secure,
+      connectionTimeout: 20_000,
+      greetingTimeout: 20_000,
+      socketTimeout: 30_000,
       auth: {
         user: mailerSettings.smtp_username,
         pass: mailerSettings.smtp_password,
@@ -93,7 +96,7 @@ Deno.serve(async (req) => {
 
     const bccRecipient = resolveSupportNotificationBcc(callerEmail);
 
-    await transporter.sendMail({
+    await sendMailWithRetry(transporter, {
       from: `"${mailerSettings.sender_name}" <${mailerSettings.sender_email}>`,
       to: supportCase.customer_email,
       bcc: bccRecipient,
@@ -113,7 +116,7 @@ Deno.serve(async (req) => {
 
     return jsonResponse({ message: `Correo enviado y copia oculta enviada a ${bccRecipient}.` });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'No se pudo enviar el correo.';
+    const message = normalizeEmailErrorMessage(error);
 
     if (adminClient && supportEventId && callerId && callerEmail) {
       try {
@@ -131,6 +134,69 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: message }, 500);
   }
 });
+
+async function sendMailWithRetry(
+  transporter: ReturnType<typeof nodemailer.createTransport>,
+  mailOptions: Record<string, unknown>,
+) {
+  let lastError: unknown = null;
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      return await transporter.sendMail(mailOptions);
+    } catch (error) {
+      lastError = error;
+      if (!isTransientEmailError(error) || attempt === 3) {
+        throw error;
+      }
+      await delay(700 * attempt);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('No se pudo enviar el correo.');
+}
+
+function isTransientEmailError(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  const code = typeof error === 'object' && error !== null && 'code' in error
+    ? String((error as { code?: unknown }).code).toLowerCase()
+    : '';
+
+  return [
+    'etimedout',
+    'econnreset',
+    'econnrefused',
+    'esocket',
+    'timeout',
+    'temporarily',
+    'try again',
+    'too many',
+    'rate',
+  ].some((token) => message.includes(token) || code.includes(token));
+}
+
+function normalizeEmailErrorMessage(error: unknown) {
+  const rawMessage = error instanceof Error ? error.message : String(error || '');
+  const message = rawMessage.trim();
+  const normalized = message.toLowerCase();
+
+  if (!message) return 'No se pudo enviar el correo.';
+  if (normalized.includes('invalid login') || normalized.includes('authentication')) {
+    return 'No se pudo autenticar el correo saliente. Revisa usuario y contraseña SMTP en Ajustes.';
+  }
+  if (normalized.includes('timeout') || normalized.includes('timed out') || normalized.includes('etimedout')) {
+    return 'El servidor de correo tardó demasiado en responder. Inténtalo nuevamente en unos momentos.';
+  }
+  if (normalized.includes('econnrefused') || normalized.includes('econnreset') || normalized.includes('esocket')) {
+    return 'No se pudo establecer conexión estable con el servidor de correo. Inténtalo nuevamente en unos momentos.';
+  }
+
+  return message;
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 async function hasSupportAccess(adminClient: ReturnType<typeof createClient>, userId: string) {
   const { data: ownerPermission, error: ownerError } = await adminClient

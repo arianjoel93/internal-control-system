@@ -374,6 +374,17 @@ export type ReportPreference = {
   updated_at: string;
 };
 
+export type ReportMonthlySalesGoalRow = {
+  id: string;
+  year: number;
+  month: number;
+  target_amount: number;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type SharedSalesReportRow = {
   id: string;
   token: string;
@@ -576,6 +587,7 @@ export type ShippingCarrierConfig = {
   fedex_base_url: string;
   account_number_masked: string | null;
   client_id_masked: string | null;
+  client_secret_configured?: boolean;
   origin_country_code: string;
   origin_postal_code: string | null;
   origin_state_code: string | null;
@@ -677,6 +689,13 @@ export type ShippingQuoteRow = {
   best_delivery_label: string | null;
   error_message: string | null;
   technical_error: string | null;
+  diagnostic_stage?: string | null;
+  provider_status?: number | null;
+  provider_code?: string | null;
+  provider_message?: string | null;
+  provider_transaction_id?: string | null;
+  provider_endpoint?: string | null;
+  retryable?: boolean;
   odoo_order_name?: string | null;
   odoo_order_id?: number | null;
   selected_packing_plan?: Record<string, unknown> | null;
@@ -1019,6 +1038,16 @@ export type Database = {
           updated_at?: string;
         };
         Update: Partial<Omit<ReportPreference, 'id' | 'created_at' | 'updated_at'>>;
+        Relationships: [];
+      };
+      report_monthly_sales_goals: {
+        Row: ReportMonthlySalesGoalRow;
+        Insert: Omit<ReportMonthlySalesGoalRow, 'id' | 'created_at' | 'updated_at'> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<ReportMonthlySalesGoalRow, 'id' | 'created_at' | 'updated_at'>>;
         Relationships: [];
       };
       shared_sales_reports: {

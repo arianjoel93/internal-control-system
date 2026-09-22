@@ -8,6 +8,13 @@ import type {
   ShippingQuoteRow,
 } from '../../lib/types';
 import type { ShippingPackageDraft } from './shippingQuoteMath';
+import type { PackingRequest, ProductRules } from '../../../supabase/functions/_shared/shipping-packing';
+
+export type ShippingPhysicalRules = {
+  can_rotate?: boolean; stackable?: boolean; fragile?: boolean; requires_individual_package?: boolean;
+  can_combine?: boolean; packaging_group?: string | null; protection_margin_cm?: number; notes?: string | null;
+};
+export type ShippingPhysicalProduct = ShippingProductDimension & ShippingPhysicalRules;
 
 export type ShippingAccess = {
   canAccess: boolean;
@@ -78,9 +85,10 @@ export type CreateShippingQuotePayload = {
   odooOrderName?: string | null;
   odooOrderId?: number | null;
   selectedPackingPlan?: Record<string, unknown> | null;
+  packingRequest?: PackingRequest;
 };
 
-export type ShippingOrderLine = {
+export type ShippingOrderLine = ProductRules & {
   lineId: number;
   productId: number;
   sku: string | null;
@@ -100,6 +108,7 @@ export type ShippingOrderLine = {
   isEligibleForShipping: boolean;
   exclusionReason: string | null;
   logisticsSource: string | null;
+  physicalProductId?: string | null;
   canRotate: boolean;
   canStack: boolean;
   shipAlone: boolean;
@@ -166,8 +175,133 @@ export type ShippingProductDimensionsListResult = {
   total: number;
 };
 
+export type FedexHistoricalComparable = {
+  id: string;
+  amount: number;
+  currency: string;
+  environment: 'PRODUCTION' | 'SANDBOX';
+  serviceCode: string | null;
+  serviceName: string | null;
+  packageCount: number;
+  physicalWeight: number;
+  volumetricWeight: number;
+  billableWeight: number;
+  volumeCm3: number;
+  fedexZone: string | null;
+  createdAt: string;
+  similarityScore: number;
+  recencyWeight: number;
+  weightedAmount: number;
+  source: 'shipping_quotes' | 'odoo_delivery';
+  orderName: string | null;
+  isOutlier?: boolean;
+};
+
+export type FedexEstimatorCatalog = {
+  services: Array<{ serviceCode: string; serviceName: string }>;
+  weightBands: Array<{ id: string; label: string; minKg: number; maxKg: number | null }>;
+  hasRateCard: boolean;
+};
+
+export type FedexEstimatorStats = {
+  total: number;
+  compared: number;
+  averageErrorPercent: number | null;
+  medianErrorPercent: number | null;
+  within5Percent: number | null;
+  within10Percent: number | null;
+  within20Percent: number | null;
+};
+
+export type FedexLiveRate = {
+  amount: number;
+  currency: string;
+  serviceCode: string;
+  serviceName: string;
+  transitDays: number | null;
+  deliveryLabel: string | null;
+};
+
+export type FedexHistoricalEstimate = {
+  estimateId: string | null;
+  originPostalCode: string;
+  destinationPostalCode: string;
+  originGroup: string | null;
+  destinationGroup: string | null;
+  fedexZone: string | null;
+  packageCount: number;
+  physicalWeight: number;
+  volumetricWeight: number;
+  billableWeight: number;
+  environmentSource: 'PRODUCTION' | 'SANDBOX' | 'NONE';
+  currency: string | null;
+  warning: string | null;
+  estimatedAmount: number | null;
+  estimatedLow: number | null;
+  estimatedHigh: number | null;
+  medianAmount: number | null;
+  averageAmount: number | null;
+  minimumAmount: number | null;
+  maximumAmount: number | null;
+  p25Amount: number | null;
+  p75Amount: number | null;
+  confidence: 'MUY_ALTA' | 'ALTA' | 'MEDIA' | 'BAJA' | 'INSUFICIENTE';
+  confidenceScore: number;
+  comparables: FedexHistoricalComparable[];
+  outlierQuoteIds: string[];
+  method: 'FEDEX_API' | 'HISTORICAL_MEDIAN' | 'TARIFF' | 'NONE';
+  methodLabel: string;
+  periodDays: number | null;
+  weightBand: string | null;
+  liveRate: FedexLiveRate | null;
+  differenceAmount: number | null;
+  differencePercent: number | null;
+  apiError: { status: number | null; code: string | null; message: string | null; transactionId: string | null } | null;
+};
+
+export type FedexZoneResolution = {
+  originPostalCode: string | null;
+  destinationPostalCode: string;
+  originGroup: string | null;
+  destinationGroup: string | null;
+  zone: string | null;
+  available: boolean;
+  message: string;
+};
+
 export async function getShippingBootstrap() {
   return invokeShippingFunction<ShippingBootstrap>('bootstrap');
+}
+
+export async function getFedexZone(destinationPostalCode: string) {
+  return invokeShippingFunction<FedexZoneResolution>('getFedexZone', { destinationPostalCode });
+}
+
+export async function getFedexEstimatorCatalog() {
+  return invokeShippingFunction<FedexEstimatorCatalog>('getEstimatorCatalog');
+}
+
+export async function getFedexEstimatorStats() {
+  return invokeShippingFunction<FedexEstimatorStats>('getEstimatorStats');
+}
+
+export async function estimateHistoricalFedexRate(payload: {
+  originPostalCode?: string | null;
+  destinationPostalCode: string;
+  weightKg?: number | null;
+  packageCount?: number | null;
+  currency?: string | null;
+  serviceCode?: string | null;
+  serviceName?: string | null;
+  odooOrderId?: number | null;
+  odooOrderName?: string | null;
+  packages?: Array<{ lengthCm?: number | null; widthCm?: number | null; heightCm?: number | null; physicalWeightKg?: number | null }>;
+}) {
+  return invokeShippingFunction<FedexHistoricalEstimate>('estimateHistoricalRate', payload);
+}
+
+export async function getHistoricalEstimateDetail(id: string) {
+  return invokeShippingFunction<Record<string, unknown>>('getHistoricalEstimateDetail', { id });
 }
 
 export async function saveShippingCarrierConfig(payload: ShippingCarrierConfigDraft) {
@@ -180,6 +314,10 @@ export async function testShippingCarrierConnection() {
 
 export async function saveShippingPackageType(payload: ShippingPackageTypeDraft) {
   return invokeShippingFunction<{ packageType: ShippingPackageType }>('savePackageType', payload);
+}
+
+export async function deleteShippingPackageType(id: string) {
+  return invokeShippingFunction<{ deleted: boolean }>('deletePackageType', { id });
 }
 
 export async function listShippingProductDimensions() {
@@ -204,8 +342,8 @@ export async function importShippingProductDimensions(payload: {
   );
 }
 
-export async function saveShippingProductDimension(payload: {
-  id: string;
+export async function saveShippingProductDimension(payload: ShippingPhysicalRules & {
+  id?: string;
   sku: string;
   product_name: string | null;
   width_cm: number;
@@ -213,7 +351,7 @@ export async function saveShippingProductDimension(payload: {
   height_cm: number;
   unit_weight_kg: number | null;
 }) {
-  return invokeShippingFunction<{ product: ShippingProductDimension }>('saveProductDimension', payload);
+  return invokeShippingFunction<{ product: ShippingPhysicalProduct }>('saveProductDimension', payload);
 }
 
 export async function createShippingQuote(payload: CreateShippingQuotePayload) {

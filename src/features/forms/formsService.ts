@@ -298,7 +298,7 @@ export async function submitFormResponse(input: {
   respondent_email: string | null;
   answers: Record<string, unknown>;
 }) {
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('form_responses')
     .insert({
       form_id: input.form_id,
@@ -306,12 +306,9 @@ export async function submitFormResponse(input: {
       respondent_email: emptyToNull(input.respondent_email),
       answers: input.answers,
       user_agent: typeof navigator === 'undefined' ? null : navigator.userAgent,
-    })
-    .select('*')
-    .single();
+    });
 
   if (error) throw error;
-  return data as FormResponseRow;
 }
 
 export async function uploadRequirementFiles(formId: string, fieldKey: string, files: File[]) {

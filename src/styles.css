@@ -36,6 +36,293 @@
   text-rendering: optimizeLegibility;
 }
 
+.shipping-estimator-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.shipping-estimator-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  background: linear-gradient(135deg, #fffaf6, #f7f9fc);
+}
+
+.shipping-estimator-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.shipping-estimator-icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border-radius: 14px;
+  color: #9b5b33;
+  background: #f1e2d6;
+}
+
+.shipping-estimator-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, .85fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.shipping-estimator-mode {
+  display: flex;
+  gap: 8px;
+  padding: 4px;
+  margin-bottom: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.shipping-estimator-mode button {
+  flex: 1;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 7px;
+  color: #64748b;
+  background: transparent;
+  cursor: pointer;
+}
+
+.shipping-estimator-mode button.active {
+  color: #1f2937;
+  background: #fff;
+  box-shadow: 0 1px 3px #0f172a18;
+}
+
+.shipping-estimator-inline {
+  display: flex;
+  gap: 8px;
+}
+
+.shipping-estimator-inline input { min-width: 0; flex: 1; }
+
+.shipping-estimator-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.shipping-estimator-hint,
+.shipping-estimator-warning {
+  margin: 12px 0 0;
+  color: #64748b;
+  font-size: .8rem;
+  line-height: 1.5;
+}
+
+.shipping-estimator-warning {
+  padding: 10px 12px;
+  border-left: 3px solid #c47b35;
+  border-radius: 0 8px 8px 0;
+  color: #7c4a13;
+  background: #fff8e8;
+}
+
+.shipping-estimator-order-summary {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  margin: 14px 0;
+  border: 1px solid #eadfd7;
+  border-radius: 10px;
+  color: #475569;
+  background: #fffaf6;
+}
+
+.shipping-estimator-order-summary strong { color: #7c3f25; }
+.shipping-estimator-order-summary small { color: #8a5a2e; }
+
+.shipping-estimator-service {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.shipping-estimator-service .field { flex: 1; }
+.shipping-estimator-service > small { padding-bottom: 11px; color: #64748b; }
+
+.shipping-estimator-live {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  margin-top: 12px;
+  border: 1px solid #cfe4d3;
+  border-radius: 10px;
+  color: #285b34;
+  background: #f1f9f1;
+}
+
+.shipping-estimator-live span,
+.shipping-estimator-live small { color: #52735a; }
+
+.shipping-estimator-confidence {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: .78rem;
+  font-weight: 600;
+}
+
+.shipping-estimator-confidence.high { color: #28613c; background: #e5f4e8; }
+.shipping-estimator-confidence.medium { color: #795d13; background: #fff3c7; }
+.shipping-estimator-confidence.low { color: #8a4a20; background: #ffead9; }
+.shipping-estimator-confidence.very-low { color: #8b3030; background: #fce4e4; }
+
+.shipping-estimator-explanation-button {
+  width: 100%;
+  justify-content: flex-start;
+  margin-top: 14px;
+  border-color: #e5e7eb;
+  color: #475569;
+  background: #f8fafc;
+}
+
+.shipping-estimator-explanation {
+  padding: 12px 14px;
+  margin-top: 8px;
+  border-radius: 10px;
+  color: #475569;
+  background: #f8fafc;
+  font-size: .82rem;
+  line-height: 1.55;
+}
+
+.shipping-estimator-explanation p { margin-top: 0; }
+.shipping-estimator-explanation ul { margin: 8px 0 0; padding-left: 18px; }
+
+.shipping-estimator-stats { margin-top: 0; }
+
+.shipping-estimator-order-note,
+.shipping-estimator-empty {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  margin: 14px 0;
+  border-left: 3px solid #b36b41;
+  color: #475569;
+  background: #fff8f3;
+}
+
+.shipping-estimator-packages-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 18px 0 10px;
+}
+
+.shipping-estimator-package-list { display: grid; gap: 10px; }
+
+.shipping-estimator-package {
+  display: grid;
+  grid-template-columns: 1.1fr repeat(4, minmax(86px, 1fr));
+  gap: 10px;
+  align-items: end;
+  padding: 12px;
+  border: 1px solid #e7e9ee;
+  border-radius: 10px;
+  background: #fbfcfd;
+}
+
+.shipping-estimator-package-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  align-self: center;
+  color: #334155;
+}
+
+.shipping-estimator-package-label button {
+  display: grid;
+  padding: 4px;
+  border: 0;
+  color: #a55443;
+  background: transparent;
+  cursor: pointer;
+}
+
+.shipping-estimator-package .field { gap: 4px; }
+.shipping-estimator-package .field span { font-size: .72rem; color: #64748b; }
+.shipping-estimator-package input { width: 100%; min-width: 0; }
+.shipping-estimator-submit { width: 100%; margin-top: 16px; }
+
+.shipping-estimator-result { min-width: 0; }
+
+.shipping-estimator-facts,
+.shipping-estimator-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.shipping-estimator-facts span,
+.shipping-estimator-metrics span {
+  display: grid;
+  gap: 3px;
+  padding: 9px;
+  border-radius: 8px;
+  background: #f7f8fa;
+}
+
+.shipping-estimator-facts small,
+.shipping-estimator-metrics small,
+.shipping-estimator-price small { color: #64748b; font-size: .72rem; }
+.shipping-estimator-facts strong { font-size: .86rem; }
+.shipping-estimator-price { display: grid; gap: 3px; padding: 18px; margin: 14px 0; border-radius: 12px; background: #f2e9e2; }
+.shipping-estimator-price strong { color: #7c3f25; font-size: 1.65rem; }
+.shipping-estimator-price span { color: #64748b; font-size: .82rem; }
+.shipping-estimator-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.shipping-estimator-metrics strong { font-size: .82rem; }
+.shipping-estimator-result h4 { margin: 18px 0 8px; }
+
+.shipping-estimator-chart {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  height: 150px;
+  padding: 12px 10px 4px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #dfe3e8;
+  background: linear-gradient(to top, #f8fafc 1px, transparent 1px) 0 0 / 100% 25%;
+}
+
+.shipping-estimator-bar { display: grid; flex: 1; height: 100%; align-items: end; min-width: 28px; text-align: center; }
+.shipping-estimator-bar span { display: block; min-height: 8px; border-radius: 6px 6px 2px 2px; background: #b36b41; }
+.shipping-estimator-bar.outlier span { background: #94a3b8; }
+.shipping-estimator-bar small { margin-top: 4px; color: #64748b; font-size: .68rem; }
+.shipping-estimator-table { font-size: .78rem; }
+.shipping-estimator-table th, .shipping-estimator-table td { white-space: nowrap; }
+.shipping-estimator-disclaimer { display: block; margin-top: 14px; color: #64748b; line-height: 1.5; }
+
+@media (max-width: 900px) {
+  .shipping-estimator-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 650px) {
+  .shipping-estimator-intro { align-items: flex-start; flex-direction: column; }
+  .shipping-estimator-package { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .shipping-estimator-package-label { grid-column: 1 / -1; }
+  .shipping-estimator-facts, .shipping-estimator-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .shipping-estimator-inline { flex-direction: column; }
+  .shipping-estimator-fields { grid-template-columns: 1fr; }
+  .shipping-estimator-service { align-items: stretch; flex-direction: column; }
+  .shipping-estimator-service > small { padding-bottom: 0; }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -4215,6 +4502,134 @@ h2 {
 
 .reports-stack-compact {
   gap: 12px;
+}
+
+.annual-comparison-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.85rem;
+}
+
+.annual-comparison-table-wrap {
+  overflow-x: auto;
+  border: 1px solid rgba(124, 83, 62, 0.16);
+  border-radius: 20px;
+  background: rgba(255, 252, 248, 0.86);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.annual-comparison-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: #2f241f;
+  font-size: 0.84rem;
+}
+
+.annual-comparison-table th,
+.annual-comparison-table td {
+  min-width: 138px;
+  padding: 0.72rem 0.8rem;
+  border-bottom: 1px solid rgba(124, 83, 62, 0.12);
+  text-align: right;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.annual-comparison-table th:first-child,
+.annual-comparison-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 190px;
+  background: rgba(255, 250, 244, 0.98);
+  text-align: left;
+}
+
+.annual-comparison-table thead th {
+  background: #f3dfc8;
+  color: #3f2a20;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.annual-comparison-table thead th:first-child {
+  z-index: 2;
+  background: #eed5b8;
+}
+
+.annual-comparison-total-row th,
+.annual-comparison-total-row td {
+  background: #e8fbfb;
+}
+
+.annual-comparison-divider th {
+  background: #f7ead7 !important;
+  color: #6c3e2d;
+  text-align: left !important;
+}
+
+.annual-comparison-cell-stack {
+  display: inline-grid;
+  gap: 0.18rem;
+  justify-items: end;
+}
+
+.annual-comparison-cell-stack small {
+  color: #7a665d;
+  font-size: 0.72rem;
+}
+
+.annual-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 78px;
+  border-radius: 999px;
+  padding: 0.28rem 0.55rem;
+  font-size: 0.74rem;
+  color: #34251f;
+}
+
+.annual-status-success {
+  background: #dff4df;
+  border: 1px solid #8ac48a;
+}
+
+.annual-status-warning {
+  background: #fff1c7;
+  border: 1px solid #d8ae40;
+}
+
+.annual-status-danger {
+  background: #ffe0da;
+  border: 1px solid #dc8a79;
+}
+
+.annual-status-neutral {
+  background: #edf0f2;
+  border: 1px solid #cdd5da;
+}
+
+.reports-monthly-goals-toolbar {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) 1fr;
+  gap: 1rem;
+  align-items: end;
+}
+
+.reports-monthly-goals-toolbar p {
+  margin: 0 0 0.35rem;
+  color: var(--muted-foreground);
+  font-size: 0.88rem;
+}
+
+.reports-monthly-goals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.85rem;
 }
 
 .reports-filter-shell {

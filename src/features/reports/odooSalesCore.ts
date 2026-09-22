@@ -24,6 +24,12 @@ export type SellerGoalConfig = {
   reactivatedCustomersTarget: number;
 };
 
+export type MonthlySalesGoalConfig = {
+  year: number;
+  month: number;
+  targetAmount: number;
+};
+
 export type ReportFilters = {
   startDate: string;
   endDate: string;
@@ -65,6 +71,7 @@ export type ReportsConfig = {
     number
   >;
   sellerGoals: SellerGoalConfig[];
+  monthlySalesGoals: MonthlySalesGoalConfig[];
   marginMethod: 'line_margin' | 'line_purchase_price' | 'product_standard_cost';
 };
 
@@ -436,6 +443,7 @@ export const defaultReportsConfig: ReportsConfig = {
     retention: 10,
   },
   sellerGoals: [],
+  monthlySalesGoals: [],
   marginMethod: 'product_standard_cost',
 };
 

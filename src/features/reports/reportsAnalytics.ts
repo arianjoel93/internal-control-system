@@ -204,6 +204,42 @@ export type AnnualGrowthSnapshot = {
   previousLabel: string;
 };
 
+export type AnnualMonthlyStatus = 'success' | 'warning' | 'danger' | 'neutral';
+
+export type AnnualMonthlyCategoryRow = {
+  categoryName: string;
+  currentRevenue: number;
+  previousRevenue: number;
+  categoryGrowthPct: number | null;
+  targetRevenue: number;
+  targetReachPct: number | null;
+  status: AnnualMonthlyStatus;
+};
+
+export type AnnualMonthlyComparisonRow = {
+  month: number;
+  monthLabel: string;
+  currentRevenue: number;
+  previousRevenue: number;
+  monthlyGrowthPct: number | null;
+  targetRevenue: number;
+  targetReachPct: number | null;
+  status: AnnualMonthlyStatus;
+  categoryRows: AnnualMonthlyCategoryRow[];
+};
+
+export type AnnualMonthlyComparisonSnapshot = {
+  year: number;
+  previousYear: number;
+  currentTotal: number;
+  previousTotal: number;
+  targetTotal: number;
+  growthPct: number | null;
+  targetReachPct: number | null;
+  status: AnnualMonthlyStatus;
+  rows: AnnualMonthlyComparisonRow[];
+};
+
 export type AgentMetricFormat = 'currency' | 'days' | 'number' | 'percent';
 
 export type AgentYearMetric = {
@@ -319,6 +355,7 @@ export type CommercialDashboardSnapshot = {
   config: ReportsConfig;
   summaryMetrics: ExecutiveMetric[];
   annualGrowth: AnnualGrowthSnapshot;
+  annualMonthlyComparison: AnnualMonthlyComparisonSnapshot;
   agentProfile: AgentPerformanceProfile | null;
   quoteSummary: QuoteSummary;
   conversion: {
@@ -768,6 +805,11 @@ export function buildCommercialDashboard(
     currentYearToDateInvoiceLines,
     previousYearToDateInvoiceLines,
   });
+  const annualMonthlyComparison = buildAnnualMonthlyComparisonSnapshot({
+    allInvoiceLines: postedCustomerMoveLines,
+    config: sanitizedConfig,
+    currentPeriod,
+  });
 
   const summaryMetrics = buildSummaryMetrics({
     invoicing,
@@ -865,6 +907,7 @@ export function buildCommercialDashboard(
     config: sanitizedConfig,
     summaryMetrics,
     annualGrowth,
+    annualMonthlyComparison,
     agentProfile,
     quoteSummary,
     conversion: {
@@ -2393,6 +2436,227 @@ function buildAnnualGrowthSnapshot({
     currentLabel: formatYearToDateLabel(currentYearToDatePeriod),
     previousLabel: formatYearToDateLabel(previousYearToDatePeriod),
   };
+}
+
+function buildAnnualMonthlyComparisonSnapshot({
+  allInvoiceLines,
+  config,
+  currentPeriod,
+}: {
+  allInvoiceLines: OdooInvoiceLineRecord[];
+  config: ReportsConfig;
+  currentPeriod: PeriodRange;
+}): AnnualMonthlyComparisonSnapshot {
+  const year = currentPeriod.end.getUTCFullYear();
+  const previousYear = year - 1;
+  const lastVisibleMonth = currentPeriod.end.getUTCMonth() + 1;
+  const previousEquivalentEnd = shiftUtcDateByYears(currentPeriod.end, -1, true);
+  const currentBuckets = buildAnnualMonthlyRevenueBuckets(
+    allInvoiceLines,
+    year,
+    lastVisibleMonth,
+    currentPeriod.end,
+  );
+  const previousBuckets = buildAnnualMonthlyRevenueBuckets(
+    allInvoiceLines,
+    previousYear,
+    lastVisibleMonth,
+    previousEquivalentEnd,
+  );
+  const sellerFallbackTarget = resolveSellerMonthlyFallbackTarget(allInvoiceLines, config);
+
+  const rows = Array.from({ length: lastVisibleMonth }, (_, index) => {
+    const month = index + 1;
+    const current = currentBuckets.get(month) ?? createAnnualMonthBucket();
+    const previous = previousBuckets.get(month) ?? createAnnualMonthBucket();
+    const targetRevenue =
+      resolveConfiguredMonthlyTarget(config, year, month) ?? sellerFallbackTarget;
+    const targetReachPct = targetRevenue > 0 ? ratio(current.revenue, targetRevenue) * 100 : null;
+    const monthlyGrowthPct = calculateGrowthPct(current.revenue, previous.revenue);
+    const categoryRows = buildAnnualMonthlyCategoryRows({
+      currentCategories: current.categories,
+      previousCategories: previous.categories,
+      monthTarget: targetRevenue,
+      previousTotal: previous.revenue,
+      currentTotal: current.revenue,
+    });
+
+    return {
+      month,
+      monthLabel: formatAnnualMonthLabel(month, year),
+      currentRevenue: current.revenue,
+      previousRevenue: previous.revenue,
+      monthlyGrowthPct,
+      targetRevenue,
+      targetReachPct,
+      status: classifyAnnualMonthlyStatus(targetReachPct, monthlyGrowthPct),
+      categoryRows,
+    } satisfies AnnualMonthlyComparisonRow;
+  });
+
+  const currentTotal = sum(rows, (row) => row.currentRevenue);
+  const previousTotal = sum(rows, (row) => row.previousRevenue);
+  const targetTotal = sum(rows, (row) => row.targetRevenue);
+  const targetReachPct = targetTotal > 0 ? ratio(currentTotal, targetTotal) * 100 : null;
+  const growthPct = calculateGrowthPct(currentTotal, previousTotal);
+
+  return {
+    year,
+    previousYear,
+    currentTotal,
+    previousTotal,
+    targetTotal,
+    growthPct,
+    targetReachPct,
+    status: classifyAnnualMonthlyStatus(targetReachPct, growthPct),
+    rows,
+  };
+}
+
+function buildAnnualMonthlyRevenueBuckets(
+  lines: OdooInvoiceLineRecord[],
+  year: number,
+  maxMonth: number,
+  maxDate: Date,
+) {
+  const buckets = new Map<number, { revenue: number; categories: Map<string, number> }>();
+
+  lines.forEach((line) => {
+    const invoiceDate = parseRecordDate(line.invoiceDate);
+    if (!invoiceDate || invoiceDate.getUTCFullYear() !== year) return;
+    if (invoiceDate > maxDate) return;
+    const month = invoiceDate.getUTCMonth() + 1;
+    if (month < 1 || month > maxMonth) return;
+    const bucket = buckets.get(month) ?? createAnnualMonthBucket();
+    const revenue = line.untaxedAmount;
+    const categoryName = line.categoryName?.trim() || 'Sin categoría';
+    bucket.revenue += revenue;
+    bucket.categories.set(categoryName, (bucket.categories.get(categoryName) ?? 0) + revenue);
+    buckets.set(month, bucket);
+  });
+
+  return buckets;
+}
+
+function createAnnualMonthBucket() {
+  return {
+    revenue: 0,
+    categories: new Map<string, number>(),
+  };
+}
+
+function buildAnnualMonthlyCategoryRows({
+  currentCategories,
+  previousCategories,
+  monthTarget,
+  previousTotal,
+  currentTotal,
+}: {
+  currentCategories: Map<string, number>;
+  previousCategories: Map<string, number>;
+  monthTarget: number;
+  previousTotal: number;
+  currentTotal: number;
+}) {
+  const categoryNames = new Set([...currentCategories.keys(), ...previousCategories.keys()]);
+
+  return [...categoryNames]
+    .map((categoryName) => {
+      const currentRevenue = currentCategories.get(categoryName) ?? 0;
+      const previousRevenue = previousCategories.get(categoryName) ?? 0;
+      const categoryGrowthPct = calculateGrowthPct(currentRevenue, previousRevenue);
+      const referenceShare =
+        previousTotal > 0
+          ? ratio(previousRevenue, previousTotal)
+          : currentTotal > 0
+            ? ratio(currentRevenue, currentTotal)
+            : 0;
+      const targetRevenue = monthTarget * referenceShare;
+      const targetReachPct = targetRevenue > 0 ? ratio(currentRevenue, targetRevenue) * 100 : null;
+
+      return {
+        categoryName,
+        currentRevenue,
+        previousRevenue,
+        categoryGrowthPct,
+        targetRevenue,
+        targetReachPct,
+        status: classifyAnnualMonthlyStatus(targetReachPct, categoryGrowthPct),
+      } satisfies AnnualMonthlyCategoryRow;
+    })
+    .sort((left, right) => right.currentRevenue - left.currentRevenue);
+}
+
+function resolveConfiguredMonthlyTarget(config: ReportsConfig, year: number, month: number) {
+  const target = config.monthlySalesGoals.find(
+    (goal) => goal.year === year && goal.month === month,
+  );
+  return target ? Math.max(0, Number(target.targetAmount) || 0) : null;
+}
+
+function resolveSellerMonthlyFallbackTarget(
+  lines: OdooInvoiceLineRecord[],
+  config: ReportsConfig,
+) {
+  const sellers = new Map<string, { id: number | null; name: string }>();
+  lines.forEach((line) => {
+    const sellerName = line.sellerName?.trim();
+    if (!sellerName) return;
+    sellers.set(`${line.sellerId ?? 'seller'}:${sellerName}`, {
+      id: line.sellerId,
+      name: sellerName,
+    });
+  });
+  if (sellers.size !== 1) return 0;
+
+  const seller = [...sellers.values()][0];
+  const goal = config.sellerGoals.find(
+    (item) =>
+      (seller.id !== null && item.sellerId === seller.id) ||
+      item.sellerName.trim().toLowerCase() === seller.name.trim().toLowerCase(),
+  );
+
+  return goal ? Math.max(0, Number(goal.salesTarget) || 0) / 12 : 0;
+}
+
+function calculateGrowthPct(current: number, previous: number) {
+  if (previous === 0) return current === 0 ? 0 : null;
+  return ((current - previous) / Math.abs(previous)) * 100;
+}
+
+function classifyAnnualMonthlyStatus(
+  targetReachPct: number | null,
+  growthPct: number | null,
+): AnnualMonthlyStatus {
+  if (targetReachPct !== null) {
+    if (targetReachPct >= 100) return 'success';
+    if (targetReachPct >= 85) return 'warning';
+    return 'danger';
+  }
+
+  if (growthPct === null) return 'neutral';
+  if (growthPct >= 8) return 'success';
+  if (growthPct >= 0) return 'warning';
+  return 'danger';
+}
+
+function formatAnnualMonthLabel(month: number, year: number) {
+  const monthNames = [
+    'enero',
+    'febrero',
+    'marzo',
+    'abril',
+    'mayo',
+    'junio',
+    'julio',
+    'agosto',
+    'septiembre',
+    'octubre',
+    'noviembre',
+    'diciembre',
+  ];
+
+  return `${monthNames[month - 1]} ${year}`;
 }
 
 function buildConversionRows(
@@ -4088,11 +4352,23 @@ function sanitizeConfig(config: ReportsConfig) {
         reactivatedCustomersTarget: Math.max(0, Number(goal.reactivatedCustomersTarget) || 0),
       }))
     : [];
+  const sanitizedMonthlyGoals = Array.isArray(config.monthlySalesGoals)
+    ? config.monthlySalesGoals
+        .map((goal) => ({
+          year: Math.max(2000, Math.min(2100, Math.trunc(Number(goal.year) || new Date().getFullYear()))),
+          month: Math.max(1, Math.min(12, Math.trunc(Number(goal.month) || 1))),
+          targetAmount: Math.max(0, Number(goal.targetAmount) || 0),
+        }))
+        .filter((goal, index, goals) =>
+          goals.findIndex((item) => item.year === goal.year && item.month === goal.month) === index,
+        )
+    : [];
 
   if (sumWeights === 100) {
     return {
       ...config,
       sellerGoals: sanitizedGoals,
+      monthlySalesGoals: sanitizedMonthlyGoals,
     };
   }
 
@@ -4106,6 +4382,7 @@ function sanitizeConfig(config: ReportsConfig) {
       retention: 10,
     },
     sellerGoals: sanitizedGoals,
+    monthlySalesGoals: sanitizedMonthlyGoals,
   };
 }
 

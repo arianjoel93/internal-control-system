@@ -1320,7 +1320,7 @@ async function processImageForDatabase(file: File): Promise<RequirementInlineIma
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = 'high';
   context.drawImage(image, 0, 0, width, height);
-  const dataUrl = canvas.toDataURL('image/webp', 0.82);
+  const dataUrl = buildCompactWebpDataUrl(canvas);
 
   return {
     name: file.name,
@@ -1331,6 +1331,18 @@ async function processImageForDatabase(file: File): Promise<RequirementInlineIma
     data_url: dataUrl,
     processed_at: new Date().toISOString(),
   };
+}
+
+function buildCompactWebpDataUrl(canvas: HTMLCanvasElement) {
+  const targetLength = 180_000;
+  const qualities = [0.78, 0.68, 0.58, 0.48];
+
+  for (const quality of qualities) {
+    const dataUrl = canvas.toDataURL('image/webp', quality);
+    if (dataUrl.length <= targetLength) return dataUrl;
+  }
+
+  return canvas.toDataURL('image/webp', 0.42);
 }
 
 function loadImage(file: File) {

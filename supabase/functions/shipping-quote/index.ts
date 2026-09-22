@@ -1,6 +1,8 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import * as XLSX from 'npm:xlsx@0.18.5';
+import { normalizePackaging, validatePackingAssignments, mapPackingToShipment,
+  type PackingRequest, type PackingPlan } from '../_shared/shipping-packing.ts';
 import {
   assertOdooEnvironment,
   authenticateWithDatabaseCandidates as connectOdooReadOnly,
@@ -8,6 +10,10 @@ import {
   readOdooEnvironment,
   searchReadAll as searchReadOdoo,
 } from '../_shared/odoo-readonly.ts';
+import {
+  estimateFedexHistory,
+  type FedexHistoricalCandidate,
+} from '../_shared/fedex-estimator.ts';
 
 type SupabaseClient = ReturnType<typeof createClient>;
 type Access = {
@@ -15,6 +21,21 @@ type Access = {
   isAdmin: boolean;
   viewAll: boolean;
 };
+
+type DiagnosticStage =
+  | 'SUPABASE_AUTH'
+  | 'LOAD_FEDEX_CONFIG'
+  | 'DECRYPT_CREDENTIALS'
+  | 'FEDEX_OAUTH'
+  | 'BUILD_RATE_PAYLOAD'
+  | 'FEDEX_RATE_REQUEST'
+  | 'FEDEX_RATE_RESPONSE'
+  | 'NORMALIZE_RATES'
+  | 'SAVE_QUOTE';
+
+const FEDEX_RATE_ENDPOINT_PATH = '/rate/v1/rates/quotes';
+const FEDEX_HTTP_TIMEOUT_MS = 6_000;
+const FEDEX_MAX_ATTEMPTS = 4;
 
 type CarrierSettings = {
   id: string;
@@ -136,10 +157,27 @@ class ShippingError extends Error {
   code: string;
   retryable: boolean;
   providerStatus: number | null;
+  diagnosticStage?: DiagnosticStage;
+  environment?: 'SANDBOX' | 'PRODUCTION';
+  providerCode?: string | null;
+  providerMessage?: string | null;
+  providerTransactionId?: string | null;
+  providerEndpoint?: string | null;
 
   constructor(
     message: string,
-    options: { status?: number; code?: string; retryable?: boolean; providerStatus?: number | null } = {},
+    options: {
+      status?: number;
+      code?: string;
+      retryable?: boolean;
+      providerStatus?: number | null;
+      diagnosticStage?: DiagnosticStage;
+      environment?: 'SANDBOX' | 'PRODUCTION';
+      providerCode?: string | null;
+      providerMessage?: string | null;
+      providerTransactionId?: string | null;
+      providerEndpoint?: string | null;
+    } = {},
   ) {
     super(message);
     this.name = 'ShippingError';
@@ -147,6 +185,12 @@ class ShippingError extends Error {
     this.code = options.code ?? 'SHIPPING_ERROR';
     this.retryable = options.retryable ?? false;
     this.providerStatus = options.providerStatus ?? null;
+    this.diagnosticStage = options.diagnosticStage;
+    this.environment = options.environment;
+    this.providerCode = options.providerCode;
+    this.providerMessage = options.providerMessage;
+    this.providerTransactionId = options.providerTransactionId;
+    this.providerEndpoint = options.providerEndpoint;
   }
 }
 
@@ -157,6 +201,7 @@ const corsHeaders = {
 };
 
 const tokenCache = new Map<string, { token: string; expiresAt: number }>();
+const tokenPromiseCache = new Map<string, Promise<string>>();
 const officialPackagingTypes = new Set([
   'YOUR_PACKAGING',
   'FEDEX_ENVELOPE',
@@ -175,7 +220,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return jsonResponse({ error: 'Método no permitido.' }, 405);
 
-  let stage = 'bootstrap';
+  let stage: DiagnosticStage = 'SUPABASE_AUTH';
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -203,29 +248,40 @@ Deno.serve(async (req) => {
     if (!access.canAccess) return jsonResponse({ error: 'No tienes permisos para usar el Cotizador de Envíos.' }, 403);
 
     if (action === 'bootstrap') {
-      stage = 'bootstrap.data';
-      const settings = await getCarrierSettings(adminClient);
+      stage = 'LOAD_FEDEX_CONFIG';
+      const [settings, packageTypes] = await Promise.all([getCarrierSettings(adminClient), getPackageTypes(adminClient, access.isAdmin)]);
       return jsonResponse({
         data: {
           access,
           config: settings ? publicConfig(settings) : null,
-          packageTypes: [],
+          packageTypes,
         },
       });
     }
 
+    if (action === 'deletePackageType') {
+      if (!access.isAdmin) return jsonResponse({ error: 'Solo administradores pueden eliminar embalajes.' }, 403);
+      const id = requiredText(body.id, 'Selecciona un embalaje.');
+      const { error } = await adminClient.from('shipping_package_types').delete().eq('id', id);
+      if (error) throw error;
+      await audit(adminClient, { actorId: user.id, actorEmail: user.email, action: 'shipping.package_type.deleted', entityType: 'shipping_package_types', entityId: id, previousValue: null, newValue: null });
+      return jsonResponse({ data: { deleted: true } });
+    }
+
     if (action === 'saveConfig') {
-      stage = 'config.save';
+      stage = 'LOAD_FEDEX_CONFIG';
       if (!access.isAdmin) return jsonResponse({ error: 'Solo administradores pueden configurar FedEx.' }, 403);
       const settings = await saveCarrierSettings(adminClient, body, user.id, user.email);
       return jsonResponse({ data: { config: publicConfig(settings) } });
     }
 
     if (action === 'testConnection') {
-      stage = 'fedex.test';
+      stage = 'LOAD_FEDEX_CONFIG';
       if (!access.isAdmin) return jsonResponse({ error: 'Solo administradores pueden probar la conexión.' }, 403);
       const settings = await requireConfiguredSettings(adminClient, true);
+      stage = 'DECRYPT_CREDENTIALS';
       const fedexConfig = await decryptFedexConfig(settings);
+      stage = 'FEDEX_OAUTH';
       const token = await getFedexAccessToken(fedexConfig);
       const origin = {
         countryCode: settings.origin_country_code,
@@ -234,18 +290,26 @@ Deno.serve(async (req) => {
         city: settings.origin_city,
         street: null,
       };
-      try {
-        const probe = await fetchFedexRates(fedexConfig, token, buildFedexConnectionProbe(fedexConfig.accountNumber, origin, settings.pickup_type));
-        if (!normalizeFedExRateResponse(probe).length) {
-          throw new Error('FedEx autenticó la cuenta, pero Rate API no devolvió servicios para la prueba.');
-        }
-      } catch (error) {
-        const normalizedError = normalizeShippingError(error);
-        if (normalizedError.code !== 'FEDEX_UNAVAILABLE') throw error;
-        return jsonResponse({
-          data: {
-            message: `Credenciales autenticadas con FedEx ${settings.environment === 'SANDBOX' ? 'Sandbox' : 'Producción'}. Rate API no respondió en este momento; puedes guardar la configuración e intentar cotizar nuevamente en unos minutos.`,
-          },
+      stage = 'BUILD_RATE_PAYLOAD';
+      const probePayload = buildFedexConnectionProbe(fedexConfig.accountNumber, origin, settings.pickup_type);
+      console.info('[shipping-quote:diagnostic]', {
+        stage,
+        environment: settings.environment,
+        endpoint: `${fedexConfig.baseUrl}${FEDEX_RATE_ENDPOINT_PATH}`,
+        payload: sanitizeFedexPayload(probePayload),
+      });
+      stage = 'FEDEX_RATE_REQUEST';
+      const probe = await fetchFedexRates(fedexConfig, token, probePayload);
+      stage = 'NORMALIZE_RATES';
+      if (!normalizeFedExRateResponse(probe).length) {
+        throw new ShippingError('FedEx autenticó las credenciales, pero Rate API no devolvió servicios para la prueba.', {
+          status: 502,
+          code: 'FEDEX_NO_RATES',
+          retryable: false,
+          diagnosticStage: 'NORMALIZE_RATES',
+          environment: settings.environment,
+          providerStatus: 200,
+          providerEndpoint: `${fedexConfig.baseUrl}${FEDEX_RATE_ENDPOINT_PATH}`,
         });
       }
       return jsonResponse({
@@ -256,59 +320,90 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'savePackageType') {
-      stage = 'package.save';
+      stage = 'SAVE_QUOTE';
       if (!access.isAdmin) return jsonResponse({ error: 'Solo administradores pueden modificar embalajes.' }, 403);
       const packageType = await savePackageType(adminClient, body, user.id, user.email);
       return jsonResponse({ data: { packageType } });
     }
 
     if (action === 'listProductDimensions') {
-      stage = 'product_dimensions.list';
+      stage = 'LOAD_FEDEX_CONFIG';
       const result = await listProductDimensions(adminClient);
       return jsonResponse({ data: result });
     }
 
     if (action === 'previewProductDimensionsImport') {
-      stage = 'product_dimensions.preview';
+      stage = 'LOAD_FEDEX_CONFIG';
       if (!access.isAdmin) return jsonResponse({ error: 'Solo administradores pueden cargar bases de productos.' }, 403);
       const result = await previewProductDimensionsImport(adminClient, body);
       return jsonResponse({ data: result });
     }
 
     if (action === 'importProductDimensions') {
-      stage = 'product_dimensions.import';
+      stage = 'SAVE_QUOTE';
       if (!access.isAdmin) return jsonResponse({ error: 'Solo administradores pueden actualizar bases de productos.' }, 403);
       const result = await importProductDimensions(adminClient, body, user.id, user.email);
       return jsonResponse({ data: result });
     }
 
     if (action === 'saveProductDimension') {
-      stage = 'product_dimensions.save';
+      stage = 'SAVE_QUOTE';
       if (!access.isAdmin) return jsonResponse({ error: 'Solo administradores pueden editar bases de productos.' }, 403);
       const product = await saveProductDimension(adminClient, body, user.id, user.email);
       return jsonResponse({ data: { product } });
     }
 
     if (action === 'createQuote') {
-      stage = 'quote.create';
+      stage = 'LOAD_FEDEX_CONFIG';
       const quote = await createQuote(adminClient, body, user.id, user.email ?? null);
       return jsonResponse({ data: { quote } });
     }
 
     if (['lookupOdooOrder', 'lookupOrder', 'findOdooOrder'].includes(action)) {
-      stage = 'odoo.order.lookup';
+      stage = 'LOAD_FEDEX_CONFIG';
       const result = await lookupOdooOrder(adminClient, body);
       return jsonResponse({ data: result });
     }
 
+    if (action === 'getFedexZone') {
+      stage = 'LOAD_FEDEX_CONFIG';
+      const result = await resolveHistoricalZone(adminClient, body);
+      return jsonResponse({ data: result });
+    }
+
+    if (action === 'getEstimatorCatalog') {
+      stage = 'LOAD_FEDEX_CONFIG';
+      const result = await getEstimatorCatalog(adminClient);
+      return jsonResponse({ data: result });
+    }
+
+    if (action === 'getEstimatorStats') {
+      stage = 'LOAD_FEDEX_CONFIG';
+      const result = await getEstimatorStats(adminClient, user.id, access);
+      return jsonResponse({ data: result });
+    }
+
+    if (action === 'estimateHistoricalRate') {
+      stage = 'LOAD_FEDEX_CONFIG';
+      const result = await estimateHistoricalRateV2(adminClient, body, user.id, user.email ?? null, access);
+      return jsonResponse({ data: result });
+    }
+
+    if (action === 'getHistoricalEstimateDetail') {
+      stage = 'LOAD_FEDEX_CONFIG';
+      const result = await getHistoricalEstimateDetail(adminClient, body, user.id, access);
+      if (!result) return jsonResponse({ error: 'No se encontró la estimación solicitada.' }, 404);
+      return jsonResponse({ data: result });
+    }
+
     if (action === 'listQuotes') {
-      stage = 'quote.list';
+      stage = 'LOAD_FEDEX_CONFIG';
       const result = await listQuotes(adminClient, body, user.id, access);
       return jsonResponse({ data: result });
     }
 
     if (action === 'getQuote') {
-      stage = 'quote.detail';
+      stage = 'LOAD_FEDEX_CONFIG';
       const quote = await getQuoteDetail(adminClient, String(body.id ?? ''), user.id, access);
       if (!quote) return jsonResponse({ error: 'No se encontró la cotización solicitada.' }, 404);
       return jsonResponse({ data: { quote } });
@@ -316,13 +411,22 @@ Deno.serve(async (req) => {
 
     return jsonResponse({ error: 'Acción no soportada.' }, 400);
   } catch (error) {
-    const normalizedError = normalizeShippingError(error);
+    const initialError = normalizeShippingError(error);
+    const normalizedError = initialError.providerMessage
+      ? normalizeShippingError(error, mapFedexError(error))
+      : initialError;
     console.error('[shipping-quote]', {
       stage,
       status: normalizedError.status,
       code: normalizedError.code,
       retryable: normalizedError.retryable,
       providerStatus: normalizedError.providerStatus,
+      environment: normalizedError.environment ?? null,
+      providerCode: normalizedError.providerCode ?? null,
+      providerMessage: normalizedError.providerMessage ?? null,
+      transactionId: normalizedError.providerTransactionId ?? null,
+      endpoint: normalizedError.providerEndpoint ?? null,
+      diagnosticStage: normalizedError.diagnosticStage ?? stage,
       error: sanitizeError(error),
     });
     return jsonResponse(
@@ -331,6 +435,12 @@ Deno.serve(async (req) => {
         code: normalizedError.code,
         retryable: normalizedError.retryable,
         providerStatus: normalizedError.providerStatus,
+        diagnosticStage: normalizedError.diagnosticStage ?? stage,
+        environment: normalizedError.environment ?? null,
+        providerCode: normalizedError.providerCode ?? null,
+        providerMessage: normalizedError.providerMessage ?? null,
+        transactionId: normalizedError.providerTransactionId ?? null,
+        endpoint: normalizedError.providerEndpoint ?? null,
       },
       normalizedError.status,
     );
@@ -343,21 +453,31 @@ async function getShippingAccess(
   email?: string | null,
   appMetadata?: unknown,
 ): Promise<Access> {
-  if (email?.trim().toLowerCase() === 'joeltrincadov@gmail.com') {
-    return { canAccess: true, isAdmin: true, viewAll: true };
-  }
-
   const metadata = isRecord(appMetadata) ? appMetadata : {};
   const metadataRole = readText(metadata.role)?.toLowerCase();
   const metadataUserType = readText(metadata.user_type)?.toLowerCase();
   const metadataIsAdmin = metadataRole === 'owner' || metadataRole === 'manager' || metadataUserType === 'owner';
 
-  const { data: permission, error: permissionError } = await adminClient
+  const { data: permissionByUserId, error: permissionError } = await adminClient
     .from('admin_module_permissions')
-    .select('role, user_type, is_active')
+    .select('id, user_id, email, role, user_type, is_active')
     .eq('user_id', userId)
     .maybeSingle();
   if (permissionError) throw permissionError;
+
+  // Older permission rows may belong to a previous auth UUID. Resolve those
+  // records by the verified Supabase email before denying module access.
+  let permission = permissionByUserId;
+  if (!permission && email?.trim()) {
+    const { data: permissionByEmail, error: emailPermissionError } = await adminClient
+      .from('admin_module_permissions')
+      .select('id, user_id, email, role, user_type, is_active')
+      .ilike('email', email.trim())
+      .maybeSingle();
+    if (emailPermissionError) throw emailPermissionError;
+    permission = permissionByEmail;
+  }
+
   if (!permission && metadataIsAdmin) {
     return { canAccess: true, isAdmin: true, viewAll: true };
   }
@@ -369,7 +489,7 @@ async function getShippingAccess(
   const { data: item, error: itemError } = await adminClient
     .from('admin_module_permission_items')
     .select('can_access, actions')
-    .eq('user_id', userId)
+    .eq('permission_id', permission.id)
     .eq('module_key', 'shipping_quotes')
     .maybeSingle();
   if (itemError) throw itemError;
@@ -490,6 +610,7 @@ async function saveCarrierSettings(
   // The token cache keys include URL and client credentials, so clearing the
   // map is required after the administrator updates FedEx settings.
   tokenCache.clear();
+  tokenPromiseCache.clear();
   return data as CarrierSettings;
 }
 
@@ -519,7 +640,7 @@ async function savePackageType(
     external_length: nullablePositive(body.external_length) ?? nullablePositive(body.length),
     external_width: nullablePositive(body.external_width) ?? nullablePositive(body.width),
     external_height: nullablePositive(body.external_height) ?? nullablePositive(body.height),
-    max_fill_percent: nullablePositive(body.max_fill_percent),
+    max_fill_percent: nullablePositive(body.max_fill_percent) ?? 100,
     box_cost: nullableNonNegative(body.box_cost),
     dimension_unit: readEnum(body.dimension_unit, ['CM', 'IN'], 'CM'),
     empty_weight: nullableNonNegative(body.empty_weight),
@@ -533,6 +654,9 @@ async function savePackageType(
 
   if (payload.is_active && (!payload.length || !payload.width || !payload.height || payload.empty_weight === null || !payload.max_weight)) {
     throw new Error('Para activar un embalaje debes capturar largo, ancho, alto, tara y peso máximo.');
+  }
+  if (!normalizePackaging({ ...payload, id: id ?? 'new' })) {
+    throw new ShippingError('Completa las dimensiones internas y externas, la tara, el peso máximo y la ocupación. Las medidas externas deben ser mayores o iguales a las internas; el peso máximo debe superar la tara.', { status: 400, code: 'INVALID_PACKAGING' });
   }
 
   const query = id
@@ -677,12 +801,15 @@ async function saveProductDimension(
   userId: string,
   userEmail?: string | null,
 ) {
-  const id = requiredText(body.id, 'Selecciona un producto válido.');
+  const id = readText(body.id);
   const sku = requiredText(body.sku, 'Indica el código del producto.');
   const lengthCm = requiredPositiveNumber(body.length_cm, 'Indica un largo válido.');
   const widthCm = requiredPositiveNumber(body.width_cm, 'Indica un ancho válido.');
   const heightCm = requiredPositiveNumber(body.height_cm, 'Indica un alto válido.');
-  const unitWeightKg = nullablePositive(body.unit_weight_kg);
+  const unitWeightKg = body.unit_weight_kg == null || body.unit_weight_kg === '' ? null : nullableNonNegative(body.unit_weight_kg);
+  if (body.unit_weight_kg != null && unitWeightKg === null) throw new ShippingError('Indica un peso físico válido.', { status: 400 });
+  const protectionMargin = body.protection_margin_cm === undefined ? undefined : nullableNonNegative(body.protection_margin_cm);
+  if (protectionMargin === null) throw new ShippingError('El margen de protección debe ser cero o mayor.', { status: 400 });
   const volumetricWeightKg = round((Math.ceil(lengthCm) * Math.ceil(widthCm) * Math.ceil(heightCm)) / 5000, 3);
   const billableWeightKg = round(Math.max(unitWeightKg ?? 0, volumetricWeightKg), 3);
   const payload = {
@@ -695,21 +822,26 @@ async function saveProductDimension(
     volumetric_weight_kg: volumetricWeightKg,
     billable_weight_kg: billableWeightKg,
     updated_by: userId,
+    ...(body.can_rotate === undefined ? {} : { can_rotate: body.can_rotate !== false }),
+    ...(body.stackable === undefined ? {} : { stackable: body.stackable !== false }),
+    ...(body.fragile === undefined ? {} : { fragile: body.fragile === true }),
+    ...(body.requires_individual_package === undefined ? {} : { requires_individual_package: body.requires_individual_package === true }),
+    ...(body.can_combine === undefined ? {} : { can_combine: body.can_combine !== false }),
+    ...(body.packaging_group === undefined ? {} : { packaging_group: readText(body.packaging_group) }),
+    ...(protectionMargin === undefined ? {} : { protection_margin_cm: protectionMargin }),
+    ...(body.notes === undefined ? {} : { notes: readText(body.notes) }),
   };
-  const { data: previous } = await adminClient.from('shipping_product_dimensions').select('*').eq('id', id).maybeSingle();
-  const { data, error } = await adminClient
-    .from('shipping_product_dimensions')
-    .update(payload)
-    .eq('id', id)
-    .select('*')
-    .single();
+  const { data: previous } = id ? await adminClient.from('shipping_product_dimensions').select('*').eq('id', id).maybeSingle() : { data: null };
+  const query = id ? adminClient.from('shipping_product_dimensions').update(payload).eq('id', id)
+    : adminClient.from('shipping_product_dimensions').insert({ ...payload, uploaded_by: userId });
+  const { data, error } = await query.select('*').single();
   if (error) throw error;
   await audit(adminClient, {
     actorId: userId,
     actorEmail: userEmail,
     action: 'shipping.product_dimension.updated',
     entityType: 'shipping_product_dimensions',
-    entityId: id,
+    entityId: data.id,
     previousValue: previous,
     newValue: data,
   });
@@ -718,7 +850,30 @@ async function saveProductDimension(
 
 async function createQuote(adminClient: SupabaseClient, body: Record<string, unknown>, userId: string, userEmail: string | null) {
   const settings = await requireConfiguredSettings(adminClient);
-  const packages = applyFinalPackagingAdjustments(preparePackages(body.packages, settings.weight_input_mode), settings);
+  let diagnosticStage: DiagnosticStage = 'DECRYPT_CREDENTIALS';
+  let validatedPlan: PackingPlan | null = null;
+  let packages: PreparedPackage[];
+  if (isRecord(body.packingRequest)) {
+    const request = body.packingRequest as unknown as PackingRequest;
+    if (request.version !== 1 || !Array.isArray(request.lines) || request.lines.length > 2000 || request.lines.some(line => !isRecord(line))) {
+      throw new ShippingError('La información del embalaje no es válida.', { status: 400, code: 'INVALID_PACKING' });
+    }
+    try {
+      validatedPlan = validatePackingAssignments(request.lines, await getPackageTypes(adminClient, false), request.assignments, request.strategy);
+      const drafts = mapPackingToShipment(validatedPlan, calculateFinalPaddingVolumetricWeight(settings) * 5000);
+      packages = preparePackages(drafts, 'GROSS_PACKAGE').map((pkg, index) => {
+        const packed = validatedPlan!.packages[index];
+        return { ...pkg, packageTypeId: packed.packagingTypeId, contentWeight: packed.productsWeight, tareWeight: packed.packagingWeight };
+      });
+      body.selectedPackingPlan = { ...validatedPlan, lines: request.lines, assignments: request.assignments };
+      console.info('[shipping-quote:packing]', { event: 'FEDEX_PACKAGES_CREATED', packages: packages.length, units: validatedPlan.metrics.articleCount });
+    } catch (error) {
+      throw new ShippingError(error instanceof Error ? error.message : 'Revisa los datos físicos del envío.', { status: 400, code: 'INVALID_PACKING' });
+    }
+  } else {
+    // Compatibility for clients already open while the new frontend is deployed.
+    packages = applyFinalPackagingAdjustments(preparePackages(body.packages, settings.weight_input_mode), settings);
+  }
   const destination = normalizeAddress(body.destination, 'destino');
   const origin = {
     countryCode: settings.origin_country_code || 'MX',
@@ -735,7 +890,9 @@ async function createQuote(adminClient: SupabaseClient, body: Record<string, unk
   const totals = summarizePreparedPackages(packages);
 
   try {
+    diagnosticStage = 'FEDEX_OAUTH';
     const token = await getFedexAccessToken(fedexConfig);
+    diagnosticStage = 'BUILD_RATE_PAYLOAD';
     const payload = buildFedexRatePayload({
       settings,
       fedexConfig,
@@ -744,14 +901,24 @@ async function createQuote(adminClient: SupabaseClient, body: Record<string, unk
       packages,
       requestedShipDate: null,
     });
+    console.info('[shipping-quote:diagnostic]', {
+      stage: diagnosticStage,
+      environment: settings.environment,
+      endpoint: `${fedexConfig.baseUrl}${FEDEX_RATE_ENDPOINT_PATH}`,
+      payload: sanitizeFedexPayload(payload),
+    });
+    diagnosticStage = 'FEDEX_RATE_REQUEST';
     const response = await fetchFedexRates(fedexConfig, token, payload);
+    diagnosticStage = 'FEDEX_RATE_RESPONSE';
     const rates = applyFinalPackagingCost(normalizeFedExRateResponse(response), settings);
+    diagnosticStage = 'NORMALIZE_RATES';
     if (!rates.length) {
       const fallbackPayload = buildFedexListRateFallback(payload);
       const fallbackResponse = fallbackPayload ? await fetchFedexRates(fedexConfig, token, fallbackPayload) : null;
       const fallbackRates = fallbackResponse ? applyFinalPackagingCost(normalizeFedExRateResponse(fallbackResponse), settings) : [];
       if (fallbackRates.length) {
         const bestRate = fallbackRates.slice().sort((left, right) => left.totalAmount - right.totalAmount)[0];
+        diagnosticStage = 'SAVE_QUOTE';
         return insertQuote(adminClient, {
           quoteNumber,
           userId,
@@ -775,6 +942,7 @@ async function createQuote(adminClient: SupabaseClient, body: Record<string, unk
       throw new Error(`FedEx no devolvió servicios disponibles. Respuesta: ${safeFedexText(JSON.stringify(response).slice(0, 1800))}`);
     }
     const bestRate = rates.slice().sort((left, right) => left.totalAmount - right.totalAmount)[0];
+    diagnosticStage = 'SAVE_QUOTE';
     const quote = await insertQuote(adminClient, {
       quoteNumber,
       userId,
@@ -799,6 +967,8 @@ async function createQuote(adminClient: SupabaseClient, body: Record<string, unk
     const technicalError = sanitizeErrorText(error);
     const userMessage = mapFedexError(error);
     const normalizedError = normalizeShippingError(error, userMessage);
+    normalizedError.diagnosticStage ??= diagnosticStage;
+    normalizedError.environment = settings.environment;
     await insertQuote(adminClient, {
       quoteNumber,
       userId,
@@ -812,6 +982,13 @@ async function createQuote(adminClient: SupabaseClient, body: Record<string, unk
       status: 'ERROR',
       errorMessage: userMessage,
       technicalError,
+      diagnosticStage: normalizedError.diagnosticStage,
+      providerStatus: normalizedError.providerStatus,
+      providerCode: normalizedError.providerCode,
+      providerMessage: normalizedError.providerMessage,
+      providerTransactionId: normalizedError.providerTransactionId,
+      providerEndpoint: normalizedError.providerEndpoint,
+      retryable: normalizedError.retryable,
       bestRate: null,
       rates: [],
       odooOrderName: readText(body.odooOrderName),
@@ -1061,26 +1238,21 @@ async function lookupOdooOrder(adminClient: SupabaseClient, body: Record<string,
         ? 'No entra en envío: el producto no tiene marcada la opción Se puede vender.'
         : null;
     const isEligibleForShipping = !exclusionReason;
-    const lengthCm = firstNumberFromFields(product, productLogisticsFields.length) ?? firstNumberFromFields(template, templateLogisticsFields.length) ?? firstNumber(dimension.length_cm, profile.length_cm);
-    const widthCm = firstNumberFromFields(product, productLogisticsFields.width) ?? firstNumberFromFields(template, templateLogisticsFields.width) ?? firstNumber(dimension.width_cm, profile.width_cm);
-    const heightCm = firstNumberFromFields(product, productLogisticsFields.height) ?? firstNumberFromFields(template, templateLogisticsFields.height) ?? firstNumber(dimension.height_cm, profile.height_cm);
-    const physicalWeightKg = firstNumber(product.weight, template.weight, dimension.unit_weight_kg, profile.unit_weight_kg);
-    const configuredBillableWeightKg = firstNumber(dimension.billable_weight_kg);
+    const lengthCm = firstNumber(dimension.length_cm) ?? firstNumberFromFields(product, productLogisticsFields.length) ?? firstNumberFromFields(template, templateLogisticsFields.length) ?? firstNumber(profile.length_cm);
+    const widthCm = firstNumber(dimension.width_cm) ?? firstNumberFromFields(product, productLogisticsFields.width) ?? firstNumberFromFields(template, templateLogisticsFields.width) ?? firstNumber(profile.width_cm);
+    const heightCm = firstNumber(dimension.height_cm) ?? firstNumberFromFields(product, productLogisticsFields.height) ?? firstNumberFromFields(template, templateLogisticsFields.height) ?? firstNumber(profile.height_cm);
+    const physicalWeightKg = dimension.unit_weight_kg != null ? Number(dimension.unit_weight_kg) : firstNumber(product.weight, template.weight, profile.unit_weight_kg);
     const configuredVolumetricWeightKg = firstNumber(dimension.volumetric_weight_kg);
     const resolvedVolumetricWeightKg = volumeWeightKg ?? configuredVolumetricWeightKg;
-    const weightKg = configuredBillableWeightKg ?? maxPositive(physicalWeightKg, resolvedVolumetricWeightKg);
+    const weightKg = physicalWeightKg;
     const logisticsSource = matchedDimension
       ? 'Base de dimensiones por SKU'
-      : resolvedVolumetricWeightKg && resolvedVolumetricWeightKg >= (physicalWeightKg ?? 0)
-        ? 'Peso volumétrico de Odoo'
-        : physicalWeightKg
-          ? 'Peso de Odoo'
-          : null;
+      : physicalWeightKg ? 'Peso físico de Odoo' : null;
     const missingFields = [
       isEligibleForShipping && !lengthCm ? 'largo' : null,
       isEligibleForShipping && !widthCm ? 'ancho' : null,
       isEligibleForShipping && !heightCm ? 'alto' : null,
-      isEligibleForShipping && !weightKg ? 'peso' : null,
+      isEligibleForShipping && weightKg == null ? 'peso físico' : null,
     ].filter((value): value is string => Boolean(value));
 
     return {
@@ -1103,13 +1275,14 @@ async function lookupOdooOrder(adminClient: SupabaseClient, body: Record<string,
       isEligibleForShipping,
       exclusionReason,
       logisticsSource,
-      // En este cotizador todos los consumibles pueden girarse y combinarse.
-      // No imponemos fragilidad ni separación provenientes de perfiles anteriores.
-      canRotate: true,
-      canStack: true,
-      shipAlone: false,
-      fragile: false,
-      packingGroup: null,
+      physicalProductId: readText(dimension.id),
+      canRotate: dimension.can_rotate !== false,
+      canStack: dimension.stackable !== false,
+      shipAlone: dimension.requires_individual_package === true,
+      canCombine: dimension.can_combine !== false,
+      fragile: dimension.fragile === true,
+      packingGroup: readText(dimension.packaging_group),
+      protectionMarginCm: Number(dimension.protection_margin_cm) || 0,
       missingFields,
     };
   });
@@ -1159,6 +1332,735 @@ async function lookupOdooOrder(adminClient: SupabaseClient, body: Record<string,
   };
 }
 
+type HistoricalZoneCatalog = {
+  originGroup: string | null;
+  destinationGroup: string | null;
+  zone: string | null;
+};
+
+async function getEstimatorCatalog(adminClient: SupabaseClient) {
+  const [bandsResult, cardsResult, quotesResult] = await Promise.all([
+    adminClient.from('fedex_estimator_weight_bands').select('id, label, min_kg, max_kg').eq('is_active', true).order('sort_order', { ascending: true }),
+    adminClient.from('fedex_estimator_rate_cards').select('service_code, service_name').eq('is_active', true).limit(5000),
+    adminClient.from('shipping_quotes').select('best_service_code, best_service_name').eq('status', 'SUCCESS').not('best_service_code', 'is', null).limit(5000),
+  ]);
+  if (bandsResult.error) throw bandsResult.error;
+  if (cardsResult.error) throw cardsResult.error;
+  if (quotesResult.error) throw quotesResult.error;
+  const services = new Map<string, { serviceCode: string; serviceName: string }>();
+  for (const row of [...(cardsResult.data ?? []), ...(quotesResult.data ?? [])]) {
+    const code = readText(row.service_code ?? row.best_service_code);
+    if (!code) continue;
+    services.set(code, { serviceCode: code, serviceName: readText(row.service_name ?? row.best_service_name) ?? code });
+  }
+  return {
+    services: [...services.values()].sort((left, right) => left.serviceName.localeCompare(right.serviceName)),
+    weightBands: (bandsResult.data ?? []).map((row) => ({
+      id: String(row.id),
+      label: String(row.label),
+      minKg: Number(row.min_kg),
+      maxKg: row.max_kg == null ? null : Number(row.max_kg),
+    })),
+    hasRateCard: Boolean(cardsResult.data?.length),
+  };
+}
+
+async function getEstimatorStats(adminClient: SupabaseClient, userId: string, access: Access) {
+  let query = adminClient.from('shipping_rate_estimates').select('absolute_error, percentage_error');
+  if (!access.viewAll) query = query.eq('user_id', userId);
+  const { data, error } = await query.limit(5000);
+  if (error) throw error;
+  const rows = (data ?? []).filter((row) => numericOrNull(row.percentage_error) != null);
+  const errors = rows.map((row) => Number(row.percentage_error)).sort((left, right) => left - right);
+  const average = errors.length ? errors.reduce((total, value) => total + value, 0) / errors.length : null;
+  const median = errors.length ? errors[Math.floor(errors.length / 2)] : null;
+  return {
+    total: data?.length ?? 0,
+    compared: errors.length,
+    averageErrorPercent: average,
+    medianErrorPercent: median,
+    within5Percent: errors.length ? errors.filter((value) => value <= 5).length / errors.length * 100 : null,
+    within10Percent: errors.length ? errors.filter((value) => value <= 10).length / errors.length * 100 : null,
+    within20Percent: errors.length ? errors.filter((value) => value <= 20).length / errors.length * 100 : null,
+  };
+}
+
+async function resolveHistoricalZone(adminClient: SupabaseClient, body: Record<string, unknown>) {
+  const settings = await getCarrierSettings(adminClient);
+  const originPostalCode = normalizeHistoricalPostalCode(body.originPostalCode) || normalizeHistoricalPostalCode(settings?.origin_postal_code);
+  if (!originPostalCode) return { originPostalCode: null, destinationPostalCode: readText(body.destinationPostalCode), originGroup: null, destinationGroup: null, zone: null, available: false, message: 'Configura o captura el código postal de origen de FedEx.' };
+  const destinationPostalCode = normalizeHistoricalPostalCode(body.destinationPostalCode);
+  if (!destinationPostalCode) throw new ShippingError('Indica un código postal mexicano de 5 dígitos.', { status: 400, code: 'INVALID_DESTINATION_POSTAL' });
+  const result = await resolveZoneWithCatalog(adminClient, originPostalCode, destinationPostalCode);
+  return {
+    originPostalCode,
+    destinationPostalCode,
+    ...result,
+    available: Boolean(result.zone),
+    message: result.zone ? 'Zona FedEx encontrada en el catálogo vigente.' : 'No existe una zona FedEx vigente para ese origen y destino. Carga el catálogo oficial para habilitar la estimación.',
+  };
+}
+
+// Kept as a compatibility reference for the previous estimator payload shape.
+// The action now uses estimateHistoricalRateV2 below.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function estimateHistoricalRate(
+  adminClient: SupabaseClient,
+  body: Record<string, unknown>,
+  userId: string,
+  userEmail: string | null,
+  access: Access,
+) {
+  const settings = await getCarrierSettings(adminClient);
+  if (!settings?.origin_postal_code) throw new ShippingError('Configura el código postal de origen de FedEx antes de estimar.', { status: 400, code: 'MISSING_ORIGIN_POSTAL' });
+  const destinationPostalCode = normalizeHistoricalPostalCode(body.destinationPostalCode);
+  if (!destinationPostalCode) throw new ShippingError('Indica un código postal mexicano de 5 dígitos.', { status: 400, code: 'INVALID_DESTINATION_POSTAL' });
+  const rawPackages = Array.isArray(body.packages) ? body.packages : [];
+  if (!rawPackages.length || rawPackages.length > 200) throw new ShippingError('Agrega entre 1 y 200 paquetes para estimar.', { status: 400, code: 'INVALID_ESTIMATE_PACKAGES' });
+  const packages = rawPackages.map((item, index) => {
+    const value = isRecord(item) ? item : {};
+    const lengthCm = positiveNumber(value.lengthCm ?? value.length, `largo del paquete ${index + 1}`);
+    const widthCm = positiveNumber(value.widthCm ?? value.width, `ancho del paquete ${index + 1}`);
+    const heightCm = positiveNumber(value.heightCm ?? value.height, `alto del paquete ${index + 1}`);
+    const physicalWeightKg = nonNegativeNumber(value.physicalWeightKg ?? value.weightKg ?? value.actualWeight, `peso del paquete ${index + 1}`);
+    return { lengthCm, widthCm, heightCm, physicalWeightKg };
+  });
+  const physicalWeight = sum(packages.map((item) => item.physicalWeightKg));
+  const volumeCm3 = sum(packages.map((item) => item.lengthCm * item.widthCm * item.heightCm));
+  const volumetricWeight = volumeCm3 / 5000;
+  const billableWeight = Math.max(physicalWeight, volumetricWeight);
+  const zoneCatalog = await loadHistoricalZoneCatalog(adminClient);
+  const targetZone = resolveZoneFromCatalog(zoneCatalog, settings.origin_postal_code, destinationPostalCode);
+  const environment = settings.environment;
+  const warningParts: string[] = [];
+  if (environment === 'SANDBOX') warningParts.push('La evidencia proviene de Sandbox y debe tratarse como referencia de pruebas.');
+  if (!targetZone.zone) warningParts.push('No hay una zona FedEx oficial cargada para este origen y destino.');
+
+  const quotesQuery = adminClient
+    .from('shipping_quotes')
+    .select('id, environment, package_count, total_content_weight, total_billable_weight, destination, origin, best_total_amount, best_currency, best_service_code, best_service_name, created_at')
+    .eq('status', 'SUCCESS')
+    .eq('environment', environment)
+    .not('best_total_amount', 'is', null)
+    .not('best_currency', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(200);
+  if (!access.viewAll) quotesQuery.eq('user_id', userId);
+  const { data: quoteRows, error: quotesError } = await quotesQuery;
+  if (quotesError) throw quotesError;
+
+  const quoteIds = (quoteRows ?? []).map((row) => String(row.id));
+  const { data: packageRows, error: packageError } = quoteIds.length
+    ? await adminClient.from('shipping_quote_packages').select('quote_id, length, width, height').in('quote_id', quoteIds)
+    : { data: [], error: null };
+  if (packageError) throw packageError;
+  const volumeByQuote = new Map<string, number>();
+  for (const row of packageRows ?? []) {
+    const volume = positiveNumber(row.length, 'largo histórico') * positiveNumber(row.width, 'ancho histórico') * positiveNumber(row.height, 'alto histórico');
+    volumeByQuote.set(String(row.quote_id), (volumeByQuote.get(String(row.quote_id)) ?? 0) + volume);
+  }
+  const candidates: FedexHistoricalCandidate[] = [];
+  for (const row of quoteRows ?? []) {
+    const destination = isRecord(row.destination) ? row.destination : {};
+    const origin = isRecord(row.origin) ? row.origin : {};
+    const originPostal = normalizeHistoricalPostalCode(origin.postalCode);
+    const historicalPostal = normalizeHistoricalPostalCode(destination.postalCode);
+    const historicalZone = originPostal && historicalPostal ? resolveZoneFromCatalog(zoneCatalog, originPostal, historicalPostal) : { zone: null };
+    const amount = Number(row.best_total_amount);
+    const currency = readText(row.best_currency)?.toUpperCase() ?? '';
+    const volume = volumeByQuote.get(String(row.id));
+    if (!historicalZone.zone || !targetZone.zone || historicalZone.zone !== targetZone.zone || !Number.isFinite(amount) || !currency || !volume) continue;
+    candidates.push({
+      id: String(row.id), amount, currency,
+      environment: row.environment === 'PRODUCTION' ? 'PRODUCTION' : 'SANDBOX',
+      serviceCode: readText(row.best_service_code), serviceName: readText(row.best_service_name),
+      packageCount: Math.max(1, Number(row.package_count) || 1),
+      physicalWeight: Math.max(0, Number(row.total_content_weight) || 0),
+      volumetricWeight: volume / 5000,
+      billableWeight: Math.max(0, Number(row.total_billable_weight) || volume / 5000),
+      volumeCm3: volume, fedexZone: historicalZone.zone, createdAt: String(row.created_at),
+    });
+  }
+  const currency = readText(body.currency)?.toUpperCase() || settings.preferred_currency || 'MXN';
+  const estimation = targetZone.zone
+    ? estimateFedexHistory({ fedexZone: targetZone.zone, serviceCode: readText(body.serviceCode), packageCount: packages.length, physicalWeight, volumetricWeight, billableWeight, volumeCm3, environment, currency }, candidates)
+    : { estimatedAmount: null, estimatedLow: null, estimatedHigh: null, medianAmount: null, averageAmount: null, minimumAmount: null, maximumAmount: null, p25Amount: null, p75Amount: null, confidence: 'INSUFICIENTE' as const, confidenceScore: 0, comparables: [], outlierQuoteIds: [] };
+  if (!estimation.comparables.length) warningParts.push(`No hay suficientes cotizaciones históricas comparables en ${environment === 'SANDBOX' ? 'Sandbox' : 'Producción'} y la misma moneda.`);
+  const warning = warningParts.join(' ');
+  const { data: saved, error: saveError } = await adminClient.from('shipping_rate_estimates').insert({
+    user_id: userId,
+    origin_postal_code: normalizeHistoricalPostalCode(settings.origin_postal_code),
+    origin_group: targetZone.originGroup ?? null,
+    destination_postal_code: destinationPostalCode,
+    destination_group: targetZone.destinationGroup ?? null,
+    fedex_zone: targetZone.zone ?? null,
+    package_count: packages.length,
+    physical_weight: physicalWeight,
+    volumetric_weight: volumetricWeight,
+    billable_weight: billableWeight,
+    estimated_amount: estimation.estimatedAmount,
+    currency: estimation.estimatedAmount == null ? null : currency,
+    estimated_low: estimation.estimatedLow,
+    estimated_high: estimation.estimatedHigh,
+    median_amount: estimation.medianAmount,
+    average_amount: estimation.averageAmount,
+    minimum_amount: estimation.minimumAmount,
+    maximum_amount: estimation.maximumAmount,
+    p25_amount: estimation.p25Amount,
+    p75_amount: estimation.p75Amount,
+    confidence: estimation.confidence,
+    confidence_score: estimation.confidenceScore,
+    comparable_count: estimation.comparables.length,
+    comparable_quote_ids: estimation.comparables.map((candidate) => candidate.id),
+    environment_source: targetZone.zone ? environment : 'NONE',
+    algorithm_version: 'HISTORICAL_ZONE_V1',
+    odoo_order_id: nullableInteger(body.odooOrderId),
+    odoo_order_name: readText(body.odooOrderName),
+    service_code: readText(body.serviceCode),
+    service_name: readText(body.serviceName),
+    outlier_quote_ids: estimation.outlierQuoteIds,
+    warning: warning || null,
+  }).select('id, created_at').single();
+  if (saveError) throw saveError;
+  return {
+    estimateId: saved?.id ?? null,
+    originPostalCode: normalizeHistoricalPostalCode(settings.origin_postal_code),
+    destinationPostalCode,
+    originGroup: targetZone.originGroup,
+    destinationGroup: targetZone.destinationGroup,
+    fedexZone: targetZone.zone,
+    packageCount: packages.length,
+    physicalWeight, volumetricWeight, billableWeight,
+    environmentSource: targetZone.zone ? environment : 'NONE',
+    currency: estimation.estimatedAmount == null ? null : currency,
+    warning: warning || null,
+    ...estimation,
+  };
+}
+
+type EstimatorPackageInput = {
+  lengthCm: number | null;
+  widthCm: number | null;
+  heightCm: number | null;
+  physicalWeightKg: number | null;
+};
+
+type EstimatorLiveAttempt = {
+  rate: {
+    amount: number;
+    currency: string;
+    serviceCode: string;
+    serviceName: string;
+    transitDays: number | null;
+    deliveryLabel: string | null;
+  } | null;
+  error: {
+    status: number | null;
+    code: string | null;
+    message: string | null;
+    transactionId: string | null;
+  } | null;
+};
+
+async function estimateHistoricalRateV2(
+  adminClient: SupabaseClient,
+  body: Record<string, unknown>,
+  userId: string,
+  userEmail: string | null,
+  access: Access,
+) {
+  const settings = await getCarrierSettings(adminClient);
+  if (!settings) throw new ShippingError('Configura FedEx antes de estimar.', { status: 400, code: 'MISSING_FEDEX_CONFIG' });
+  const originPostalCode = normalizeHistoricalPostalCode(body.originPostalCode) || normalizeHistoricalPostalCode(settings.origin_postal_code);
+  if (!originPostalCode) throw new ShippingError('Captura el código postal de origen antes de estimar.', { status: 400, code: 'MISSING_ORIGIN_POSTAL' });
+  const destinationPostalCode = normalizeHistoricalPostalCode(body.destinationPostalCode);
+  if (!destinationPostalCode) throw new ShippingError('Indica un código postal mexicano de 5 dígitos.', { status: 400, code: 'INVALID_DESTINATION_POSTAL' });
+
+  const rawPackages = Array.isArray(body.packages) ? body.packages : [];
+  const packageCount = Math.max(1, Math.min(200, Number(body.packageCount) || rawPackages.length || 1));
+  const packages = rawPackages.slice(0, packageCount).map(normalizeEstimatorPackage);
+  while (packages.length < packageCount) packages.push({ lengthCm: null, widthCm: null, heightCm: null, physicalWeightKg: null });
+  const explicitWeight = numericOrNull(body.weightKg);
+  const physicalWeight = explicitWeight != null && explicitWeight > 0
+    ? explicitWeight
+    : sum(packages.map((item) => item.physicalWeightKg ?? 0));
+  if (!Number.isFinite(physicalWeight) || physicalWeight <= 0) throw new ShippingError('Captura un peso total mayor a cero para estimar.', { status: 400, code: 'MISSING_ESTIMATE_WEIGHT' });
+  const volumeCm3 = sum(packages.map((item) => item.lengthCm && item.widthCm && item.heightCm ? item.lengthCm * item.widthCm * item.heightCm : 0));
+  const volumetricWeight = volumeCm3 / 5000;
+  const billableWeight = Math.max(physicalWeight, volumetricWeight);
+  const zoneCatalog = await loadHistoricalZoneCatalog(adminClient);
+  const targetZone = resolveZoneFromCatalog(zoneCatalog, originPostalCode, destinationPostalCode);
+  const environment = settings.environment;
+  const warningParts: string[] = [];
+  if (environment === 'SANDBOX') warningParts.push('La evidencia proviene de Sandbox y debe tratarse como referencia de pruebas.');
+  if (!targetZone.zone) warningParts.push('No hay una zona FedEx oficial cargada para este origen y destino.');
+  if (volumeCm3 <= 0) warningParts.push('Estimación calculada sin dimensiones del paquete. El costo final puede variar si FedEx aplica peso dimensional.');
+
+  const liveAttempt = await tryLiveEstimatorRate(settings, originPostalCode, destinationPostalCode, packages, readText(body.serviceCode));
+  const currency = liveAttempt.rate?.currency?.toUpperCase() || readText(body.currency)?.toUpperCase() || settings.preferred_currency || 'MXN';
+  const candidates = await loadEstimatorHistoricalCandidates(adminClient, zoneCatalog, targetZone.zone, environment, currency, access, userId, settings, userEmail, warningParts);
+  const historySelection = selectEstimatorHistoryWindow(candidates);
+  const estimation = targetZone.zone
+    ? estimateFedexHistory({ fedexZone: targetZone.zone, serviceCode: readText(body.serviceCode), packageCount, physicalWeight, volumetricWeight, billableWeight, volumeCm3, environment, currency }, historySelection.candidates)
+    : emptyHistoricalEstimate();
+  if (!estimation.comparables.length) warningParts.push(`No hay suficientes históricos comparables en ${environment === 'SANDBOX' ? 'Sandbox' : 'Producción'} y la misma moneda.`);
+  if (liveAttempt.error) warningParts.push('FedEx no está disponible en este momento. Se utilizó el estimador histórico o el tarifario configurado.');
+  const tariff = estimation.estimatedAmount == null && targetZone.zone
+    ? await findEstimatorTariff(adminClient, targetZone.zone, readText(body.serviceCode), billableWeight, currency)
+    : null;
+  const historicalAmount = estimation.estimatedAmount;
+  const selectedAmount = liveAttempt.rate?.amount ?? historicalAmount ?? tariff?.rate ?? null;
+  const method = liveAttempt.rate ? 'FEDEX_API' : historicalAmount != null ? 'HISTORICAL_MEDIAN' : tariff ? 'TARIFF' : 'NONE';
+  if (method === 'TARIFF') warningParts.push('Estimación basada en tarifario configurado. Es una referencia y no representa necesariamente el precio final de tu cuenta FedEx.');
+  if (!targetZone.zone) warningParts.push('No se encontró una zona FedEx configurada para esta combinación.');
+  const low = estimation.estimatedLow ?? tariff?.rate ?? null;
+  const high = estimation.estimatedHigh ?? tariff?.rate ?? null;
+  const differenceAmount = liveAttempt.rate && historicalAmount != null ? historicalAmount - liveAttempt.rate.amount : null;
+  const differencePercent = liveAttempt.rate && liveAttempt.rate.amount ? Math.abs(differenceAmount ?? 0) / liveAttempt.rate.amount * 100 : null;
+  const weightBand = await findEstimatorWeightBand(adminClient, billableWeight);
+  const warning = [...new Set(warningParts)].join(' ');
+  const savedPayload = {
+    user_id: userId,
+    origin_postal_code: originPostalCode,
+    origin_group: targetZone.originGroup ?? null,
+    destination_postal_code: destinationPostalCode,
+    destination_group: targetZone.destinationGroup ?? null,
+    fedex_zone: targetZone.zone ?? null,
+    package_count: packageCount,
+    physical_weight: physicalWeight,
+    volumetric_weight: volumetricWeight,
+    billable_weight: billableWeight,
+    estimated_amount: selectedAmount,
+    currency: selectedAmount == null ? null : currency,
+    estimated_low: low,
+    estimated_high: high,
+    median_amount: estimation.medianAmount,
+    average_amount: estimation.averageAmount,
+    minimum_amount: estimation.minimumAmount,
+    maximum_amount: estimation.maximumAmount,
+    p25_amount: estimation.p25Amount,
+    p75_amount: estimation.p75Amount,
+    confidence: estimation.confidence,
+    confidence_score: estimation.confidenceScore,
+    comparable_count: estimation.comparables.length,
+    comparable_quote_ids: estimation.comparables.filter((candidate) => candidate.source !== 'odoo_delivery').map((candidate) => candidate.id),
+    environment_source: targetZone.zone ? environment : 'NONE',
+    algorithm_version: 'HISTORICAL_ZONE_V2',
+    odoo_order_id: nullableInteger(body.odooOrderId),
+    odoo_order_name: readText(body.odooOrderName),
+    service_code: readText(body.serviceCode),
+    service_name: readText(body.serviceName),
+    outlier_quote_ids: estimation.outlierQuoteIds,
+    warning: warning || null,
+    estimation_method: method,
+    period_days: historySelection.periodDays,
+    weight_band_from_kg: weightBand?.minKg ?? null,
+    weight_band_to_kg: weightBand?.maxKg ?? null,
+    api_amount: liveAttempt.rate?.amount ?? null,
+    api_currency: liveAttempt.rate?.currency ?? null,
+    api_transaction_id: liveAttempt.error?.transactionId ?? null,
+    api_error_status: liveAttempt.error?.status ?? null,
+    api_error_code: liveAttempt.error?.code ?? null,
+    api_error_message: liveAttempt.error?.message ?? null,
+    absolute_error: differenceAmount == null ? null : Math.abs(differenceAmount),
+    percentage_error: differencePercent,
+  };
+  const { data: saved, error: saveError } = await adminClient.from('shipping_rate_estimates').insert(savedPayload).select('id, created_at').single();
+  if (saveError) throw saveError;
+  return {
+    estimateId: saved?.id ?? null,
+    originPostalCode,
+    destinationPostalCode,
+    originGroup: targetZone.originGroup,
+    destinationGroup: targetZone.destinationGroup,
+    fedexZone: targetZone.zone,
+    packageCount,
+    physicalWeight,
+    volumetricWeight,
+    billableWeight,
+    environmentSource: targetZone.zone ? environment : 'NONE',
+    currency: selectedAmount == null ? null : currency,
+    warning: warning || null,
+    ...estimation,
+    estimatedAmount: selectedAmount,
+    estimatedLow: low,
+    estimatedHigh: high,
+    method,
+    methodLabel: method === 'FEDEX_API' ? 'Cotización FedEx en vivo' : method === 'HISTORICAL_MEDIAN' ? 'Mediana histórica' : method === 'TARIFF' ? 'Tarifario FedEx' : 'Sin referencia suficiente',
+    periodDays: historySelection.periodDays,
+    weightBand: weightBand?.label ?? null,
+    liveRate: liveAttempt.rate,
+    differenceAmount,
+    differencePercent,
+    apiError: liveAttempt.error,
+  };
+}
+
+function normalizeEstimatorPackage(value: unknown): EstimatorPackageInput {
+  const item = isRecord(value) ? value : {};
+  return {
+    lengthCm: numericOrNull(item.lengthCm ?? item.length),
+    widthCm: numericOrNull(item.widthCm ?? item.width),
+    heightCm: numericOrNull(item.heightCm ?? item.height),
+    physicalWeightKg: numericOrNull(item.physicalWeightKg ?? item.weightKg ?? item.actualWeight),
+  };
+}
+
+function emptyHistoricalEstimate() {
+  return {
+    estimatedAmount: null,
+    estimatedLow: null,
+    estimatedHigh: null,
+    medianAmount: null,
+    averageAmount: null,
+    minimumAmount: null,
+    maximumAmount: null,
+    p25Amount: null,
+    p75Amount: null,
+    confidence: 'INSUFICIENTE' as const,
+    confidenceScore: 0,
+    comparables: [],
+    outlierQuoteIds: [],
+  };
+}
+
+async function tryLiveEstimatorRate(
+  settings: CarrierSettings,
+  originPostalCode: string,
+  destinationPostalCode: string,
+  packages: EstimatorPackageInput[],
+  serviceCode: string | null,
+): Promise<EstimatorLiveAttempt> {
+  const canUseLive = settings.is_active && packages.length > 0 && packages.every((item) =>
+    item.lengthCm != null && item.lengthCm > 0 && item.widthCm != null && item.widthCm > 0 &&
+    item.heightCm != null && item.heightCm > 0 && item.physicalWeightKg != null && item.physicalWeightKg > 0,
+  );
+  if (!canUseLive) return { rate: null, error: null };
+  try {
+    const fedexConfig = await decryptFedexConfig(settings);
+    const token = await getFedexAccessToken(fedexConfig);
+    const prepared = preparePackages(packages.map((item, index) => ({
+      quantity: 1,
+      contentWeight: item.physicalWeightKg,
+      length: item.lengthCm,
+      width: item.widthCm,
+      height: item.heightCm,
+      name: `Paquete ${index + 1}`,
+      dimensionUnit: 'CM',
+      weightUnit: 'KG',
+    })), 'GROSS_PACKAGE');
+    const response = await fetchFedexRates(fedexConfig, token, buildFedexRatePayload({
+      settings,
+      fedexConfig,
+      origin: { countryCode: settings.origin_country_code || 'MX', postalCode: originPostalCode, stateOrProvinceCode: settings.origin_state_code, city: settings.origin_city },
+      destination: { countryCode: 'MX', postalCode: destinationPostalCode, stateOrProvinceCode: null, city: null },
+      packages: prepared,
+      requestedShipDate: null,
+    }));
+    const rates = normalizeFedExRateResponse(response);
+    const selected = serviceCode ? rates.find((rate) => rate.serviceCode === serviceCode) : rates[0];
+    if (!selected) return { rate: null, error: { status: 200, code: 'FEDEX_SERVICE_NOT_FOUND', message: 'FedEx respondió, pero no devolvió el servicio seleccionado.', transactionId: null } };
+    return {
+      rate: {
+        amount: selected.totalAmount,
+        currency: selected.currency,
+        serviceCode: selected.serviceCode,
+        serviceName: selected.serviceName,
+        transitDays: selected.transitDays,
+        deliveryLabel: selected.deliveryLabel,
+      },
+      error: null,
+    };
+  } catch (error) {
+    const normalized = normalizeShippingError(error);
+    return {
+      rate: null,
+      error: {
+        status: normalized.providerStatus ?? normalized.status ?? null,
+        code: normalized.providerCode ?? normalized.code ?? null,
+        message: normalized.providerMessage ?? normalized.message ?? null,
+        transactionId: normalized.providerTransactionId ?? null,
+      },
+    };
+  }
+}
+
+async function loadEstimatorHistoricalCandidates(
+  adminClient: SupabaseClient,
+  zoneCatalog: HistoricalZoneCatalogRows,
+  targetZone: string | null,
+  environment: 'SANDBOX' | 'PRODUCTION',
+  currency: string,
+  access: Access,
+  userId: string,
+  settings: CarrierSettings,
+  userEmail: string | null,
+  warningParts: string[],
+): Promise<FedexHistoricalCandidate[]> {
+  if (!targetZone) return [];
+  const cutoff = new Date(Date.now() - 365 * 86_400_000).toISOString();
+  const quotesQuery = adminClient
+    .from('shipping_quotes')
+    .select('id, environment, package_count, total_content_weight, total_billable_weight, destination, origin, best_total_amount, best_currency, best_service_code, best_service_name, odoo_order_name, created_at')
+    .eq('status', 'SUCCESS')
+    .eq('environment', environment)
+    .gte('created_at', cutoff)
+    .not('best_total_amount', 'is', null)
+    .not('best_currency', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(1000);
+  if (!access.viewAll) quotesQuery.eq('user_id', userId);
+  const { data: quoteRows, error: quotesError } = await quotesQuery;
+  if (quotesError) throw quotesError;
+  const quoteIds = (quoteRows ?? []).map((row) => String(row.id));
+  const { data: packageRows, error: packageError } = quoteIds.length
+    ? await adminClient.from('shipping_quote_packages').select('quote_id, length, width, height').in('quote_id', quoteIds)
+    : { data: [], error: null };
+  if (packageError) throw packageError;
+  const volumeByQuote = new Map<string, number>();
+  for (const row of packageRows ?? []) {
+    const length = numericOrNull(row.length);
+    const width = numericOrNull(row.width);
+    const height = numericOrNull(row.height);
+    if (length == null || width == null || height == null) continue;
+    volumeByQuote.set(String(row.quote_id), (volumeByQuote.get(String(row.quote_id)) ?? 0) + length * width * height);
+  }
+  const candidates: FedexHistoricalCandidate[] = [];
+  for (const row of quoteRows ?? []) {
+    const destination = isRecord(row.destination) ? row.destination : {};
+    const origin = isRecord(row.origin) ? row.origin : {};
+    const originPostal = normalizeHistoricalPostalCode(origin.postalCode);
+    const historicalPostal = normalizeHistoricalPostalCode(destination.postalCode);
+    const historicalZone = originPostal && historicalPostal ? resolveZoneFromCatalog(zoneCatalog, originPostal, historicalPostal) : { zone: null };
+    const amount = numericOrNull(row.best_total_amount);
+    const rowCurrency = readText(row.best_currency)?.toUpperCase() ?? '';
+    if (!historicalZone.zone || historicalZone.zone !== targetZone || amount == null || !rowCurrency) continue;
+    const volume = volumeByQuote.get(String(row.id)) ?? 0;
+    const physicalWeight = Math.max(0, numericOrNull(row.total_content_weight) ?? 0);
+    const billableWeight = Math.max(physicalWeight, numericOrNull(row.total_billable_weight) ?? volume / 5000);
+    candidates.push({
+      id: String(row.id),
+      amount,
+      currency: rowCurrency,
+      environment: row.environment === 'PRODUCTION' ? 'PRODUCTION' : 'SANDBOX',
+      serviceCode: readText(row.best_service_code),
+      serviceName: readText(row.best_service_name),
+      packageCount: Math.max(1, Number(row.package_count) || 1),
+      physicalWeight,
+      volumetricWeight: volume / 5000,
+      billableWeight,
+      volumeCm3: volume,
+      fedexZone: historicalZone.zone,
+      createdAt: String(row.created_at),
+      source: 'shipping_quotes',
+      orderName: readText(row.odoo_order_name),
+    });
+  }
+  try {
+    candidates.push(...await loadOdooDeliveryCandidates(settings, zoneCatalog, targetZone, currency, access, userEmail));
+  } catch (error) {
+    warningParts.push('No se pudo consultar el histórico de Entrega de Odoo; se conservaron las cotizaciones guardadas del módulo.');
+    console.warn('[shipping-quote:estimator:odoo-history]', sanitizeError(error));
+  }
+  return candidates;
+}
+
+function selectEstimatorHistoryWindow(candidates: FedexHistoricalCandidate[]) {
+  const recent = (days: number) => candidates.filter((candidate) => Date.now() - new Date(candidate.createdAt).getTime() <= days * 86_400_000);
+  const within90 = recent(90);
+  const within180 = recent(180);
+  const within365 = recent(365);
+  if (within90.length >= 4) return { candidates: within90, periodDays: 90 };
+  if (within180.length >= 4) return { candidates: within180, periodDays: 180 };
+  return { candidates: within365, periodDays: 365 };
+}
+
+async function findEstimatorWeightBand(adminClient: SupabaseClient, weightKg: number) {
+  const { data, error } = await adminClient.from('fedex_estimator_weight_bands').select('label, min_kg, max_kg').eq('is_active', true).order('sort_order', { ascending: true });
+  if (error) throw error;
+  const row = (data ?? []).find((item) => weightKg >= Number(item.min_kg) && (item.max_kg == null || weightKg <= Number(item.max_kg)));
+  return row ? { label: String(row.label), minKg: Number(row.min_kg), maxKg: row.max_kg == null ? null : Number(row.max_kg) } : null;
+}
+
+async function findEstimatorTariff(adminClient: SupabaseClient, zone: string, serviceCode: string | null, weightKg: number, currency: string) {
+  const { data, error } = await adminClient.from('fedex_estimator_rate_cards').select('rate, service_code, service_name, currency, weight_from_kg, weight_to_kg, effective_from, effective_to').eq('fedex_zone', zone).eq('currency', currency).eq('is_active', true).limit(5000);
+  if (error) throw error;
+  const today = new Date().toISOString().slice(0, 10);
+  const eligible = (data ?? []).filter((item) =>
+    (!serviceCode || item.service_code === serviceCode) &&
+    weightKg >= Number(item.weight_from_kg) &&
+    (item.weight_to_kg == null || weightKg <= Number(item.weight_to_kg)) &&
+    isEffectiveRange(item.effective_from, item.effective_to, today),
+  ).sort((left, right) => Number(left.rate) - Number(right.rate));
+  const row = eligible[0];
+  return row ? { rate: Number(row.rate), serviceCode: String(row.service_code), serviceName: String(row.service_name), currency: String(row.currency) } : null;
+}
+
+async function loadOdooDeliveryCandidates(
+  settings: CarrierSettings,
+  zoneCatalog: HistoricalZoneCatalogRows,
+  targetZone: string,
+  currency: string,
+  access: Access,
+  userEmail: string | null,
+) {
+  const odoo = readOdooEnvironment();
+  assertOdooEnvironment(odoo);
+  const connection = await connectOdooReadOnly({ apiKey: odoo.apiKey, configuredDatabase: odoo.database, odooUrl: odoo.url, user: odoo.user });
+  const { database, odooUrl, uid } = connection;
+  let sellerIds: number[] | null = null;
+  if (!access.viewAll && userEmail) {
+    const sellers = await searchReadOdoo({ apiKey: odoo.apiKey, database, domain: [['login', '=', userEmail]], fields: ['id'], model: 'res.users', odooUrl, uid, pageSize: 20 });
+    sellerIds = sellers.map((row) => Number(row.id)).filter(Number.isFinite);
+    if (!sellerIds.length) return [];
+  }
+  const cutoff = new Date(Date.now() - 365 * 86_400_000).toISOString().replace('T', ' ').slice(0, 19);
+  const lineDomain: unknown[] = [
+    ['product_id.name', 'ilike', 'Entrega'],
+    ['order_id.state', 'in', ['sale', 'done']],
+    ['order_id.date_order', '>=', cutoff],
+  ];
+  const lines = await searchReadOdoo({
+    apiKey: odoo.apiKey,
+    database,
+    domain: lineDomain,
+    fields: ['order_id', 'product_id', 'product_uom_qty', 'price_unit'],
+    model: 'sale.order.line',
+    odooUrl,
+    order: 'id desc',
+    uid,
+    pageSize: 500,
+  });
+  const orderIds = uniqueNumbers(lines.map((row) => many2oneId(row.order_id)));
+  if (!orderIds.length) return [];
+  const orderDomain: unknown[] = [['id', 'in', orderIds]];
+  if (sellerIds) orderDomain.push(['user_id', 'in', sellerIds]);
+  const orders = await searchReadOdoo({
+    apiKey: odoo.apiKey,
+    database,
+    domain: orderDomain,
+    fields: ['id', 'name', 'date_order', 'partner_id', 'partner_shipping_id', 'currency_id'],
+    model: 'sale.order',
+    odooUrl,
+    uid,
+    pageSize: 500,
+  });
+  const orderMap = new Map(orders.map((row) => [Number(row.id), row]));
+  const partnerMeta = await getOdooFields({ apiKey: odoo.apiKey, database, model: 'res.partner', odooUrl, uid });
+  const partnerPostalFields = detectPartnerPostalFields(partnerMeta);
+  const partnerIds = uniqueNumbers(orders.flatMap((row) => [many2oneId(row.partner_id), many2oneId(row.partner_shipping_id)]));
+  const partners = partnerIds.length
+    ? await searchReadOdoo({ apiKey: odoo.apiKey, database, domain: [['id', 'in', partnerIds]], fields: buildPartnerFields(partnerPostalFields), model: 'res.partner', odooUrl, uid, pageSize: 500 })
+    : [];
+  const partnerMap = new Map(partners.map((row) => [Number(row.id), row]));
+  const amountByOrder = new Map<number, number>();
+  for (const line of lines) {
+    const orderId = many2oneId(line.order_id);
+    if (orderId == null || !orderMap.has(orderId)) continue;
+    const amount = (numericOrNull(line.price_unit) ?? 0) * (numericOrNull(line.product_uom_qty) ?? 0);
+    amountByOrder.set(orderId, (amountByOrder.get(orderId) ?? 0) + amount);
+  }
+  return orders.flatMap((order) => {
+    const orderId = Number(order.id);
+    const amount = amountByOrder.get(orderId) ?? 0;
+    const shippingPartner = partnerMap.get(many2oneId(order.partner_shipping_id) ?? -1) ?? partnerMap.get(many2oneId(order.partner_id) ?? -1);
+    const postalCode = shippingPartner ? firstPostalCodeFromPartner(shippingPartner, partnerPostalFields) : null;
+    const zone = postalCode ? resolveZoneFromCatalog(zoneCatalog, normalizeHistoricalPostalCode(settings.origin_postal_code), postalCode).zone : null;
+    const orderCurrency = normalizeCurrencyCode(many2oneLabel(order.currency_id)) ?? currency;
+    if (!zone || zone !== targetZone || amount <= 0 || orderCurrency !== currency) return [];
+    return [{
+      id: `odoo-delivery-${orderId}`,
+      amount,
+      currency: orderCurrency,
+      environment: settings.environment,
+      serviceCode: null,
+      serviceName: 'Entrega de Odoo',
+      packageCount: 1,
+      physicalWeight: 0,
+      volumetricWeight: 0,
+      billableWeight: 0,
+      volumeCm3: 0,
+      fedexZone: zone,
+      createdAt: readText(order.date_order) ?? new Date().toISOString(),
+      source: 'odoo_delivery' as const,
+      orderName: readText(order.name),
+    }];
+  });
+}
+
+function normalizeCurrencyCode(value: string | null) {
+  const normalized = value?.toUpperCase() ?? '';
+  const match = normalized.match(/\b(MXN|USD|CAD|EUR|GBP)\b/);
+  return match?.[1] ?? null;
+}
+
+async function getHistoricalEstimateDetail(adminClient: SupabaseClient, body: Record<string, unknown>, userId: string, access: Access) {
+  const id = requiredText(body.id, 'Selecciona una estimación.');
+  let query = adminClient.from('shipping_rate_estimates').select('*').eq('id', id);
+  if (!access.viewAll) query = query.eq('user_id', userId);
+  const { data, error } = await query.maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+type HistoricalZoneCatalogRows = {
+  ranges: Array<Record<string, unknown>>;
+  matrix: Array<Record<string, unknown>>;
+};
+
+async function loadHistoricalZoneCatalog(adminClient: SupabaseClient): Promise<HistoricalZoneCatalogRows> {
+  const [{ data: ranges, error: rangeError }, { data: matrix, error: matrixError }] = await Promise.all([
+    adminClient.from('fedex_postal_ranges').select('country_code, postal_code_from, postal_code_to, postal_group, effective_from, effective_to, is_active').eq('country_code', 'MX').eq('is_active', true).limit(5000),
+    adminClient.from('fedex_zone_matrix').select('origin_group, destination_group, zone, effective_from, effective_to, is_active').eq('is_active', true).limit(5000),
+  ]);
+  if (rangeError) throw rangeError;
+  if (matrixError) throw matrixError;
+  return { ranges: (ranges ?? []) as Array<Record<string, unknown>>, matrix: (matrix ?? []) as Array<Record<string, unknown>> };
+}
+
+async function resolveZoneWithCatalog(adminClient: SupabaseClient, originPostal: string, destinationPostal: string): Promise<HistoricalZoneCatalog> {
+  return resolveZoneFromCatalog(await loadHistoricalZoneCatalog(adminClient), originPostal, destinationPostal);
+}
+
+function resolveZoneFromCatalog(catalog: HistoricalZoneCatalogRows, originPostal: string, destinationPostal: string): HistoricalZoneCatalog {
+  const today = new Date().toISOString().slice(0, 10);
+  const groupFor = (postal: string) => catalog.ranges.find((range) => postal >= String(range.postal_code_from) && postal <= String(range.postal_code_to) && isEffectiveRange(range.effective_from, range.effective_to, today))?.postal_group ?? null;
+  const originGroup = groupFor(normalizeHistoricalPostalCode(originPostal));
+  const destinationGroup = groupFor(normalizeHistoricalPostalCode(destinationPostal));
+  const zone = catalog.matrix.find((item) => item.origin_group === originGroup && item.destination_group === destinationGroup && isEffectiveRange(item.effective_from, item.effective_to, today))?.zone ?? null;
+  return { originGroup, destinationGroup, zone };
+}
+
+function isEffectiveRange(from: unknown, to: unknown, today: string) {
+  return (!from || String(from) <= today) && (!to || String(to) >= today);
+}
+
+function normalizeHistoricalPostalCode(value: unknown) {
+  const postal = String(value ?? '').replace(/\D/g, '').slice(0, 5);
+  return postal.length === 5 ? postal : '';
+}
+
+function numericOrNull(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function positiveNumber(value: unknown, label: string) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) throw new ShippingError(`Indica un ${label} válido.`, { status: 400, code: 'INVALID_ESTIMATE_PACKAGE' });
+  return number;
+}
+
+function nonNegativeNumber(value: unknown, label: string) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0) throw new ShippingError(`Indica un ${label} válido.`, { status: 400, code: 'INVALID_ESTIMATE_PACKAGE' });
+  return number;
+}
+
+function sum(values: number[]) {
+  return values.reduce((total, value) => total + value, 0);
+}
+
 async function insertQuote(
   adminClient: SupabaseClient,
   input: {
@@ -1174,6 +2076,13 @@ async function insertQuote(
     status: 'SUCCESS' | 'ERROR';
     errorMessage: string | null;
     technicalError: string | null;
+    diagnosticStage?: DiagnosticStage | null;
+    providerStatus?: number | null;
+    providerCode?: string | null;
+    providerMessage?: string | null;
+    providerTransactionId?: string | null;
+    providerEndpoint?: string | null;
+    retryable?: boolean;
     bestRate: NormalizedRate | null;
     rates: NormalizedRate[];
     odooOrderName?: string | null;
@@ -1205,6 +2114,13 @@ async function insertQuote(
       best_delivery_label: input.bestRate?.deliveryLabel ?? null,
       error_message: input.errorMessage,
       technical_error: input.technicalError,
+      diagnostic_stage: input.diagnosticStage ?? null,
+      provider_status: input.providerStatus ?? null,
+      provider_code: input.providerCode ?? null,
+      provider_message: input.providerMessage ?? null,
+      provider_transaction_id: input.providerTransactionId ?? null,
+      provider_endpoint: input.providerEndpoint ?? null,
+      retryable: input.retryable ?? false,
       odoo_order_name: input.odooOrderName ?? null,
       odoo_order_id: input.odooOrderId ?? null,
       selected_packing_plan: input.selectedPackingPlan ?? null,
@@ -1332,6 +2248,7 @@ function publicConfig(settings: CarrierSettings) {
     fedex_base_url: settings.fedex_base_url,
     account_number_masked: settings.account_number_masked,
     client_id_masked: settings.client_id_masked,
+    client_secret_configured: Boolean(settings.client_secret_encrypted),
     origin_country_code: settings.origin_country_code,
     origin_postal_code: settings.origin_postal_code,
     origin_state_code: settings.origin_state_code,
@@ -1366,6 +2283,7 @@ async function decryptFedexConfig(settings: CarrierSettings) {
     accountNumber,
     clientId,
     clientSecret,
+    environment: settings.environment,
   };
 }
 
@@ -1373,33 +2291,42 @@ async function getFedexAccessToken(config: {
   baseUrl: string;
   clientId: string;
   clientSecret: string;
+  environment?: 'SANDBOX' | 'PRODUCTION';
 }) {
   const cacheKey = buildFedexTokenCacheKey(config);
   const cached = tokenCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now() + 60_000) return cached.token;
 
-  const errors: string[] = [];
+  const pending = tokenPromiseCache.get(cacheKey);
+  if (pending) return pending;
 
-  for (const attempt of [{ label: 'credenciales principales', grantType: 'client_credentials' }]) {
-    const payload = await requestFedexOAuthToken(config, attempt.grantType);
-    if (payload.ok) {
-      const token = readText(payload.body.access_token);
-      if (!token) throw new Error('FedEx no devolvió un token OAuth válido.');
-      const expiresIn = Number(payload.body.expires_in);
-      const maxTokenTtlMs = 50 * 60 * 1000;
-      const reportedTokenTtlMs = Number.isFinite(expiresIn) ? Math.max(0, expiresIn * 1000) : maxTokenTtlMs;
-      tokenCache.set(cacheKey, {
-        token,
-        expiresAt: Date.now() + Math.min(reportedTokenTtlMs, maxTokenTtlMs),
-      });
-      return token;
+  const tokenPromise = (async () => {
+    const payload = await requestFedexOAuthToken(config, 'client_credentials');
+    if (!payload.ok) {
+      throw new Error(
+        `FedEx rechazó la autenticación OAuth en ${config.baseUrl}. Verifica que Client ID, Client Secret y Account Number pertenezcan al ambiente configurado. Detalle: ${payload.status}${payload.errorText ? ` - ${payload.errorText}` : ''}`,
+      );
     }
-    errors.push(`${attempt.label}: ${payload.status}${payload.errorText ? ` - ${payload.errorText}` : ''}`);
-  }
+    const token = readText(payload.body.access_token);
+    if (!token) throw new Error('FedEx no devolvió un token OAuth válido.');
+    const expiresIn = Number(payload.body.expires_in);
+    const maxTokenTtlMs = 50 * 60 * 1000;
+    const safetyWindowMs = 2 * 60 * 1000;
+    const reportedTokenTtlMs = Number.isFinite(expiresIn) ? Math.max(0, expiresIn * 1000) : maxTokenTtlMs;
+    const usableTokenTtlMs = Math.max(30_000, Math.min(reportedTokenTtlMs, maxTokenTtlMs) - safetyWindowMs);
+    tokenCache.set(cacheKey, {
+      token,
+      expiresAt: Date.now() + usableTokenTtlMs,
+    });
+    return token;
+  })();
 
-  throw new Error(
-    `FedEx rechazó la autenticación OAuth en ${config.baseUrl}. Verifica que Client ID, Client Secret y Account Number pertenezcan al ambiente configurado. Detalle: ${errors.join(' | ')}`,
-  );
+  tokenPromiseCache.set(cacheKey, tokenPromise);
+  try {
+    return await tokenPromise;
+  } finally {
+    if (tokenPromiseCache.get(cacheKey) === tokenPromise) tokenPromiseCache.delete(cacheKey);
+  }
 }
 
 function buildFedexTokenCacheKey(config: {
@@ -1420,6 +2347,7 @@ async function requestFedexOAuthToken(
     baseUrl: string;
     clientId: string;
     clientSecret: string;
+    environment?: 'SANDBOX' | 'PRODUCTION';
   },
   grantType: string,
 ): Promise<{ ok: true; body: Record<string, unknown> } | { ok: false; status: number; errorText: string }> {
@@ -1428,22 +2356,61 @@ async function requestFedexOAuthToken(
   params.set('client_id', config.clientId);
   params.set('client_secret', config.clientSecret);
 
-  const response = await fetch(`${config.baseUrl}/oauth/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params.toString(),
-  });
-  const text = await response.text();
-  const parsed = parseJsonObject(text);
-  if (!response.ok) {
-    return {
-      ok: false,
-      status: response.status,
-      errorText: safeFedexText(text),
-    };
+  const endpoint = `${config.baseUrl}/oauth/token`;
+  for (let attempt = 0; attempt < FEDEX_MAX_ATTEMPTS; attempt += 1) {
+    if (attempt > 0) await delay(retryDelayMs(attempt));
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString(),
+        signal: AbortSignal.timeout(FEDEX_HTTP_TIMEOUT_MS),
+      });
+      const text = await response.text();
+      const parsed = parseJsonObject(text);
+      if (response.ok) {
+        if (!parsed) {
+          throw new ShippingError('FedEx devolvió una respuesta OAuth inválida.', {
+            status: 502,
+            code: 'FEDEX_OAUTH_INVALID_RESPONSE',
+            diagnosticStage: 'FEDEX_OAUTH',
+            providerStatus: response.status,
+            providerEndpoint: endpoint,
+          });
+        }
+        return { ok: true, body: parsed };
+      }
+      if (!isTransientFedexStatus(response.status) || attempt === FEDEX_MAX_ATTEMPTS - 1) {
+        return { ok: false, status: response.status, errorText: safeFedexText(text) };
+      }
+      const providerError = parseFedexErrorDetails(text);
+      console.warn('[shipping-quote:diagnostic]', {
+        stage: 'FEDEX_OAUTH',
+        environment: config.environment,
+        endpoint,
+        attempt: attempt + 1,
+        nextAttempt: attempt + 2,
+        providerStatus: response.status,
+        providerCode: providerError.code,
+        transactionId: providerError.transactionId,
+      });
+    } catch (error) {
+      if (attempt === FEDEX_MAX_ATTEMPTS - 1) {
+        if (error instanceof ShippingError) throw error;
+        throw new ShippingError(
+          `FedEx no respondió al renovar el token OAuth: ${error instanceof Error ? error.message : 'error de red'}`,
+          {
+            status: 503,
+            code: 'FEDEX_OAUTH_NETWORK_ERROR',
+            retryable: true,
+            diagnosticStage: 'FEDEX_OAUTH',
+            providerEndpoint: endpoint,
+          },
+        );
+      }
+    }
   }
-  if (!parsed) throw new Error('FedEx devolvió una respuesta OAuth inválida.');
-  return { ok: true, body: parsed };
+  throw new Error('FedEx no respondió al renovar el token OAuth.');
 }
 
 function parseJsonObject(value: string) {
@@ -1460,6 +2427,7 @@ async function fetchFedexRates(
     baseUrl: string;
     clientId?: string;
     clientSecret?: string;
+    environment?: 'SANDBOX' | 'PRODUCTION';
   },
   token: string,
   body: Record<string, unknown>,
@@ -1472,12 +2440,23 @@ async function fetchFedexRates(
       baseUrl: config.baseUrl,
       clientId: config.clientId,
       clientSecret: config.clientSecret,
+      environment: config.environment,
     });
     firstAttempt = await postFedexRateRequest(config, activeToken, body);
   }
   if (firstAttempt.response.ok) {
     const parsed = parseJsonObject(firstAttempt.text);
-    if (!parsed) throw new Error('FedEx devolvió una respuesta de tarifas inválida.');
+    if (!parsed) {
+      throw new ShippingError('FedEx devolvió una respuesta de tarifas inválida.', {
+        status: 502,
+        code: 'FEDEX_INVALID_RATE_RESPONSE',
+        retryable: false,
+        diagnosticStage: 'FEDEX_RATE_RESPONSE',
+        environment: config.environment,
+        providerStatus: firstAttempt.response.status,
+        providerEndpoint: `${config.baseUrl}${FEDEX_RATE_ENDPOINT_PATH}`,
+      });
+    }
     return parsed;
   }
 
@@ -1487,59 +2466,81 @@ async function fetchFedexRates(
       const secondAttempt = await postFedexRateRequest(config, activeToken, fallbackBody);
       if (secondAttempt.response.ok) {
         const parsed = parseJsonObject(secondAttempt.text);
-        if (!parsed) throw new Error('FedEx devolvió una respuesta de tarifas inválida.');
+        if (!parsed) {
+          throw new ShippingError('FedEx devolvió una respuesta de tarifas inválida.', {
+            status: 502,
+            code: 'FEDEX_INVALID_RATE_RESPONSE',
+            retryable: false,
+            diagnosticStage: 'FEDEX_RATE_RESPONSE',
+            environment: config.environment,
+            providerStatus: secondAttempt.response.status,
+            providerEndpoint: `${config.baseUrl}${FEDEX_RATE_ENDPOINT_PATH}`,
+          });
+        }
         return parsed;
       }
-      throw new Error(
-        `FedEx no pudo obtener tarifas (${secondAttempt.response.status}). Primer intento: ${safeFedexText(firstAttempt.text)} Reintento: ${safeFedexText(secondAttempt.text)}`,
-      );
+      console.warn('[shipping-quote:diagnostic]', {
+        stage: 'FEDEX_RATE_REQUEST',
+        environment: config.environment ?? null,
+        endpoint: `${config.baseUrl}${FEDEX_RATE_ENDPOINT_PATH}`,
+        fallback: 'PACKAGECOMBINATION',
+        firstResponse: safeFedexText(firstAttempt.text),
+      });
+      throw fedexRateError(secondAttempt, config.baseUrl, config.environment);
     }
   }
-
-  // El entorno Sandbox de FedEx puede rechazar opciones de presentación o de
-  // tránsito aunque acepte el OAuth. Conservamos el envío y reintentamos con
-  // la forma mínima documentada para Rate API antes de reportar indisponibilidad.
-  if (isFedexSystemUnavailable(firstAttempt)) {
-    const fallbackBody = buildFedexSandboxCompatibilityFallback(body);
-    if (fallbackBody) {
-      const fallbackAttempt = await postFedexRateRequest(config, activeToken, fallbackBody, 1);
-      if (fallbackAttempt.response.ok) {
-        const parsed = parseJsonObject(fallbackAttempt.text);
-        if (!parsed) throw new Error('FedEx devolvió una respuesta de tarifas inválida.');
-        return parsed;
-      }
-      throw new Error(
-        `FedEx no pudo obtener tarifas (${fallbackAttempt.response.status}). Solicitud estándar: ${safeFedexText(firstAttempt.text)} Solicitud compatible: ${safeFedexText(fallbackAttempt.text)}`,
-      );
-    }
-  }
-
-  throw new Error(`FedEx no pudo obtener tarifas (${firstAttempt.response.status}). ${safeFedexText(firstAttempt.text)}`);
+  throw fedexRateError(firstAttempt, config.baseUrl, config.environment);
 }
 
 async function postFedexRateRequest(
-  config: { baseUrl: string },
+  config: { baseUrl: string; environment?: 'SANDBOX' | 'PRODUCTION' },
   token: string,
   body: Record<string, unknown>,
-  maxAttempts = 2,
+  maxAttempts = FEDEX_MAX_ATTEMPTS,
 ) {
-  // The compatibility payload gets one request only, so an interactive quote
-  // does not issue four calls when FedEx Sandbox is unavailable.
+  const endpoint = `${config.baseUrl}${FEDEX_RATE_ENDPOINT_PATH}`;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const response = await fetch(`${config.baseUrl}/rate/v1/rates/quotes`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'X-locale': 'es_MX',
-      },
-      body: JSON.stringify(body),
-    });
-    const text = await response.text();
-    if (response.ok || !isTransientFedexStatus(response.status) || attempt === maxAttempts - 1) {
-      return { response, text };
+    if (attempt > 0) await delay(retryDelayMs(attempt));
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'X-locale': 'es_MX',
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(FEDEX_HTTP_TIMEOUT_MS),
+      });
+      const text = await response.text();
+      if (response.ok || !isTransientFedexStatus(response.status) || attempt === maxAttempts - 1) {
+        return { response, text };
+      }
+      const providerError = parseFedexErrorDetails(text);
+      console.warn('[shipping-quote:diagnostic]', {
+        stage: 'FEDEX_RATE_REQUEST',
+        environment: config.environment,
+        endpoint,
+        attempt: attempt + 1,
+        nextAttempt: attempt + 2,
+        providerStatus: response.status,
+        providerCode: providerError.code,
+        transactionId: providerError.transactionId,
+      });
+    } catch (error) {
+      if (attempt === maxAttempts - 1) {
+        throw new ShippingError(
+          `FedEx no respondió a la solicitud de tarifas: ${error instanceof Error ? error.message : 'error de red'}`,
+          {
+            status: 503,
+            code: 'FEDEX_RATE_NETWORK_ERROR',
+            retryable: true,
+            diagnosticStage: 'FEDEX_RATE_REQUEST',
+            providerEndpoint: endpoint,
+          },
+        );
+      }
     }
-    await delay(850);
   }
   throw new Error('No fue posible completar la consulta de tarifas de FedEx.');
 }
@@ -1552,15 +2553,50 @@ function isFedexAuthStatus(status: number) {
   return status === 401 || status === 403;
 }
 
-function isFedexSystemUnavailable(attempt: { response: Response; text: string }) {
-  return attempt.response.status === 503 && (
-    attempt.text.includes('SYSTEM.UNAVAILABLE.EXCEPTION') ||
-    attempt.text.toLowerCase().includes('unable to process this request')
-  );
-}
-
 function delay(milliseconds: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function retryDelayMs(attempt: number) {
+  if (attempt <= 0) return 0;
+  const base = Math.min(8_000, 1_000 * (2 ** (attempt - 1)));
+  return base + Math.floor(Math.random() * 250);
+}
+
+function fedexRateError(
+  attempt: { response: Response; text: string },
+  baseUrl: string,
+  environment?: 'SANDBOX' | 'PRODUCTION',
+) {
+  const provider = parseFedexErrorDetails(attempt.text);
+  const endpoint = `${baseUrl}${FEDEX_RATE_ENDPOINT_PATH}`;
+  const providerStatus = attempt.response.status;
+  const retryable = isTransientFedexStatus(providerStatus);
+  const status = providerStatus === 429 ? 429 : retryable ? 503 : providerStatus === 400 ? 422 : 502;
+  const message = provider.message ?? `HTTP ${providerStatus}`;
+  console.error('[shipping-quote:diagnostic]', {
+    stage: 'FEDEX_RATE_RESPONSE',
+    environment: environment ?? null,
+    providerStatus,
+    providerCode: provider.code,
+    providerMessage: provider.message,
+    transactionId: provider.transactionId,
+    endpoint,
+    retryable,
+    response: safeFedexText(attempt.text),
+  });
+  return new ShippingError(`FedEx rechazó la cotización: ${message}`, {
+    status,
+    code: provider.code ?? (retryable ? 'FEDEX_TEMPORARY_ERROR' : 'FEDEX_REQUEST_REJECTED'),
+    retryable,
+    providerStatus,
+    diagnosticStage: 'FEDEX_RATE_RESPONSE',
+    environment,
+    providerCode: provider.code,
+    providerMessage: provider.message,
+    providerTransactionId: provider.transactionId,
+    providerEndpoint: endpoint,
+  });
 }
 
 function buildFedexPackageCombinationFallback(body: Record<string, unknown>) {
@@ -1574,34 +2610,6 @@ function buildFedexPackageCombinationFallback(body: Record<string, unknown>) {
   delete requestedShipment.serviceType;
   delete requestedShipment.specialServicesRequested;
   return cloned;
-}
-
-function buildFedexSandboxCompatibilityFallback(body: Record<string, unknown>) {
-  const requestedShipment = isRecord(body.requestedShipment) ? body.requestedShipment : null;
-  const accountNumber = isRecord(body.accountNumber) ? body.accountNumber : null;
-  if (!requestedShipment || !accountNumber) return null;
-
-  const packageLines = Array.isArray(requestedShipment.requestedPackageLineItems)
-    ? requestedShipment.requestedPackageLineItems
-      .filter(isRecord)
-      .map((line) => ({
-        weight: line.weight,
-        dimensions: line.dimensions,
-      }))
-    : [];
-  if (!packageLines.length) return null;
-
-  return {
-    accountNumber,
-    requestedShipment: {
-      shipper: requestedShipment.shipper,
-      recipient: requestedShipment.recipient,
-      pickupType: requestedShipment.pickupType,
-      packagingType: 'YOUR_PACKAGING',
-      rateRequestType: ['ACCOUNT', 'LIST'],
-      requestedPackageLineItems: packageLines,
-    },
-  };
 }
 
 function buildFedexListRateFallback(body: Record<string, unknown>) {
@@ -1659,7 +2667,7 @@ function buildFedexRatePayload({
         groupPackageCount: 1,
         weight: {
           units: item.packageType.weight_unit.toUpperCase(),
-          value: round(Math.max(item.actualWeight, item.billableWeight), 3),
+          value: round(Math.max(item.actualWeight, item.billableWeight), 2),
         },
         dimensions: {
           length: Math.max(1, Math.ceil(item.packageType.external_length ?? item.packageType.length ?? 0)),
@@ -2374,6 +3382,12 @@ function normalizeShippingError(error: unknown, userMessage?: string) {
       code: error.code,
       retryable: error.retryable,
       providerStatus: error.providerStatus,
+      diagnosticStage: error.diagnosticStage,
+      environment: error.environment,
+      providerCode: error.providerCode,
+      providerMessage: error.providerMessage,
+      providerTransactionId: error.providerTransactionId,
+      providerEndpoint: error.providerEndpoint,
     });
   }
 
@@ -2381,7 +3395,14 @@ function normalizeShippingError(error: unknown, userMessage?: string) {
   const message = technicalMessage.toLowerCase();
   const fallbackMessage = userMessage ?? (error instanceof Error ? error.message : 'No se pudo completar la solicitud del Cotizador de Envíos.');
 
-  if (message.includes('system.unavailable.exception') || message.includes('unable to process this request') || /\(503\)/.test(message)) {
+  if (
+    message.includes('system.unavailable.exception') ||
+    message.includes('unable to process this request') ||
+    message.includes('service is currently unavailable') ||
+    message.includes('temporarily unavailable') ||
+    message.includes('check back at a later time') ||
+    /\(503\)/.test(message)
+  ) {
     return new ShippingError(fallbackMessage, { status: 503, code: 'FEDEX_UNAVAILABLE', retryable: true, providerStatus: 503 });
   }
   if (/\(429\)/.test(message) || message.includes('too many requests')) {
@@ -2413,9 +3434,22 @@ function extractProviderStatus(value: string, allowed?: number[]) {
 function mapFedexError(error: unknown) {
   const technicalMessage = sanitizeErrorText(error);
   const message = technicalMessage.toLowerCase();
-  if (message.includes('system.unavailable.exception') || message.includes('unable to process this request')) {
-    const transactionId = extractFedexTransactionId(technicalMessage);
-    return `FedEx Sandbox no pudo responder desde Rate API. Verifica que Account Number, Client ID y Client Secret sean las credenciales de prueba del mismo proyecto de FedEx que tiene habilitada Rate API.${transactionId ? ` Referencia FedEx: ${transactionId}.` : ''}`;
+  const provider = error instanceof ShippingError
+    ? {
+        code: error.providerCode,
+        message: error.providerMessage,
+        transactionId: error.providerTransactionId,
+      }
+    : parseFedexErrorDetails(technicalMessage);
+  if (
+    message.includes('system.unavailable.exception') ||
+    message.includes('unable to process this request') ||
+    message.includes('service is currently unavailable') ||
+    message.includes('temporarily unavailable') ||
+    message.includes('check back at a later time')
+  ) {
+    const transactionId = provider.transactionId ?? extractFedexTransactionId(technicalMessage);
+    return `FedEx Rate API está temporalmente no disponible. La solicitud se reintentó automáticamente; vuelve a intentarlo en unos minutos.${transactionId ? ` Referencia FedEx: ${transactionId}.` : ''}`;
   }
   if (message.includes('service.packagecombination.invalid') || message.includes('combinación de servicio y embalaje')) {
     return 'FedEx rechazó la combinación de servicio y embalaje. Revisa que el envío use embalaje propio, dimensiones reales y que no combine servicios One Rate con varios bultos.';
@@ -2433,22 +3467,27 @@ function mapFedexError(error: unknown) {
   const fedexDetail = extractFedexErrorMessage(technicalMessage);
   return fedexDetail
     ? `FedEx rechazó la cotización: ${fedexDetail}`
-    : 'FedEx no pudo generar tarifas para esta combinación de origen, destino y embalajes. Revisa la configuración de la cuenta Sandbox/Producción y vuelve a calcular el embalaje.';
+    : 'Necesitas una cuenta Fedex Production para usar la API de cotización de FedEx. Verifica que Account Number, Client ID y Client Secret sean del mismo proyecto y ambiente de FedEx.';
 }
 
 function extractFedexErrorMessage(value: string) {
-  const payload = parseJsonObject(value.match(/\{[\s\S]*\}/)?.[0] ?? '');
-  const errors = Array.isArray(payload?.errors) ? payload.errors : [];
-  const details = errors
-    .filter(isRecord)
-    .map((item) => readText(item.message) ?? readText(item.code))
-    .filter((item): item is string => Boolean(item));
-  return details.length ? details.join(' ') : null;
+  const provider = parseFedexErrorDetails(value);
+  return [provider.code, provider.message].filter(Boolean).join(' ') || null;
 }
 
 function extractFedexTransactionId(value: string) {
-  const payload = parseJsonObject(value.match(/\{[\s\S]*\}/)?.[0] ?? '');
-  return readText(payload?.transactionId) ?? null;
+  return parseFedexErrorDetails(value).transactionId;
+}
+
+function parseFedexErrorDetails(value: string) {
+  const payload = parseJsonObject(value.trim()) ?? parseJsonObject(value.match(/\{[\s\S]*\}/)?.[0] ?? '');
+  const errors = Array.isArray(payload?.errors) ? payload.errors : [];
+  const first = errors.find(isRecord) ?? null;
+  return {
+    transactionId: readText(payload?.transactionId),
+    code: first ? readText(first.code) : null,
+    message: first ? readText(first.message) : null,
+  };
 }
 
 function mexicoBusinessDate() {
@@ -2466,7 +3505,24 @@ function safeFedexText(value: string) {
   return value
     .replace(/"access_token"\s*:\s*"[^"]+"/gi, '"access_token":"[oculto]"')
     .replace(/"client_secret"\s*:\s*"[^"]+"/gi, '"client_secret":"[oculto]"')
+    .replace(/"client_id"\s*:\s*"[^"]+"/gi, '"client_id":"[oculto]"')
+    .replace(/"accountNumber"\s*:\s*\{\s*"value"\s*:\s*"[^"]+"\s*\}/gi, '"accountNumber":{"value":"[oculto]"}')
     .slice(0, 800);
+}
+
+function sanitizeFedexPayload(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((item) => sanitizeFedexPayload(item));
+  if (!isRecord(value)) return value;
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => {
+    const lowerKey = key.toLowerCase();
+    if (['access_token', 'client_secret', 'client_id', 'secret', 'password'].includes(lowerKey)) {
+      return [key, '[oculto]'];
+    }
+    if (key === 'accountNumber' && isRecord(item) && 'value' in item) {
+      return [key, { ...item, value: '[oculto]' }];
+    }
+    return [key, sanitizeFedexPayload(item)];
+  }));
 }
 
 function sanitizeError(error: unknown) {

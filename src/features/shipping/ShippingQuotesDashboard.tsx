@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { EmptyState } from '../../components/EmptyState';
 import { supabase } from '../../lib/supabase';
-import type { ShippingProductDimension, ShippingQuoteDetail, ShippingQuoteRow } from '../../lib/types';
+import type { ShippingPackageType, ShippingProductDimension, ShippingQuoteDetail, ShippingQuoteRow } from '../../lib/types';
 import { SidebarUserFooter } from '../admin/SidebarUserFooter';
 import { fetchUsdMxnExchangeRate, type ExchangeRateResult } from '../admin/calculatorService';
 import {
@@ -39,23 +39,28 @@ import {
   type ShippingCarrierConfigDraft,
   type ShippingOrderLookupResult,
   type ShippingProductDimensionsImportPreview,
+  type ShippingOrderLine,
+  type ShippingPhysicalRules,
 } from './shippingQuotesService';
 import {
-  calculateVolumetricWeight,
   preparePackages,
   summarizePackages,
-  type ShippingPackageDraft,
 } from './shippingQuoteMath';
+import { mapPackingToShipment,
+  type PackingStrategy, type PackingAssignment } from '../../../supabase/functions/_shared/shipping-packing';
+import { ShippingProductInputs, ShippingPackingWorkspace, PhysicalRulesFields } from './ShippingPackingWorkspace';
+import { ShippingPackagingSettings } from './ShippingPackagingSettings';
+import { buildPackingPreview, packingInputKey } from './packingPreview';
 
 type ShippingSection = 'new' | 'history' | 'settings';
-type TemporaryLogisticsOverride = {
+type TemporaryLogisticsOverride = Partial<ShippingOrderLine> & {
   lengthCm: number | null;
   widthCm: number | null;
   heightCm: number | null;
   weightKg: number | null;
 };
 
-type ProductDimensionDraft = {
+type ProductDimensionDraft = ShippingPhysicalRules & {
   id: string;
   sku: string;
   product_name: string | null;
@@ -169,6 +174,7 @@ export function ShippingQuotesDashboard({ session, onOpenHub }: ShippingQuotesDa
             <div hidden={activeSection !== 'new'}>
               <NewShippingQuoteSection
                 config={bootstrap.config}
+                packageTypes={bootstrap.packageTypes}
                 isAdmin={isAdmin}
                 onOpenSettings={() => openSection('settings')}
                 onQuoted={() => {
@@ -203,11 +209,13 @@ export function ShippingQuotesDashboard({ session, onOpenHub }: ShippingQuotesDa
 
 function NewShippingQuoteSection({
   config,
+  packageTypes,
   isAdmin,
   onOpenSettings,
   onQuoted,
 }: {
   config: Awaited<ReturnType<typeof getShippingBootstrap>>['config'];
+  packageTypes: ShippingPackageType[];
   isAdmin: boolean;
   onOpenSettings: () => void;
   onQuoted: () => void;
@@ -217,34 +225,41 @@ function NewShippingQuoteSection({
   const [orderResult, setOrderResult] = useState<ShippingOrderLookupResult | null>(null);
   const [lineOverrides, setLineOverrides] = useState<Record<number, TemporaryLogisticsOverride>>({});
   const [packageMessage, setPackageMessage] = useState<string | null>(null);
-  const [packages, setPackages] = useState<ShippingPackageDraft[]>([]);
+  const [packingStrategy, setPackingStrategy] = useState<PackingStrategy>('MIN_PACKAGES');
+  const [packingEdits, setPackingEdits] = useState<{ key: string; assignments: PackingAssignment[] } | null>(null);
   const [quote, setQuote] = useState<ShippingQuoteDetail | null>(null);
+  const [quotedInputKey, setQuotedInputKey] = useState<string | null>(null);
   const lastResolvedPostalCodeRef = useRef<string | null>(null);
   const [postalLookup, setPostalLookup] = useState<{ status: 'idle' | 'loading' | 'success' | 'error'; message: string }>({
     status: 'idle',
     message: '',
   });
-  const prepared = useMemo(
-    () => preparePackages({ drafts: packages, packageTypes: [], weightInputMode: config?.weight_input_mode ?? 'NET_CONTENT' }),
-    [config?.weight_input_mode, packages],
-  );
   const finalPackagingAdjustment = getFinalPackagingAdjustment(config);
-  const summary = applyFinalPackagingToSummary(summarizePackages(prepared.packages), finalPackagingAdjustment.extraVolumetricWeightKg);
   const effectiveOrderLines = useMemo(
     () => orderResult?.lines.map((line) => applyTemporaryLogisticsOverride(line, lineOverrides[line.lineId])) ?? [],
     [lineOverrides, orderResult?.lines],
   );
-  const shippableOrderLines = effectiveOrderLines.filter((line) => line.isEligibleForShipping);
+  const shippableOrderLines = useMemo(() => effectiveOrderLines.filter(line => line.isEligibleForShipping), [effectiveOrderLines]);
   const excludedOrderLines = effectiveOrderLines.filter((line) => !line.isEligibleForShipping);
   const orderLinesWithMissingData = shippableOrderLines.filter((line) => line.missingFields.length);
+  const packingKey = packingInputKey(shippableOrderLines, packageTypes, packingStrategy);
+  const manualAssignments = packingEdits?.key === packingKey ? packingEdits.assignments : undefined;
+  const packing = useMemo(() => buildPackingPreview(shippableOrderLines, packageTypes, packingStrategy, manualAssignments),
+    [shippableOrderLines, packageTypes, packingStrategy, manualAssignments]);
+  const packages = packing.plan?.status === 'READY_FOR_QUOTE'
+    ? mapPackingToShipment(packing.plan, finalPackagingAdjustment.extraVolumetricWeightKg * 5000) : [];
+  const prepared = preparePackages({ drafts: packages, packageTypes: [], weightInputMode: 'GROSS_PACKAGE' });
+  const summary = { ...summarizePackages(prepared.packages), baseVolumetricWeight: packing.plan?.packages.reduce((sum,p) => sum + p.externalDimensions.length*p.externalDimensions.width*p.externalDimensions.height/5000,0) ?? 0 };
+  const currentInputKey = JSON.stringify([packingKey, packing.assignments, destination, config?.updated_at]);
+  const displayedQuote = quotedInputKey === currentInputKey ? quote : null;
   const lookupOrderMutation = useMutation({
     mutationFn: lookupOdooShippingOrder,
     onSuccess: (result) => {
       setOrderResult(result);
       setLineOverrides({});
-      const initialPackages = buildQuotePackagesFromOrderLines(result.lines);
-      setPackages(initialPackages);
-      setPackageMessage(initialPackages.length ? null : 'La orden no tiene productos Consumible con la opción Se puede vender para cotizar envío.');
+      setPackingEdits(null);
+      setQuote(null);
+      setPackageMessage(result.lines.some(line => line.isEligibleForShipping) ? null : 'La orden no tiene productos Consumible con la opción Se puede vender para cotizar envío.');
       const odooDestination = {
         countryCode: 'MX',
         postalCode: result.destination.postalCode ?? '',
@@ -260,8 +275,9 @@ function NewShippingQuoteSection({
     },
   });
   const quoteMutation = useMutation({
-    mutationFn: () =>
-      createShippingQuote({
+    mutationFn: (inputKey: string) => {
+      if (inputKey !== currentInputKey) throw new Error('La distribución cambió. Revisa los paquetes antes de cotizar.');
+      return createShippingQuote({
         destination: {
           countryCode: 'MX',
           postalCode: destination.postalCode.trim(),
@@ -274,10 +290,12 @@ function NewShippingQuoteSection({
         packages,
         odooOrderId: orderResult?.order.id ?? null,
         odooOrderName: orderResult?.order.name ?? null,
-        selectedPackingPlan: null,
-      }),
-    onSuccess: ({ quote: nextQuote }) => {
+        packingRequest: { version: 1, strategy: packingStrategy, lines: shippableOrderLines, assignments: packing.assignments },
+      });
+    },
+    onSuccess: ({ quote: nextQuote }, inputKey) => {
       setQuote(nextQuote);
+      setQuotedInputKey(inputKey);
       onQuoted();
     },
   });
@@ -356,7 +374,7 @@ function NewShippingQuoteSection({
                 </div>
                 {orderLinesWithMissingData.length ? (
                   <p className="shipping-filter-note">
-                    Completa peso y dimensiones faltantes directamente en “Paquetes y resumen”.
+                    Completa peso y dimensiones faltantes en “Productos de la orden”.
                   </p>
                 ) : null}
                 {excludedOrderLines.length ? (
@@ -368,55 +386,38 @@ function NewShippingQuoteSection({
               </div>
             ) : null}
           </div>
+          {orderResult ? <ShippingProductInputs lines={shippableOrderLines} isAdmin={isAdmin} onChange={line => {
+            setLineOverrides(current => ({...current, [line.lineId]: line})); setPackingEdits(null); setQuote(null);
+          }} /> : null}
+          {postalLookup.status === 'error' ? <p className="form-error">{postalLookup.message}</p> : null}
+          {orderResult?.warnings.map(w => <p className="shipping-filter-note" key={w}>{w}</p>)}
           <article className="panel shipping-rate-panel">
           <div className="panel-header">
             <h2>Resultados</h2>
-            <span>{quote?.rates.length ?? 0} servicios</span>
+            <span>{displayedQuote?.rates.length ?? 0} servicios</span>
           </div>
-          {quote ? <RateList quote={quote} /> : <EmptyState title="Sin cotización">Captura destino y paquetes para consultar servicios FedEx.</EmptyState>}
+          {displayedQuote ? <RateList quote={displayedQuote} /> : <EmptyState title="Sin cotización">Revisa los productos y su distribución para consultar servicios FedEx.</EmptyState>}
         </article>
         </div>
       </article>
       <aside className="shipping-side-column">
         <form className="panel shipping-summary-card" onSubmit={(event) => {
           event.preventDefault();
-          if (prepared.errors.length) return;
-          quoteMutation.mutate();
+          if (prepared.errors.length || packing.plan?.status !== 'READY_FOR_QUOTE') return;
+          quoteMutation.mutate(currentInputKey);
         }}>
           <div className="shipping-band-head compact">
             <div>
-              <h3>Paquetes y resumen</h3>
-              <p>Edita solo si necesitas corregir peso o dimensiones.</p>
+              <h3>Embalaje y resumen</h3>
+              <p>Las cajas resultantes se cotizarán juntas con FedEx.</p>
             </div>
           </div>
-          <div className="shipping-package-editor compact">
-            {packages.length ? packages.map((item, index) => {
-              const volumetricWeight = calculateVolumetricWeight({
-                length: item.length,
-                width: item.width,
-                height: item.height,
-                dimension_unit: item.dimensionUnit,
-                weight_unit: item.weightUnit,
-              });
-              const billableWeight = Math.max(Number(item.contentWeight) || 0, volumetricWeight);
-              return (
-                <div className="shipping-package-row compact" key={item.id}>
-                  <div className="shipping-package-generated">
-                    <strong>#{index + 1} {item.name ?? `Paquete ${index + 1}`}</strong>
-                    <span>Facturable estimado {formatNumber(billableWeight)} kg</span>
-                  </div>
-                  <div className="shipping-package-edit-grid compact">
-                    <NumberInput label="Cant." value={item.quantity} onChange={(value) => updatePackageDraft(item.id, 'quantity', value ?? 1)} min={1} />
-                    <NumberInput label="Peso" value={item.contentWeight} onChange={(value) => updatePackageDraft(item.id, 'contentWeight', value ?? 0)} />
-                    <NumberInput label="Largo" value={item.length} onChange={(value) => updatePackageDraft(item.id, 'length', value ?? 0)} />
-                    <NumberInput label="Ancho" value={item.width} onChange={(value) => updatePackageDraft(item.id, 'width', value ?? 0)} />
-                    <NumberInput label="Alto" value={item.height} onChange={(value) => updatePackageDraft(item.id, 'height', value ?? 0)} />
-                  </div>
-                  <span className="shipping-package-compact-note">Vol. {formatNumber(volumetricWeight)} kg</span>
-                </div>
-              );
-            }) : <p className="shipping-filter-note">Busca una orden de Odoo para cargar los paquetes.</p>}
-          </div>
+          {orderResult && packing.plan ? <ShippingPackingWorkspace plan={packing.plan} lines={shippableOrderLines}
+            assignments={packing.assignments} packageTypes={packageTypes} strategy={packingStrategy}
+            onStrategy={s => {setPackingStrategy(s);setPackingEdits(null);setQuote(null);}}
+            onAssignments={assignments => {setPackingEdits({key:packingKey,assignments});setQuote(null);}}
+            onRecalculate={() => {setPackingEdits(null);setQuote(null);}} /> : <p>Busca una orden para preparar su distribución.</p>}
+          {packing.error ? <p className="form-error">{packing.error}</p> : null}
           <div className="shipping-summary-grid compact">
             <Metric label="Paquetes" value={`${summary.packageCount}`} />
             <Metric label="Peso real" value={`${formatNumber(summary.actualWeight)} kg`} />
@@ -443,7 +444,7 @@ function NewShippingQuoteSection({
           {quoteMutation.error ? (
             <p className="form-error">{quoteMutation.error.message}</p>
           ) : null}
-          <button type="submit" disabled={quoteMutation.isPending || prepared.errors.length > 0 || !packages.length}>
+          <button type="submit" disabled={quoteMutation.isPending || prepared.errors.length > 0 || !packages.length || packing.plan?.status !== 'READY_FOR_QUOTE'}>
             {quoteMutation.isPending ? <RefreshCw size={16} className="spin-icon" /> : <Truck size={16} />}
             {quoteMutation.isPending ? 'Consultando tarifas...' : 'Cotizar con FedEx'}
           </button>
@@ -452,39 +453,6 @@ function NewShippingQuoteSection({
       </aside>
     </div>
   );
-
-  function updatePackageDraft<K extends keyof ShippingPackageDraft>(id: string, key: K, value: ShippingPackageDraft[K]) {
-    setPackages((current) => current.map((item) => item.id === id ? { ...item, [key]: value } : item));
-    syncTemporaryLineOverride(id, key, value);
-    setPackageMessage(null);
-    setQuote(null);
-  }
-
-  function syncTemporaryLineOverride<K extends keyof ShippingPackageDraft>(id: string, key: K, value: ShippingPackageDraft[K]) {
-    const lineId = Number(id);
-    if (!Number.isFinite(lineId)) return;
-    if (key !== 'contentWeight' && key !== 'length' && key !== 'width' && key !== 'height') return;
-
-    const sourceLine = effectiveOrderLines.find((line) => line.lineId === lineId) ??
-      orderResult?.lines.find((line) => line.lineId === lineId);
-    const nextValue = typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null;
-    setLineOverrides((current) => {
-      const currentOverride = current[lineId] ?? {
-        lengthCm: sourceLine?.lengthCm ?? null,
-        widthCm: sourceLine?.widthCm ?? null,
-        heightCm: sourceLine?.heightCm ?? null,
-        weightKg: sourceLine?.weightKg ?? null,
-      };
-      const nextOverride = {
-        ...currentOverride,
-        ...(key === 'contentWeight' ? { weightKg: nextValue } : {}),
-        ...(key === 'length' ? { lengthCm: nextValue } : {}),
-        ...(key === 'width' ? { widthCm: nextValue } : {}),
-        ...(key === 'height' ? { heightCm: nextValue } : {}),
-      };
-      return { ...current, [lineId]: nextOverride };
-    });
-  }
 
   async function completeMexicoPostalCode(postalCodeValue = destination.postalCode, fallback?: typeof destination) {
     const postalCode = postalCodeValue.replace(/\D/g, '').slice(0, 5);
@@ -627,7 +595,7 @@ function HistorySection({
 
 function SettingsSection({ bootstrap }: { bootstrap: Awaited<ReturnType<typeof getShippingBootstrap>> }) {
   const queryClient = useQueryClient();
-  const [settingsTab, setSettingsTab] = useState<'fedex' | 'products'>('fedex');
+  const [settingsTab, setSettingsTab] = useState<'fedex' | 'products' | 'packaging'>('fedex');
   const [productImportPreview, setProductImportPreview] = useState<ShippingProductDimensionsImportPreview | null>(null);
   const [productImportFileName, setProductImportFileName] = useState('');
   const [editingProduct, setEditingProduct] = useState<ProductDimensionDraft | null>(null);
@@ -657,7 +625,33 @@ function SettingsSection({ bootstrap }: { bootstrap: Awaited<ReturnType<typeof g
   }));
   const saveConfig = useMutation({
     mutationFn: saveShippingCarrierConfig,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['shipping-quotes-bootstrap'] }),
+    onSuccess: ({ config }) => {
+      setConfigDraft((current) => ({
+        ...current,
+        environment: config.environment,
+        is_active: config.is_active,
+        account_number: '',
+        client_id: '',
+        client_secret: '',
+        origin_country_code: config.origin_country_code ?? '',
+        origin_postal_code: config.origin_postal_code ?? '',
+        origin_state_code: config.origin_state_code ?? '',
+        origin_city: config.origin_city ?? '',
+        preferred_currency: config.preferred_currency ?? 'MXN',
+        pickup_type: config.pickup_type ?? 'USE_SCHEDULED_PICKUP',
+        return_transit_times: config.return_transit_times,
+        rate_request_types: config.rate_request_types,
+        rate_display_option: config.rate_display_option,
+        weight_input_mode: config.weight_input_mode,
+        final_volume_padding_enabled: config.final_volume_padding_enabled,
+        final_padding_length_cm: config.final_padding_length_cm,
+        final_padding_width_cm: config.final_padding_width_cm,
+        final_padding_height_cm: config.final_padding_height_cm,
+        final_packaging_cost_enabled: config.final_packaging_cost_enabled,
+        final_packaging_material_cost: config.final_packaging_material_cost,
+      }));
+      void queryClient.invalidateQueries({ queryKey: ['shipping-quotes-bootstrap'] });
+    },
   });
   const testConnection = useMutation({ mutationFn: testShippingCarrierConnection });
   const dimensionsQuery = useQuery({
@@ -699,6 +693,7 @@ function SettingsSection({ bootstrap }: { bootstrap: Awaited<ReturnType<typeof g
           <Database size={16} />
           Base de productos
         </button>
+        <button type="button" className={settingsTab === 'packaging' ? 'active' : undefined} onClick={() => setSettingsTab('packaging')}><PackagePlus size={16} />Embalajes</button>
       </div>
       {settingsTab === 'fedex' ? (
       <article className="panel">
@@ -722,6 +717,10 @@ function SettingsSection({ bootstrap }: { bootstrap: Awaited<ReturnType<typeof g
             <span>Client ID actual</span>
             <strong>{bootstrap.config?.client_id_masked ?? 'Sin guardar'}</strong>
           </div>
+          <div className="shipping-secret-row">
+            <span>Client Secret actual</span>
+            <strong>{bootstrap.config?.client_secret_configured ? 'Configurado' : 'Sin guardar'}</strong>
+          </div>
           <div className="form-grid">
             <label className="field">
               <span>Ambiente</span>
@@ -737,10 +736,11 @@ function SettingsSection({ bootstrap }: { bootstrap: Awaited<ReturnType<typeof g
               label="Account Number"
               value={configDraft.account_number}
               onChange={(value) => setConfigDraft((current) => ({ ...current, account_number: value }))}
-              placeholder={bootstrap.config?.account_number_masked ? 'Dejar vacío para conservar' : 'Número de cuenta FedEx'}
+              placeholder={bootstrap.config?.account_number_masked ? `Guardado: ${bootstrap.config.account_number_masked} · dejar vacío para conservar` : 'Número de cuenta FedEx'}
+              autoComplete="off"
             />
-            <TextInput label="Client ID / API Key" value={configDraft.client_id} onChange={(value) => setConfigDraft((current) => ({ ...current, client_id: value }))} placeholder="Dejar vacío para conservar" />
-            <TextInput label="Client Secret" type="password" value={configDraft.client_secret} onChange={(value) => setConfigDraft((current) => ({ ...current, client_secret: value }))} placeholder="Dejar vacío para conservar" />
+            <TextInput label="Client ID / API Key" value={configDraft.client_id} onChange={(value) => setConfigDraft((current) => ({ ...current, client_id: value }))} placeholder={bootstrap.config?.client_id_masked ? `Guardado: ${bootstrap.config.client_id_masked} · dejar vacío para conservar` : 'Client ID / API Key de FedEx'} autoComplete="off" />
+            <TextInput label="Client Secret" type="password" value={configDraft.client_secret} onChange={(value) => setConfigDraft((current) => ({ ...current, client_secret: value }))} placeholder={bootstrap.config?.client_secret_configured ? 'Configurado · dejar vacío para conservar' : 'Client Secret de FedEx'} autoComplete="new-password" />
             <TextInput label="País origen" value={configDraft.origin_country_code} onChange={(value) => setConfigDraft((current) => ({ ...current, origin_country_code: value }))} maxLength={2} />
             <TextInput label="Código postal origen" value={configDraft.origin_postal_code} onChange={(value) => setConfigDraft((current) => ({ ...current, origin_postal_code: value }))} />
             <TextInput label="Estado origen" value={configDraft.origin_state_code} onChange={(value) => setConfigDraft((current) => ({ ...current, origin_state_code: value }))} />
@@ -805,7 +805,7 @@ function SettingsSection({ bootstrap }: { bootstrap: Awaited<ReturnType<typeof g
           </div>
         </form>
       </article>
-      ) : (
+      ) : settingsTab === 'packaging' ? <ShippingPackagingSettings packageTypes={bootstrap.packageTypes} /> : (
         <article className="panel shipping-products-database-panel">
           <div className="panel-header">
             <div>
@@ -866,7 +866,7 @@ function SettingsSection({ bootstrap }: { bootstrap: Awaited<ReturnType<typeof g
                     <td>{row.sku}</td>
                     <td>{row.product_name ?? '-'}</td>
                     <td>{formatNumber(row.length_cm)} × {formatNumber(row.width_cm)} × {formatNumber(row.height_cm)} cm</td>
-                    <td>{formatNumber(row.billable_weight_kg ?? row.unit_weight_kg ?? row.volumetric_weight_kg ?? 0)} kg</td>
+                    <td>{row.unit_weight_kg === null ? 'Sin peso físico' : `${formatNumber(row.unit_weight_kg)} kg`}</td>
                     <td>{formatDateTime(row.updated_at)}</td>
                     <td>
                       <button type="button" className="table-action" onClick={() => setEditingProduct(productDimensionToDraft(row))}>
@@ -942,6 +942,7 @@ function SettingsSection({ bootstrap }: { bootstrap: Awaited<ReturnType<typeof g
               <NumberInput label="Alto (cm)" value={editingProduct.height_cm} onChange={(value) => setEditingProduct((current) => current ? { ...current, height_cm: value ?? 0 } : current)} />
               <NumberInput label="Peso físico (kg)" value={editingProduct.unit_weight_kg} onChange={(value) => setEditingProduct((current) => current ? { ...current, unit_weight_kg: value } : current)} />
             </div>
+            <PhysicalRulesFields value={editingProduct} onChange={patch => setEditingProduct(current => current ? {...current, ...patch} : current)} />
             {saveProduct.error ? <p className="form-error">{saveProduct.error.message}</p> : null}
             <div className="permission-modal-actions">
               <button type="submit" disabled={saveProduct.isPending}>
@@ -1028,23 +1029,6 @@ function RateList({ quote }: { quote: ShippingQuoteDetail }) {
   );
 }
 
-function buildQuotePackagesFromOrderLines(lines: ShippingOrderLookupResult['lines']): ShippingPackageDraft[] {
-  return lines
-    .filter((line) => line.isEligibleForShipping)
-    .map((line) => ({
-      id: String(line.lineId),
-      packageTypeId: null,
-      name: line.productName,
-      quantity: Math.max(1, Math.floor(Number(line.quantity) || 1)),
-      contentWeight: line.weightKg ?? 0,
-      length: line.lengthCm ?? 0,
-      width: line.widthCm ?? 0,
-      height: line.heightCm ?? 0,
-      dimensionUnit: 'CM',
-      weightUnit: 'KG',
-    }));
-}
-
 function applyTemporaryLogisticsOverride(
   line: ShippingOrderLookupResult['lines'][number],
   override?: TemporaryLogisticsOverride,
@@ -1052,6 +1036,7 @@ function applyTemporaryLogisticsOverride(
   if (!override) return line;
   const nextLine = {
     ...line,
+    ...override,
     lengthCm: override.lengthCm,
     widthCm: override.widthCm,
     heightCm: override.heightCm,
@@ -1074,12 +1059,13 @@ function calculateMissingLogisticsFields(value: {
     !isPositiveNumber(value.lengthCm) ? 'largo' : null,
     !isPositiveNumber(value.widthCm) ? 'ancho' : null,
     !isPositiveNumber(value.heightCm) ? 'alto' : null,
-    !isPositiveNumber(value.weightKg) ? 'peso' : null,
+    value.weightKg === null || !Number.isFinite(value.weightKg) || value.weightKg < 0 ? 'peso físico' : null,
   ].filter((item): item is string => Boolean(item));
 }
 
 function productDimensionToDraft(row: ShippingProductDimension): ProductDimensionDraft {
   return {
+    ...row,
     id: row.id,
     sku: row.sku,
     product_name: row.product_name,
@@ -1106,20 +1092,6 @@ function getFinalPackagingAdjustment(config: Awaited<ReturnType<typeof getShippi
   };
 }
 
-function applyFinalPackagingToSummary(
-  summary: ReturnType<typeof summarizePackages>,
-  extraVolumetricWeightKg: number,
-): ReturnType<typeof summarizePackages> & { baseVolumetricWeight: number } {
-  const baseVolumetricWeight = summary.volumetricWeight;
-  if (!extraVolumetricWeightKg) return { ...summary, baseVolumetricWeight };
-  return {
-    ...summary,
-    baseVolumetricWeight,
-    volumetricWeight: round(summary.volumetricWeight + extraVolumetricWeightKg, 3),
-    billableWeight: round(summary.billableWeight + extraVolumetricWeightKg, 3),
-  };
-}
-
 function isPositiveNumber(value: unknown) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0;
@@ -1133,6 +1105,7 @@ function TextInput({
   placeholder,
   required,
   maxLength,
+  autoComplete = 'off',
 }: {
   label: string;
   value: string;
@@ -1141,11 +1114,12 @@ function TextInput({
   placeholder?: string;
   required?: boolean;
   maxLength?: number;
+  autoComplete?: string;
 }) {
   return (
     <label className="field">
       <span>{label}</span>
-      <input type={type} value={value} placeholder={placeholder} required={required} maxLength={maxLength} onChange={(event) => onChange(event.target.value)} />
+      <input type={type} value={value} placeholder={placeholder} required={required} maxLength={maxLength} autoComplete={autoComplete} onChange={(event) => onChange(event.target.value)} />
     </label>
   );
 }

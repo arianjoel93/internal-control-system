@@ -86,10 +86,13 @@ import {
   type ReportRequestedDomain,
   type ReportsConfig,
   type ReportVisibilityScope,
+  type MonthlySalesGoalConfig,
   type SellerGoalConfig,
 } from './odooSalesCore';
 import {
+  getReportMonthlySalesGoals,
   getStoredReportsPreferences,
+  saveReportMonthlySalesGoals,
   saveStoredReportsPreferences,
 } from './reportsPreferencesService';
 import {
@@ -381,6 +384,17 @@ export function ReportsDashboard({
     queryKey: ['reports-preferences', session.user.id],
     queryFn: () => getStoredReportsPreferences(),
   });
+  const monthlyGoalsYear = useMemo(() => {
+    const date = new Date(`${filters.endDate}T00:00:00.000Z`);
+    return Number.isFinite(date.getTime()) ? date.getUTCFullYear() : new Date().getFullYear();
+  }, [filters.endDate]);
+  const monthlyGoalsQuery = useQuery({
+    queryKey: ['report-monthly-sales-goals', monthlyGoalsYear],
+    queryFn: () => getReportMonthlySalesGoals(monthlyGoalsYear),
+    enabled: preferencesHydrated && canAccessSales,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
   const cachedDataset = useMemo(
     () => readStoredCommercialDataset(datasetFetchFilters, requestedDatasetDomain, datasetCacheOwnerKey),
     [datasetCacheOwnerKey, datasetFetchFilters, requestedDatasetDomain],
@@ -463,6 +477,34 @@ export function ReportsDashboard({
       console.error('No se pudieron guardar las preferencias del reporte.', error);
     });
   }, [config, filters, preferencesHydrated]);
+
+  useEffect(() => {
+    if (!preferencesHydrated || !monthlyGoalsQuery.data) {
+      return;
+    }
+
+    setConfig((current) => ({
+      ...current,
+      monthlySalesGoals: mergeMonthlySalesGoals(
+        current.monthlySalesGoals,
+        monthlyGoalsQuery.data,
+        monthlyGoalsYear,
+      ),
+    }));
+  }, [monthlyGoalsQuery.data, monthlyGoalsYear, preferencesHydrated]);
+
+  async function handleSaveReportsConfig(nextConfig: ReportsConfig) {
+    const goalsForConfiguredYears = nextConfig.monthlySalesGoals;
+    const savedGoals = goalsForConfiguredYears.length
+      ? await saveReportMonthlySalesGoals(goalsForConfiguredYears)
+      : [];
+    setConfig({
+      ...nextConfig,
+      monthlySalesGoals: savedGoals.length
+        ? mergeMonthlySalesGoals(nextConfig.monthlySalesGoals, savedGoals, monthlyGoalsYear)
+        : nextConfig.monthlySalesGoals,
+    });
+  }
 
   const fastDatasetQuery = useQuery({
     queryKey: ['commercial-dashboard-dataset', datasetCacheOwnerKey, requestedDatasetDomain, 'fast', datasetFetchFilters],
@@ -660,6 +702,7 @@ export function ReportsDashboard({
   const lastUpdatedLabel = formatRelativeUpdate(displayDataset?.fetchedAt ?? null);
   const showingPreview = Boolean(displayDataset && fullDatasetQuery.isFetching && !fullDatasetQuery.data);
   const isAgentProfile = visibilityScope === 'own' && Boolean(snapshot?.agentProfile);
+  const activeQuickRange = detectQuickRange(filters);
   const canUseSalesNotifications = canAccessSales;
   const notificationDatasetQuery = useQuery({
     queryKey: [
@@ -1064,6 +1107,7 @@ export function ReportsDashboard({
                     <ExecutiveSectionV2
                       hallazgos={snapshot.hallazgos}
                       onOpenDetail={openDetail}
+                      showAnnualMonthlyComparison={activeQuickRange === 'current_year'}
                       snapshot={snapshot}
                     />
                   </>
@@ -1170,7 +1214,7 @@ export function ReportsDashboard({
         <SettingsModal
           config={config}
           onClose={() => setSettingsOpen(false)}
-          onSave={setConfig}
+          onSave={handleSaveReportsConfig}
           sellers={sellerCatalog}
         />
       ) : null}
@@ -2227,6 +2271,10 @@ function AgentProfileSection({
 
       {section === 'summary' ? <AgentPerformanceScoreCard score={performanceScore} /> : null}
 
+      {section === 'summary' && detectQuickRange(snapshot.filters) === 'current_year' ? (
+        <AnnualMonthlyComparisonPanel comparison={snapshot.annualMonthlyComparison} />
+      ) : null}
+
       <AgentMetricDeck
         comparisonLabel={profile.comparisonContext}
         metrics={analysis.metrics}
@@ -2539,10 +2587,12 @@ function ExecutiveSectionV2({
   hallazgos,
   snapshot,
   onOpenDetail,
+  showAnnualMonthlyComparison,
 }: {
   hallazgos: Hallazgo[];
   snapshot: CommercialDashboardSnapshot;
   onOpenDetail: (detailKey: DetailKey) => void;
+  showAnnualMonthlyComparison: boolean;
 }) {
   const report = buildExecutiveSectionReport(snapshot, hallazgos);
   const previousRange = buildPreviousPeriodRange(snapshot.filters);
@@ -2622,6 +2672,10 @@ function ExecutiveSectionV2({
       >
         <AnnualGrowthPanel growth={snapshot.annualGrowth} />
       </AccordionPanel>
+
+      {showAnnualMonthlyComparison ? (
+        <AnnualMonthlyComparisonPanel comparison={snapshot.annualMonthlyComparison} />
+      ) : null}
 
       <HallazgosPanel hallazgos={hallazgos} onOpenDetail={onOpenDetail} />
 
@@ -7167,6 +7221,64 @@ function buildSellerGoalDrafts(
   return Array.from(goals.values()).sort((left, right) => left.sellerName.localeCompare(right.sellerName, 'es'));
 }
 
+function buildMonthlyGoalDrafts(
+  existingGoals: MonthlySalesGoalConfig[] | undefined,
+  year: number,
+) {
+  const goals = new Map<number, MonthlySalesGoalConfig>();
+
+  (existingGoals ?? [])
+    .filter((goal) => goal.year === year)
+    .forEach((goal) => {
+      goals.set(goal.month, {
+        year,
+        month: goal.month,
+        targetAmount: Math.max(0, Number(goal.targetAmount) || 0),
+      });
+    });
+
+  return Array.from({ length: 12 }, (_, index) => {
+    const month = index + 1;
+    return goals.get(month) ?? { year, month, targetAmount: 0 };
+  });
+}
+
+function mergeMonthlySalesGoals(
+  currentGoals: MonthlySalesGoalConfig[] | undefined,
+  incomingGoals: MonthlySalesGoalConfig[],
+  year: number,
+) {
+  return [
+    ...(currentGoals ?? []).filter((goal) => goal.year !== year),
+    ...incomingGoals
+      .filter((goal) => goal.year === year)
+      .map((goal) => ({
+        year: goal.year,
+        month: goal.month,
+        targetAmount: Math.max(0, Number(goal.targetAmount) || 0),
+      })),
+  ];
+}
+
+function formatMonthName(month: number) {
+  const names = [
+    'Enero',
+    'Febrero',
+    'Marzo',
+    'Abril',
+    'Mayo',
+    'Junio',
+    'Julio',
+    'Agosto',
+    'Septiembre',
+    'Octubre',
+    'Noviembre',
+    'Diciembre',
+  ];
+
+  return names[month - 1] ?? `Mes ${month}`;
+}
+
 function SellerTimelineModal({
   seller,
   onClose,
@@ -7823,6 +7935,115 @@ function AnnualGrowthPanel({
   );
 }
 
+function AnnualMonthlyComparisonPanel({
+  comparison,
+}: {
+  comparison: CommercialDashboardSnapshot['annualMonthlyComparison'];
+}) {
+  return (
+    <AccordionPanel
+      defaultOpen
+      title={`Comparativo mensual ${comparison.year} vs ${comparison.previousYear}`}
+      subtitle="Total sin impuestos facturado desde Contabilidad, comparado contra el mismo mes del año anterior y contra la meta mensual configurada."
+    >
+      <div className="annual-comparison-summary">
+        <KpiBox label={`Facturado ${comparison.year}`} value={formatCurrency(comparison.currentTotal)} />
+        <KpiBox label={`Facturado ${comparison.previousYear}`} value={formatCurrency(comparison.previousTotal)} />
+        <KpiBox label="Meta acumulada" value={formatCurrency(comparison.targetTotal)} />
+        <KpiBox label="Alcance acumulado" value={formatReachPercent(comparison.targetReachPct)} />
+      </div>
+      <div className="annual-comparison-table-wrap">
+        <table className="annual-comparison-table">
+          <thead>
+            <tr>
+              <th>Concepto</th>
+              {comparison.rows.map((row) => (
+                <th key={row.month}>{row.monthLabel}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="annual-comparison-total-row">
+              <th>Total sin impuestos</th>
+              {comparison.rows.map((row) => (
+                <td key={row.month}>{formatCurrency(row.currentRevenue)}</td>
+              ))}
+            </tr>
+            <tr>
+              <th>Meta mensual</th>
+              {comparison.rows.map((row) => (
+                <td key={row.month}>{row.targetRevenue > 0 ? formatCurrency(row.targetRevenue) : 'Sin meta'}</td>
+              ))}
+            </tr>
+            <tr>
+              <th>Alcance de meta</th>
+              {comparison.rows.map((row) => (
+                <td key={row.month}>
+                  <StatusPill status={row.status} label={formatReachPercent(row.targetReachPct)} />
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <th>Crecimiento mensual</th>
+              {comparison.rows.map((row) => (
+                <td key={row.month}>{formatNullablePercent(row.monthlyGrowthPct)}</td>
+              ))}
+            </tr>
+            <tr className="annual-comparison-divider">
+              <th colSpan={comparison.rows.length + 1}>Crecimiento por categoría</th>
+            </tr>
+            {collectAnnualComparisonCategories(comparison).map((categoryName) => (
+              <tr key={categoryName}>
+                <th>{categoryName}</th>
+                {comparison.rows.map((row) => {
+                  const category = row.categoryRows.find((item) => item.categoryName === categoryName);
+                  return (
+                    <td key={`${row.month}-${categoryName}`}>
+                      <span className="annual-comparison-cell-stack">
+                        <span>{formatCurrency(category?.currentRevenue ?? 0)}</span>
+                        <small>{formatNullablePercent(category?.categoryGrowthPct ?? null)} vs. {comparison.previousYear}</small>
+                      </span>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </AccordionPanel>
+  );
+}
+
+function formatReachPercent(value: number | null) {
+  return value === null ? 'Sin meta' : `${value.toFixed(1)}%`;
+}
+
+function StatusPill({
+  label,
+  status,
+}: {
+  label: string;
+  status: CommercialDashboardSnapshot['annualMonthlyComparison']['status'];
+}) {
+  return <span className={`annual-status-pill annual-status-${status}`}>{label}</span>;
+}
+
+function collectAnnualComparisonCategories(
+  comparison: CommercialDashboardSnapshot['annualMonthlyComparison'],
+) {
+  const categories = new Map<string, number>();
+  comparison.rows.forEach((row) => {
+    row.categoryRows.forEach((category) => {
+      categories.set(category.categoryName, (categories.get(category.categoryName) ?? 0) + category.currentRevenue);
+    });
+  });
+
+  return [...categories.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .map(([categoryName]) => categoryName);
+}
+
 function KpiBox({ label, value }: { label: string; value: string }) {
   return (
     <div className="stat-card">
@@ -7882,11 +8103,18 @@ function SettingsModal({
 }: {
   config: ReportsConfig;
   onClose: () => void;
-  onSave: (config: ReportsConfig) => void;
+  onSave: (config: ReportsConfig) => Promise<void>;
   sellers: Array<{ sellerId: number | null; sellerName: string }>;
 }) {
   const [draft, setDraft] = useState<ReportsConfig>(config);
+  const [monthlyGoalYear, setMonthlyGoalYear] = useState(() => new Date().getFullYear());
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const goalDrafts = useMemo(() => buildSellerGoalDrafts(draft.sellerGoals, sellers), [draft.sellerGoals, sellers]);
+  const monthlyGoalDrafts = useMemo(
+    () => buildMonthlyGoalDrafts(draft.monthlySalesGoals, monthlyGoalYear),
+    [draft.monthlySalesGoals, monthlyGoalYear],
+  );
 
   function updateNumeric<K extends keyof ReportsConfig>(key: K, value: number) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -7903,6 +8131,36 @@ function SettingsModal({
         goal.sellerName === sellerName ? { ...goal, [key]: Math.max(0, value) } : goal,
       ),
     }));
+  }
+
+  function updateMonthlyGoal(month: number, value: number) {
+    setDraft((current) => ({
+      ...current,
+      monthlySalesGoals: [
+        ...current.monthlySalesGoals.filter((goal) => goal.year !== monthlyGoalYear),
+        ...buildMonthlyGoalDrafts(current.monthlySalesGoals, monthlyGoalYear).map((goal) =>
+          goal.month === month ? { ...goal, targetAmount: Math.max(0, value) } : goal,
+        ),
+      ],
+    }));
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await onSave(draft);
+      onClose();
+    } catch (error) {
+      console.error('No se pudieron guardar las metas mensuales del reporte.', error);
+      setSaveError(
+        error instanceof Error
+          ? error.message
+          : 'No se pudo guardar la configuración en Supabase.',
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -7996,6 +8254,35 @@ function SettingsModal({
             </Field>
           </div>
 
+          <h3>Metas mensuales del resumen ejecutivo</h3>
+          <div className="reports-monthly-goals-toolbar">
+            <Field label="Año de metas">
+              <input
+                type="number"
+                min="2000"
+                max="2100"
+                value={monthlyGoalYear}
+                onChange={(event) => setMonthlyGoalYear(Number(event.target.value) || new Date().getFullYear())}
+              />
+            </Field>
+            <p>
+              Estas metas se comparan contra el Total sin impuestos facturado de cada mes para mostrar el semáforo de avance.
+            </p>
+          </div>
+          <div className="reports-monthly-goals-grid">
+            {monthlyGoalDrafts.map((goal) => (
+              <Field key={`${goal.year}-${goal.month}`} label={formatMonthName(goal.month)}>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={goal.targetAmount}
+                  onChange={(event) => updateMonthlyGoal(goal.month, Number(event.target.value))}
+                />
+              </Field>
+            ))}
+          </div>
+
           <h3>Metas por vendedor</h3>
           {goalDrafts.length > 0 ? (
             <div className="form-grid">
@@ -8024,17 +8311,16 @@ function SettingsModal({
           )}
 
           <div className="permission-modal-actions">
+            {saveError ? <p className="form-error">{saveError}</p> : null}
             <button type="button" className="secondary-button" onClick={onClose}>
               Cancelar
             </button>
             <button
               type="button"
-              onClick={() => {
-                onSave(draft);
-                onClose();
-              }}
+              disabled={saving}
+              onClick={handleSave}
             >
-              Guardar configuración
+              {saving ? 'Guardando...' : 'Guardar configuración'}
             </button>
           </div>
         </div>
@@ -8294,6 +8580,9 @@ function loadStoredConfig() {
         ...parsed.sellerRankingWeights,
       },
       sellerGoals: Array.isArray(parsed.sellerGoals) ? parsed.sellerGoals : defaultReportsConfig.sellerGoals,
+      monthlySalesGoals: Array.isArray(parsed.monthlySalesGoals)
+        ? parsed.monthlySalesGoals
+        : defaultReportsConfig.monthlySalesGoals,
     };
   } catch {
     return defaultReportsConfig;
@@ -8361,6 +8650,9 @@ function mergeStoredConfig(rawConfig: Partial<ReportsConfig> | ReportsConfig) {
       ...(parsed.sellerRankingWeights ?? {}),
     },
     sellerGoals: Array.isArray(parsed.sellerGoals) ? parsed.sellerGoals : defaultReportsConfig.sellerGoals,
+    monthlySalesGoals: Array.isArray(parsed.monthlySalesGoals)
+      ? parsed.monthlySalesGoals
+      : defaultReportsConfig.monthlySalesGoals,
   } satisfies ReportsConfig;
 }
 
