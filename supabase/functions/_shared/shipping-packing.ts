@@ -1,5 +1,12 @@
 // Pure packing domain shared by the browser and the shipping Edge Function.
 export type PackingStrategy = 'BALANCED' | 'MIN_PACKAGES' | 'COMPACT' | 'CONSERVATIVE';
+export const FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG = 5000;
+export const PACKING_EPSILON = 0.001;
+export type PackingOptimizationOptions = {
+  volumetricDivisor?: number;
+  exactUnitLimit?: number;
+  maxSearchNodes?: number;
+};
 export type Dimensions = { length: number; width: number; height: number };
 export type Position = { x: number; y: number; z: number };
 export type ProductRules = {
@@ -31,10 +38,11 @@ export type PackingPackage = {
   id: string; packagingTypeId: string | null; packagingName: string;
   internalDimensions: Dimensions; externalDimensions: Dimensions; items: Placement[];
   productsWeight: number; packagingWeight: number; totalWeight: number;
+  volumetricWeight: number; billableWeight: number;
   maxWeight: number; usedVolume: number; availableVolume: number; utilizationPercentage: number;
   packagingCost: number; explanation: string; warnings: string[]; errors: string[]; status: 'PACKED' | 'INVALID_PACKING';
 };
-export type UnpackedItem = { unit: PhysicalUnit; reason: string; code: 'OVERSIZE' | 'UNASSIGNED' };
+export type UnpackedItem = { unit: PhysicalUnit; reason: string; code: 'OVERSIZE' | 'UNASSIGNED'; evaluatedPackaging?: Array<{ id: string; name: string; reason: string }> };
 export type PackingAssignment = { id: string; packagingTypeId: string | null; unitIds: string[]; ownPackageConfirmed?: boolean };
 export type PackingRequest = { version: 1; strategy: PackingStrategy; lines: PackingLine[]; assignments: PackingAssignment[] };
 export type PackingPlan = {
@@ -42,11 +50,14 @@ export type PackingPlan = {
   warnings: string[]; errors: string[]; missingLines: Array<{ lineId: number; name: string; quantity: number; reason: string }>;
   status: 'PENDING_DATA' | 'PARTIALLY_PACKED' | 'INVALID_PACKING' | 'READY_FOR_QUOTE';
   metrics: { articleCount: number; packageCount: number; netWeight: number; grossWeight: number;
-    productVolume: number; packagingVolume: number; averageUtilization: number; missingProducts: number; unpackedCount: number };
+    productVolume: number; packagingVolume: number; averageUtilization: number; missingProducts: number; unpackedCount: number;
+    volumetricWeight: number; billableWeight: number; totalUsedVolume: number; totalAvailableVolume: number; wastedVolume: number };
 };
 export type PackingLog = (event: string, detail: Record<string, string | number>) => void;
 const EPS = 1e-7;
 export const MAX_PHYSICAL_UNITS = 2000;
+const DEFAULT_EXACT_UNIT_LIMIT = 12;
+const DEFAULT_MAX_SEARCH_NODES = 12000;
 const STRATEGIES: PackingStrategy[] = ['BALANCED', 'MIN_PACKAGES', 'COMPACT', 'CONSERVATIVE'];
 type Space = Dimensions & Position;
 type OpenBox = { box: PackingBox; placements: Placement[]; spaces: Space[]; used: number; weight: number; explanation?: string };
@@ -54,6 +65,7 @@ const volume = (d: Dimensions) => d.length * d.width * d.height;
 const positive = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0;
 const nonNegative = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0;
 const round = (v: number) => Math.round(v * 1000) / 1000;
+const resolveVolumetricDivisor = (value?: number) => Number.isFinite(value) && Number(value) > 0 ? Number(value) : FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG;
 
 export function normalizePackaging(row: PackagingRow): PackingBox | null {
   const dimensionFactor = row.dimension_unit === 'IN' ? 2.54 : 1;
@@ -126,10 +138,10 @@ function supported(pkg: OpenBox, item: PhysicalUnit, position: Position, d: Dime
     * Math.max(0,Math.min(position.y+d.width,p.position.y+p.orientation.width)-Math.max(position.y,p.position.y)),0);
   return area+EPS >= d.length*d.width;
 }
-function findPlacement(pkg: OpenBox, unit: PhysicalUnit, strategy: PackingStrategy): Placement | null {
-  if (pkg.placements.length && (unit.shipAlone || unit.canCombine === false || pkg.placements.some(p => p.unit.shipAlone || p.unit.canCombine === false))) return null;
-  if (unit.packingGroup && pkg.placements.some(p => p.unit.packingGroup && p.unit.packingGroup !== unit.packingGroup)) return null;
-  if (pkg.weight+unit.weightKg+pkg.box.tareKg > pkg.box.maxWeightKg+EPS) return null;
+function findPlacementCandidates(pkg: OpenBox, unit: PhysicalUnit, strategy: PackingStrategy): Placement[] {
+  if (pkg.placements.length && (unit.shipAlone || unit.canCombine === false || pkg.placements.some(p => p.unit.shipAlone || p.unit.canCombine === false))) return [];
+  if (unit.packingGroup && pkg.placements.some(p => p.unit.packingGroup && p.unit.packingGroup !== unit.packingGroup)) return [];
+  if (pkg.weight+unit.weightKg+pkg.box.tareKg > pkg.box.maxWeightKg+EPS) return [];
   const fill = Math.min(pkg.box.maxUtilization, strategy === 'CONSERVATIVE' ? 80 : 100,
     unit.fragile || pkg.placements.some(p => p.unit.fragile) ? 80 : 100);
   const candidates: Array<Placement & { score: number }> = [];
@@ -143,8 +155,10 @@ function findPlacement(pkg: OpenBox, unit: PhysicalUnit, strategy: PackingStrate
     }
   }
   candidates.sort((a,b)=>a.score-b.score || a.position.y-b.position.y || a.position.x-b.position.x);
-  const candidate = candidates[0];
-  return candidate ? {unit:candidate.unit,position:candidate.position,orientation:candidate.orientation} : null;
+  return candidates.map(candidate => ({unit:candidate.unit,position:candidate.position,orientation:candidate.orientation}));
+}
+function findPlacement(pkg: OpenBox, unit: PhysicalUnit, strategy: PackingStrategy): Placement | null {
+  return findPlacementCandidates(pkg, unit, strategy)[0] ?? null;
 }
 function place(pkg: OpenBox, p: Placement) {
   pkg.placements.push(p); pkg.weight += p.unit.weightKg; pkg.used += volume(p.orientation);
@@ -162,34 +176,39 @@ function place(pkg: OpenBox, p: Placement) {
   pkg.spaces = unique.filter((s,i)=>!unique.some((other,j)=>i!==j&&contains(other,s)))
     .sort((a,b)=>a.z-b.z || volume(a)-volume(b) || a.y-b.y || a.x-b.x).slice(0,160);
 }
-function packed(pkg: OpenBox, id: string, own = false): PackingPackage {
+function packed(pkg: OpenBox, id: string, own = false, volumetricDivisor = FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG): PackingPackage {
   const utilization = pkg.used/volume(pkg.box.internal)*100;
+  const actualWeight = round(pkg.weight+pkg.box.tareKg);
+  const volumetricWeight = round(volume(pkg.box.external)/volumetricDivisor);
+  const billableWeight = round(Math.max(actualWeight, volumetricWeight));
+  const availableVolume = round(volume(pkg.box.internal)*pkg.box.maxUtilization/100);
   const warnings = [];
   if (utilization >= pkg.box.maxUtilization*0.92) warnings.push('Esta caja está cerca del límite de ocupación configurado.');
   if (pkg.placements.some(p=>p.unit.fragile)) warnings.push('Contenido frágil: ocupación limitada al 80 % y sin carga encima.');
   if (own) warnings.push('Envío individual sin caja de catálogo confirmado por el usuario.');
   return { id,packagingTypeId:own?null:pkg.box.id,packagingName:pkg.box.name,internalDimensions:pkg.box.internal,externalDimensions:pkg.box.external,
-    items:pkg.placements,productsWeight:round(pkg.weight),packagingWeight:round(pkg.box.tareKg),totalWeight:round(pkg.weight+pkg.box.tareKg),
-    maxWeight:pkg.box.maxWeightKg,usedVolume:round(pkg.used),availableVolume:round(volume(pkg.box.internal)*pkg.box.maxUtilization/100),
+    items:pkg.placements,productsWeight:round(pkg.weight),packagingWeight:round(pkg.box.tareKg),totalWeight:actualWeight,
+    volumetricWeight,billableWeight,maxWeight:pkg.box.maxWeightKg,usedVolume:round(pkg.used),availableVolume,
     utilizationPercentage:round(utilization),packagingCost:pkg.box.cost,status:'PACKED',warnings,errors:[],
     explanation:own?'Se usarán las dimensiones propias de esta unidad.':pkg.explanation ?? 'Distribución revisada: se validaron orientación, apoyo, peso y ocupación de cada unidad dentro de este embalaje.' };
 }
 function finish(strategy: PackingStrategy, units: PhysicalUnit[], packages: PackingPackage[], missingLines: PackingPlan['missingLines'], unpackedItems: UnpackedItem[], errors: string[]): PackingPlan {
-  const pv = packages.reduce((s,p)=>s+volume(p.internalDimensions),0);
+  const totalUsedVolume = packages.reduce((sum,p)=>sum+p.usedVolume,0);
+  const totalAvailableVolume = packages.reduce((sum,p)=>sum+p.availableVolume,0);
+  const packagingVolume = packages.reduce((sum,p)=>sum+volume(p.externalDimensions),0);
+  const volumetricWeight = packages.reduce((sum,p)=>sum+p.volumetricWeight,0);
+  const billableWeight = packages.reduce((sum,p)=>sum+p.billableWeight,0);
+  const wastedVolume = Math.max(0,totalAvailableVolume-totalUsedVolume);
   const warnings = [...new Set(packages.flatMap(p=>p.warnings))];
   return { version:1,strategy,packages,missingLines,unpackedItems,errors,warnings,
     status:errors.length?'INVALID_PACKING':missingLines.length?'PENDING_DATA':unpackedItems.length?'PARTIALLY_PACKED':packages.length?'READY_FOR_QUOTE':'INVALID_PACKING',
     metrics:{articleCount:units.length+missingLines.reduce((sum,line)=>sum+line.quantity,0),packageCount:packages.length,netWeight:round(units.reduce((s,u)=>s+u.weightKg,0)),
-      grossWeight:round(packages.reduce((s,p)=>s+p.totalWeight,0)), productVolume:round(units.reduce((s,u)=>s+volume(u.dimensions),0)),packagingVolume:round(pv),
-      averageUtilization:pv?round(packages.reduce((s,p)=>s+p.usedVolume,0)/pv*100):0,missingProducts:missingLines.length,unpackedCount:unpackedItems.length} };
+      grossWeight:round(packages.reduce((s,p)=>s+p.totalWeight,0)), productVolume:round(units.reduce((s,u)=>s+volume(u.dimensions),0)),packagingVolume:round(packagingVolume),
+      averageUtilization:totalAvailableVolume?round(totalUsedVolume/totalAvailableVolume*100):0,missingProducts:missingLines.length,unpackedCount:unpackedItems.length,
+      volumetricWeight:round(volumetricWeight),billableWeight:round(billableWeight),totalUsedVolume:round(totalUsedVolume),totalAvailableVolume:round(totalAvailableVolume),wastedVolume:round(wastedVolume)} };
 }
 
-export function generatePackingPlan(lines: PackingLine[], rows: PackagingRow[], strategy: PackingStrategy = 'BALANCED', log?: PackingLog): PackingPlan {
-  if (!STRATEGIES.includes(strategy)) throw new Error('Estrategia de embalaje no válida.');
-  log?.('PACKING_STARTED',{lines:lines.length,strategy});
-  const {units,missingLines}=normalizePackingLines(lines,log);
-  const boxes=rows.filter(r=>r.is_active).map(normalizePackaging).filter((b):b is PackingBox=>!!b)
-    .sort((a,b)=>volume(a.internal)-volume(b.internal)||a.priority-b.priority||a.id.localeCompare(b.id));
+function generateHeuristicPlan(units: PhysicalUnit[], boxes: PackingBox[], missingLines: PackingPlan['missingLines'], strategy: PackingStrategy, log: PackingLog | undefined, volumetricDivisor: number): PackingPlan {
   const opened:OpenBox[]=[]; const unpacked:UnpackedItem[]=[]; const sorted=ordered(units);
   for(let index=0;index<sorted.length;index++) {
     const unit=sorted[index];
@@ -204,29 +223,189 @@ export function generatePackingPlan(lines: PackingLine[], rows: PackagingRow[], 
       if(strategy!=='COMPACT') for(const next of sorted.slice(index+1,index+65)){const q=findPlacement(pkg,next,strategy);if(q)place(pkg,q);}
       const count=pkg.placements.length; const waste=1-pkg.used/volume(box.internal);
       const capacityWaste=(box.maxWeightKg-pkg.weight-box.tareKg)/box.maxWeightKg;
-      const score=strategy==='MIN_PACKAGES'?-count*1e6+volume(box.external)/count:
-        strategy==='COMPACT'?volume(box.external)+box.cost*10:
+      // FedEx bills the greater of actual and dimensional weight. Keep this
+      // signal after the package-count estimate so the default strategy does
+      // not open extra boxes just to shave a small amount of volume.
+      const billableWeight=Math.max(pkg.weight+box.tareKg,volume(box.external)/volumetricDivisor);
+      const remainingCount=sorted.length-index;
+      const estimatedPackages=Math.ceil(remainingCount/Math.max(count,1));
+      const score=strategy==='MIN_PACKAGES'?0:strategy==='COMPACT'?volume(box.external)+box.cost*10:
         volume(box.external)/count+(waste+capacityWaste)*100+box.cost*10+5000/count;
-      return [{box,score,count}];
-    }).sort((a,b)=>a.score-b.score||a.box.priority-b.box.priority||a.box.id.localeCompare(b.box.id));
-    if(!options.length){unpacked.push({unit,code:'OVERSIZE',reason:boxes.length?'El producto no cabe en ninguno de los embalajes configurados con sus límites de peso y ocupación.':'No existen embalajes activos con datos completos.'});continue;}
+      return [{box,score,count,billableWeight,estimatedPackages,packageVolume:volume(box.external),boxCost:Math.max(0,box.cost)}];
+    }).sort((a,b)=>{
+      if(strategy==='MIN_PACKAGES') return a.estimatedPackages-b.estimatedPackages
+        || (Math.abs(a.billableWeight-b.billableWeight)>PACKING_EPSILON ? a.billableWeight-b.billableWeight : 0)
+        || a.packageVolume-b.packageVolume || a.boxCost-b.boxCost || b.count-a.count
+        || a.box.priority-b.box.priority || a.box.id.localeCompare(b.box.id);
+      return a.score-b.score||a.billableWeight-b.billableWeight||a.boxCost-b.boxCost||a.box.priority-b.box.priority||a.box.id.localeCompare(b.box.id);
+    });
+    if(!options.length){unpacked.push(describeUnpackableUnit(unit,boxes));continue;}
     const pkg=openBox(options[0].box);
     pkg.explanation = strategy === 'COMPACT'
       ? `Se eligió ${pkg.box.name} por su menor volumen externo entre los embalajes compatibles, considerando el costo de la caja.`
-      : `Se compararon ${options.length} embalajes compatibles. ${pkg.box.name} obtuvo la mejor puntuación de ${strategy === 'MIN_PACKAGES' ? 'consolidación' : 'equilibrio entre volumen por unidad, ocupación, capacidad de peso y costo'}. La revisión de los siguientes artículos estimó espacio para ${options[0].count} unidades. No incluye una comparación de tarifas FedEx.`;
+      : `Se compararon ${options.length} embalajes compatibles. ${pkg.box.name} obtuvo la mejor puntuación de ${strategy === 'MIN_PACKAGES' ? 'consolidación, peso facturable y costo de embalaje' : 'equilibrio entre volumen por unidad, ocupación, capacidad de peso y costo'}. La revisión de los siguientes artículos estimó espacio para ${options[0].count} unidades. No incluye una comparación de tarifas FedEx.`;
     place(pkg,findPlacement(pkg,unit,strategy)!);opened.push(pkg);
     log?.('PACKAGE_OPENED',{boxId:pkg.box.id});
   }
-  const packages=opened.map((p,i)=>{log?.('PACKAGE_COMPLETED',{boxId:p.box.id,units:p.placements.length});return packed(p,`box-${i+1}`);});
+  const packages=opened.map((p,i)=>{log?.('PACKAGE_COMPLETED',{boxId:p.box.id,units:p.placements.length});return packed(p,`box-${i+1}`,false,volumetricDivisor);});
   const result=finish(strategy,units,packages,missingLines,unpacked,[]);
   log?.('PACKING_COMPLETED',{packages:packages.length,unpacked:unpacked.length});return result;
+}
+
+function cloneOpenBox(pkg: OpenBox): OpenBox {
+  return {
+    box: pkg.box,
+    placements: pkg.placements.slice(),
+    spaces: pkg.spaces.map((space) => ({ ...space })),
+    used: pkg.used,
+    weight: pkg.weight,
+    explanation: pkg.explanation,
+  };
+}
+
+function openBoxStateKey(pkg: OpenBox) {
+  const placements = pkg.placements
+    .map((placement) => `${placement.unit.id}@${placement.position.x},${placement.position.y},${placement.position.z}:${placement.orientation.length},${placement.orientation.width},${placement.orientation.height}`)
+    .sort()
+    .join(';');
+  return `${pkg.box.id}|${round(pkg.used)}|${round(pkg.weight)}|${placements}`;
+}
+
+function packingPlanStableKey(plan: PackingPlan) {
+  return plan.packages
+    .map((pkg) => `${pkg.packagingTypeId ?? 'OWN'}:${pkg.items.map((item) => item.unit.id).sort().join(',')}`)
+    .sort()
+    .join('|');
+}
+
+export function comparePackingPlans(left: PackingPlan, right: PackingPlan) {
+  const comparisons: Array<[number, number]> = [
+    [left.metrics.volumetricWeight, right.metrics.volumetricWeight],
+    [left.metrics.packageCount, right.metrics.packageCount],
+    [left.metrics.wastedVolume, right.metrics.wastedVolume],
+    [left.metrics.billableWeight, right.metrics.billableWeight],
+  ];
+  for (const [leftValue, rightValue] of comparisons) {
+    if (Math.abs(leftValue - rightValue) > PACKING_EPSILON) return leftValue < rightValue ? -1 : 1;
+  }
+  return packingPlanStableKey(left).localeCompare(packingPlanStableKey(right));
+}
+
+function describeUnpackableUnit(unit: PhysicalUnit, boxes: PackingBox[]): UnpackedItem {
+  return {
+    unit,
+    code: 'OVERSIZE',
+    reason: boxes.length
+      ? `El producto no cabe en ninguno de los embalajes configurados. Dimensiones: ${unit.dimensions.length} × ${unit.dimensions.width} × ${unit.dimensions.height} cm; peso: ${unit.weightKg} kg.`
+      : 'No existen embalajes activos con datos completos.',
+    evaluatedPackaging: boxes.map((box) => ({
+      id: box.id,
+      name: box.name,
+      reason: `Se evaluó contra ${box.internal.length} × ${box.internal.width} × ${box.internal.height} cm internos, ${box.maxWeightKg} kg máximos y ${box.maxUtilization}% de uso.`,
+    })),
+  };
+}
+
+function generateExactPlan(units: PhysicalUnit[], boxes: PackingBox[], missingLines: PackingPlan['missingLines'], strategy: PackingStrategy, volumetricDivisor: number, maxSearchNodes: number, log?: PackingLog) {
+  const sorted = ordered(units);
+  let best: PackingPlan | null = null;
+  let nodes = 0;
+  let truncated = false;
+  const memo = new Set<string>();
+
+  const search = (index: number, packages: OpenBox[]) => {
+    if (++nodes > maxSearchNodes) {
+      truncated = true;
+      return;
+    }
+    const currentVolumetricWeight = packages.reduce((sum, pkg) => sum + volume(pkg.box.external) / volumetricDivisor, 0);
+    if (best && (currentVolumetricWeight > best.metrics.volumetricWeight + PACKING_EPSILON
+      || Math.abs(currentVolumetricWeight - best.metrics.volumetricWeight) <= PACKING_EPSILON
+        && packages.length > best.metrics.packageCount)) return;
+
+    const stateKey = `${index}|${packages.map(openBoxStateKey).sort().join('||')}`;
+    if (memo.has(stateKey)) return;
+    memo.add(stateKey);
+
+    if (index >= sorted.length) {
+      const packedPackages = packages.map((pkg, packageIndex) => packed(pkg, `box-${packageIndex + 1}`, false, volumetricDivisor));
+      const candidate = finish(strategy, sorted, packedPackages, missingLines, [], []);
+      if (!best || comparePackingPlans(candidate, best) < 0) best = candidate;
+      return;
+    }
+
+    const unit = sorted[index];
+    const nextStates: OpenBox[][] = [];
+    const equivalentStates = new Set<string>();
+
+    for (let packageIndex = 0; packageIndex < packages.length; packageIndex += 1) {
+      const current = packages[packageIndex];
+      for (const placement of findPlacementCandidates(current, unit, strategy)) {
+        const nextPackage = cloneOpenBox(current);
+        place(nextPackage, placement);
+        const nextPackages = packages.slice();
+        nextPackages[packageIndex] = nextPackage;
+        const key = nextPackages.map(openBoxStateKey).sort().join('||');
+        if (!equivalentStates.has(key)) {
+          equivalentStates.add(key);
+          nextStates.push(nextPackages);
+        }
+      }
+    }
+
+    for (const box of boxes) {
+      const nextPackage = openBox(box);
+      for (const placement of findPlacementCandidates(nextPackage, unit, strategy)) {
+        const placedPackage = cloneOpenBox(nextPackage);
+        place(placedPackage, placement);
+        const nextPackages = [...packages, placedPackage];
+        const key = nextPackages.map(openBoxStateKey).sort().join('||');
+        if (!equivalentStates.has(key)) {
+          equivalentStates.add(key);
+          nextStates.push(nextPackages);
+        }
+      }
+    }
+
+    nextStates.sort((left, right) => {
+      const leftWeight = left.reduce((sum, pkg) => sum + volume(pkg.box.external) / volumetricDivisor, 0);
+      const rightWeight = right.reduce((sum, pkg) => sum + volume(pkg.box.external) / volumetricDivisor, 0);
+      return leftWeight - rightWeight || left.length - right.length
+        || left.map(openBoxStateKey).join('|').localeCompare(right.map(openBoxStateKey).join('|'));
+    });
+    for (const next of nextStates) search(index + 1, next);
+  };
+
+  search(0, []);
+  log?.('PACKING_SEARCH_COMPLETED', { nodes, maxSearchNodes, truncated: truncated ? 1 : 0, exact: 1 });
+  const result: PackingPlan | null = best;
+  if (result && truncated) (result as PackingPlan).warnings.push(`Se alcanzó el límite de búsqueda de ${maxSearchNodes.toLocaleString('es-MX')} estados; se conserva la mejor solución encontrada.`);
+  return result;
+}
+
+export function generatePackingPlan(lines: PackingLine[], rows: PackagingRow[], strategy: PackingStrategy = 'MIN_PACKAGES', log?: PackingLog, options: PackingOptimizationOptions = {}): PackingPlan {
+  if (!STRATEGIES.includes(strategy)) throw new Error('Estrategia de embalaje no válida.');
+  log?.('PACKING_STARTED', { lines: lines.length, strategy });
+  const { units, missingLines } = normalizePackingLines(lines, log);
+  const boxes = rows.filter((row) => row.is_active).map(normalizePackaging).filter((box): box is PackingBox => !!box)
+    .sort((left, right) => volume(left.external) - volume(right.external) || left.priority - right.priority || left.id.localeCompare(right.id));
+  const volumetricDivisor = resolveVolumetricDivisor(options.volumetricDivisor);
+  const heuristic = generateHeuristicPlan(units, boxes, missingLines, strategy, log, volumetricDivisor);
+  let best = heuristic;
+
+  if (strategy === 'MIN_PACKAGES' && units.length <= (options.exactUnitLimit ?? DEFAULT_EXACT_UNIT_LIMIT) && boxes.length) {
+    const exact = generateExactPlan(units, boxes, missingLines, strategy, volumetricDivisor, options.maxSearchNodes ?? DEFAULT_MAX_SEARCH_NODES, log);
+    if (exact && comparePackingPlans(exact, best) < 0) best = exact;
+  }
+  log?.('PACKING_COMPLETED', { packages: best.packages.length, unpacked: best.unpackedItems.length });
+  return best;
 }
 
 export function assignmentsFromPlan(plan: PackingPlan): PackingAssignment[] {
   return plan.packages.map(p=>({id:p.id,packagingTypeId:p.packagingTypeId,unitIds:p.items.map(i=>i.unit.id),ownPackageConfirmed:p.packagingTypeId===null}));
 }
 
-export function validatePackingAssignments(lines: PackingLine[], rows: PackagingRow[], assignments: PackingAssignment[], strategy: PackingStrategy): PackingPlan {
+export function validatePackingAssignments(lines: PackingLine[], rows: PackagingRow[], assignments: PackingAssignment[], strategy: PackingStrategy, options: PackingOptimizationOptions = {}): PackingPlan {
   if(!STRATEGIES.includes(strategy))throw new Error('Estrategia de embalaje no válida.');
   if(!Array.isArray(assignments)||assignments.length>MAX_PHYSICAL_UNITS)throw new Error('Distribución de paquetes no válida.');
   const {units,missingLines}=normalizePackingLines(lines); const byId=new Map(units.map(u=>[u.id,u]));
@@ -268,6 +447,34 @@ export function validatePackingAssignments(lines: PackingLine[], rows: Packaging
     }
   }
 
+  // If the selected boxes are full, add the smallest compatible packaging
+  // for the remaining units instead of reusing an oversized box.
+  const availableBoxes=rows.filter(row=>row.is_active).map(normalizePackaging)
+    .filter((box):box is PackingBox=>!!box)
+    .sort((a,b)=>volume(a.internal)-volume(b.internal)||a.priority-b.priority||a.id.localeCompare(b.id));
+  let autoBoxIndex=0;
+  // An explicitly empty manual distribution means that no package was selected.
+  // Preserve that state; auto-completion is only for a distribution that already
+  // contains at least one selected package and needs a compatible remainder box.
+  // If the selected box accepts nothing, keep the validation error visible
+  // instead of silently replacing the user's choice.
+  const shouldAutoComplete=assignments.length>0&&seen.size>0;
+  while(shouldAutoComplete&&units.some(u=>!seen.has(u.id))){
+    const nextUnit=ordered(units.filter(u=>!seen.has(u.id)))[0];
+    if(!nextUnit)break;
+    const candidate=availableBoxes.map(box=>{
+      const probe=openBox(box);return {box,placement:findPlacement(probe,nextUnit,strategy)};
+    }).find(option=>!!option.placement);
+    if(!candidate?.placement)break;
+    const context:PackingContext={id:`auto-${autoBoxIndex++}-${candidate.box.id}`,box:candidate.box,pkg:openBox(candidate.box),preferredUnitIds:new Set([nextUnit.id]),errors:[],own:false};
+    contexts.push(context);
+    place(context.pkg,candidate.placement);seen.add(nextUnit.id);
+    for(const unit of ordered(units.filter(u=>!seen.has(u.id)))){
+      const placement=findPlacement(context.pkg,unit,strategy);
+      if(placement){place(context.pkg,placement);seen.add(unit.id);}
+    }
+  }
+
   for(const unit of units.filter(u=>!seen.has(u.id))){
     const source=originalContext.get(unit.id);
     if(source){
@@ -278,12 +485,13 @@ export function validatePackingAssignments(lines: PackingLine[], rows: Packaging
       const recommendation=alternatives.length?` Prueba con: ${alternatives.slice(0,3).join(', ')}.`:' Selecciona un embalaje mayor o divide la distribución.';
       const message=`El producto ${unit.productName} no cabe en este embalaje con la distribución actual.${recommendation}`;
       source.errors.push(message);
+      errors.push(message);
       unresolvedReasons.set(unit.id,`No cabe en el embalaje seleccionado. ${recommendation.trim()}`);
     }
   }
 
   const packages=contexts.filter(context=>context.pkg.placements.length).map(context=>{
-    const result=packed(context.pkg,context.id,context.own);
+    const result=packed(context.pkg,context.id,context.own,resolveVolumetricDivisor(options.volumetricDivisor));
     if(context.errors.length){result.status='INVALID_PACKING';result.errors=context.errors;}
     return result;
   });

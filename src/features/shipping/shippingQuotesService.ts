@@ -8,7 +8,7 @@ import type {
   ShippingQuoteRow,
 } from '../../lib/types';
 import type { ShippingPackageDraft } from './shippingQuoteMath';
-import type { PackingRequest, ProductRules } from '../../../supabase/functions/_shared/shipping-packing';
+import type { ProductRules } from '../../../supabase/functions/_shared/shipping-packing';
 
 export type ShippingPhysicalRules = {
   can_rotate?: boolean; stackable?: boolean; fragile?: boolean; requires_individual_package?: boolean;
@@ -85,7 +85,6 @@ export type CreateShippingQuotePayload = {
   odooOrderName?: string | null;
   odooOrderId?: number | null;
   selectedPackingPlan?: Record<string, unknown> | null;
-  packingRequest?: PackingRequest;
 };
 
 export type ShippingOrderLine = ProductRules & {

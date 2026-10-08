@@ -7,7 +7,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "test:reports": "node --test --experimental-strip-types src/features/reports/__tests__/reportsAnalytics.test.ts src/features/reports/__tests__/reportScope.test.ts src/features/reports/__tests__/salesAgentIntelligence.test.ts",
+    "test:reports": "node --test --experimental-strip-types src/features/reports/__tests__/reportsAnalytics.test.ts src/features/reports/__tests__/reportScope.test.ts src/features/reports/__tests__/reportsPartitioning.test.ts src/features/reports/__tests__/salesAgentIntelligence.test.ts supabase/functions/odoo-sales-report/__tests__/dataset-cache.test.ts",
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {

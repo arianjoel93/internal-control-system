@@ -116,12 +116,14 @@ export async function searchReadAll({
   odooUrl,
   order,
   pageSize = DEFAULT_PAGE_SIZE,
+  context,
   uid,
 }: OdooRequest & {
   domain: unknown[];
   fields: string[];
   order?: string;
   pageSize?: number;
+  context?: Record<string, unknown>;
 }) {
   const rows: Record<string, unknown>[] = [];
   let offset = 0;
@@ -131,7 +133,7 @@ export async function searchReadAll({
       apiKey,
       args: [domain],
       database,
-      kwargs: { fields, limit: pageSize, offset, ...(order ? { order } : {}) },
+      kwargs: { fields, limit: pageSize, offset, ...(order ? { order } : {}), ...(context ? { context } : {}) },
       method: 'search_read',
       model,
       odooUrl,

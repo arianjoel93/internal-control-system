@@ -4,16 +4,122 @@ import type {
   OdooCommercialDataset,
   ReportFilters,
   ReportRequestedDomain,
+  ReportsConfig,
 } from './odooSalesCore';
 
-export type ReportLoadMode = 'fast' | 'full';
+export type ReportLoadMode = 'fast' | 'full' | 'partition';
+
+export type AgentHistoricalBaseline = {
+  dimension: 'customer' | 'product';
+  key: string;
+  totalAmount: number;
+  purchaseCount: number;
+};
+
+export type AgentSummaryContext = {
+  baselines: AgentHistoricalBaseline[];
+  baselineAvailable: boolean;
+  baselineSaved: boolean;
+  previousQuoteCount: number | null;
+  previousQuoteRange: { startDate: string; endDate: string } | null;
+};
+
+export type ReportDailySalesPoint = {
+  bucketKey: string;
+  label: string;
+  invoicedAmount: number;
+  previousInvoicedAmount: number;
+  previousLabel: string;
+};
+
+export type ReportDailySalesComparison = {
+  points: ReportDailySalesPoint[];
+  currentTotal: number;
+  previousTotal: number;
+  currentMargin: number;
+  previousMargin: number;
+  currentInvoiceCount?: number;
+  previousInvoiceCount?: number;
+  monthlyMetrics?: Array<{
+    period: 'current' | 'previous';
+    grain: 'total' | 'category';
+    metric_month: string;
+    company_id: number;
+    company_name: string | null;
+    seller_id: number;
+    seller_name: string | null;
+    category_id: number;
+    category_name: string;
+    currency_code: string;
+    invoice_count: number;
+    untaxed_amount: number;
+    margin_amount: number;
+  }>;
+  closedMonthsOnly?: boolean;
+  yearToDateTotals?: { current: number; previous: number } | null;
+  comparisonCurrentEndDate?: string | null;
+  available: boolean;
+  previousRange: { startDate: string; endDate: string };
+  syncKey: string;
+  lastSuccessfulSync?: string | null;
+  syncStatus?: string;
+};
+
+export type ReportAnalyticsSyncResult = {
+  status: 'ok' | 'idle' | 'running' | 'fresh';
+  processed?: number;
+  refreshedDates?: number;
+  refreshedAggregates?: number;
+  lastWriteDate?: string | null;
+  hasMore?: boolean;
+  message?: string;
+};
+
+export async function syncOdooReportAnalytics(options: {
+  batchSize?: number;
+  forceFull?: boolean;
+  initialStartDate?: string;
+  maxBatches?: number;
+} = {}): Promise<ReportAnalyticsSyncResult> {
+  const { data, error } = await supabase.functions.invoke('sync-odoo-analytics', {
+    body: {
+      batchSize: options.batchSize ?? 350,
+      forceFull: options.forceFull === true,
+      initialStartDate: options.initialStartDate,
+      maxBatches: options.maxBatches ?? 2,
+    },
+  });
+  if (error) throw new Error(await readFunctionErrorMessage(error) || error.message);
+  if (data?.error) throw new Error(normalizeReportFunctionError(String(data.error)));
+  return data as ReportAnalyticsSyncResult;
+}
+
+export async function getAgentSummaryContext(filters: ReportFilters, rangeKey: string | null, forceRefresh = false): Promise<AgentSummaryContext> {
+  const { data, error } = await supabase.functions.invoke('odoo-sales-report', {
+    body: { ...filters, rangeKey, forceRefresh, requestedDomain: 'sales', reportContext: 'reports', action: 'agent-summary-context' },
+  });
+  if (error) throw new Error(await readFunctionErrorMessage(error) || error.message);
+  if (data?.error) throw new Error(normalizeReportFunctionError(String(data.error)));
+  return data as AgentSummaryContext;
+}
+
+export async function getReportDailySalesComparison(filters: ReportFilters, forceRefresh = false): Promise<ReportDailySalesComparison> {
+  const { data, error } = await supabase.functions.invoke('odoo-sales-report', {
+    body: { ...filters, forceRefresh, requestedDomain: 'sales', reportContext: 'reports', action: 'daily-sales-summary' },
+  });
+  if (error) throw new Error(await readFunctionErrorMessage(error) || error.message);
+  if (data?.error) throw new Error(normalizeReportFunctionError(String(data.error)));
+  return data as ReportDailySalesComparison;
+}
 
 export async function getCommercialDataset(
   filters: ReportFilters,
   requestedDomain: ReportRequestedDomain = 'sales',
   loadMode: ReportLoadMode = 'full',
+  reportContext: 'reports' | 'marketing' = 'reports',
+  forceRefresh = false,
 ) {
-  if (import.meta.env.DEV && filters.visibilityScope !== 'own') {
+  if (reportContext === 'marketing' && import.meta.env.DEV && filters.visibilityScope !== 'own') {
     const params = new URLSearchParams(serializeFilters(filters, requestedDomain, loadMode));
     const response = await fetch(`/api/reports/odoo-sales?${params.toString()}`);
 
@@ -35,6 +141,8 @@ export async function getCommercialDataset(
       ...filters,
       requestedDomain,
       loadMode,
+      reportContext,
+      forceRefresh,
     },
   });
 
@@ -50,6 +158,16 @@ export async function getCommercialDataset(
   }
 
   return data as OdooCommercialDataset;
+}
+
+export async function getPreparedExecutiveSummary(filters: ReportFilters, config: ReportsConfig, forceRefresh = false, signal?: AbortSignal) {
+  const { data, error } = await supabase.functions.invoke('odoo-sales-report', {
+    body: { ...filters, config, forceRefresh, action: 'executive-summary', requestedDomain: 'sales', reportContext: 'reports' },
+    signal,
+  });
+  if (error) throw new Error(await readFunctionErrorMessage(error) || error.message);
+  if (data?.error) throw new Error(String(data.error));
+  return data as { ready: boolean; dataset?: OdooCommercialDataset; refreshing: boolean; calculatedAt?: string };
 }
 
 async function readFunctionErrorMessage(error: unknown) {

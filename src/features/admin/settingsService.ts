@@ -33,6 +33,10 @@ export const adminModules: Array<{ key: AdminModuleKey; label: string }> = [
   { key: 'calculator', label: 'Calculadora' },
 ];
 
+export const visibleAdminModules = adminModules.filter(
+  (module) => !['purchases', 'quoting', 'calculator'].includes(module.key),
+);
+
 export type ModulePermissionDraft = Record<
   AdminModuleKey,
   {
@@ -252,7 +256,7 @@ export async function saveUserModulePermissions(permission: AdminUserModulePermi
     throw new Error('Los propietarios siempre tienen acceso completo.');
   }
 
-  const rows = adminModules.map((module) => ({
+  const rows = visibleAdminModules.map((module) => ({
     permission_id: permission.id,
     user_id: permission.user_id,
     module_key: module.key,
@@ -281,12 +285,12 @@ export async function saveUserModulePermissions(permission: AdminUserModulePermi
       can_access_inventory: draft.inventory.can_access,
       can_access_policies: draft.policies.can_access,
       can_access_reports: draft.reports.can_access,
-      can_access_purchases: draft.purchases.can_access,
+      can_access_purchases: false,
       can_access_marketing: draft.marketing.can_access,
       can_access_forms: draft.forms.can_access,
-      can_access_quoting: draft.quoting.can_access,
+      can_access_quoting: false,
       can_access_shipping_quotes: draft.shipping_quotes.can_access,
-      can_access_calculator: draft.calculator.can_access,
+      can_access_calculator: false,
     })
     .eq('id', permission.id);
 

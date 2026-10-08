@@ -78,6 +78,7 @@ export type ReportsConfig = {
 export type ReportOption = {
   id: number | string;
   label: string;
+  companyId?: number | null;
 };
 
 export type OdooOrderRecord = {
@@ -191,6 +192,8 @@ export type OdooInvoiceLineRecord = {
   unitCost: number | null;
   costAmount: number | null;
   marginAmount: number | null;
+  analysisMarginAmount?: number | null;
+  analysisUntaxedAmount?: number | null;
   linePurchaseUnitCost: number | null;
   standardUnitCost: number | null;
   discount: number | null;
@@ -198,6 +201,20 @@ export type OdooInvoiceLineRecord = {
   sourceOrderIds: number[];
   sourceOrderNames: string[];
   sourceSaleLineIds: number[];
+};
+
+export type OdooInvoiceAnalysisMargin = {
+  available: boolean;
+  categories: Array<{
+    category: string;
+    margin: number;
+    untaxed: number;
+    marginPct: number | null;
+  }>;
+  margin: number;
+  untaxed: number;
+  marginPct: number | null;
+  rowCount: number;
 };
 
 export type OdooCustomerFirstPurchaseRecord = {
@@ -227,12 +244,17 @@ export type OdooCustomerContactRecord = {
 export type OdooCrmLeadRecord = {
   id: number;
   name: string;
+  sourceName?: string | null;
+  mediumName?: string | null;
   type: 'lead' | 'opportunity' | string;
   active: boolean;
   createDate: string | null;
   writeDate: string | null;
   deadlineDate: string | null;
   closedDate: string | null;
+  assignmentDate?: string | null;
+  lostReasonId?: number | null;
+  lostReasonName?: string | null;
   customerId: number | null;
   customerName: string | null;
   sellerId: number | null;
@@ -243,6 +265,7 @@ export type OdooCrmLeadRecord = {
   companyName: string | null;
   stageId: number | null;
   stageName: string | null;
+  stageIsWon?: boolean | null;
   expectedRevenue: number;
   probability: number;
   priority: string | null;
@@ -350,6 +373,7 @@ export type ReportDrillLink = {
 };
 
 export type OdooCommercialDataset = {
+  executiveSummary?: import('./reportExecutiveModel').PreparedExecutiveSummary;
   database: string;
   fetchedAt: string;
   odooBaseUrl: string;
@@ -374,6 +398,8 @@ export type OdooCommercialDataset = {
   orderLines: OdooOrderLineRecord[];
   invoices: OdooInvoiceRecord[];
   invoiceLines: OdooInvoiceLineRecord[];
+  invoiceAnalysisMargin?: OdooInvoiceAnalysisMargin | null;
+  previousInvoiceAnalysisMargin?: OdooInvoiceAnalysisMargin | null;
   customerFirstPurchases: OdooCustomerFirstPurchaseRecord[];
   customerContacts: OdooCustomerContactRecord[];
   crmLeads: OdooCrmLeadRecord[];

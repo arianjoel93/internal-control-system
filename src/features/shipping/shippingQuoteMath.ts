@@ -1,4 +1,6 @@
 import type { ShippingDimensionUnit, ShippingPackageType, ShippingWeightInputMode, ShippingWeightUnit } from '../../lib/types';
+// @ts-expect-error Node strip-types resolution requires the .ts suffix.
+import { FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG } from './packingConstants.ts';
 
 export type ShippingPackageDraft = {
   id: string;
@@ -183,7 +185,7 @@ export function calculateVolumetricWeight(packageType: Pick<ShippingPackageType,
   if (![length, width, height].every((value) => Number.isFinite(value) && value > 0)) return 0;
 
   if (packageType.dimension_unit === 'CM' && packageType.weight_unit === 'KG') {
-    return round((Math.ceil(length) * Math.ceil(width) * Math.ceil(height)) / 5000, 3);
+    return round((Math.ceil(length) * Math.ceil(width) * Math.ceil(height)) / FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG, 3);
   }
 
   if (packageType.dimension_unit === 'IN' && packageType.weight_unit === 'LB') {

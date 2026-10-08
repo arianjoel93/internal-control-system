@@ -9,6 +9,12 @@ const box = (id='small', side=10, maxWeight=20):PackagingRow => ({ id,name:id,in
   dimension_unit:'CM',weight_unit:'KG',box_cost:0 });
 const line = (patch:Partial<PackingLine>={}):PackingLine => ({lineId:1,productId:1,sku:'A',productName:'Producto A',quantity:1,
   lengthCm:5,widthCm:5,heightCm:5,weightKg:1,canRotate:true,canStack:true,...patch});
+const rectangularBox = (id:string, internal:[number,number,number], external:[number,number,number], maxWeight=100):PackagingRow => ({
+  ...box(id, 1, maxWeight),
+  length:internal[0], width:internal[1], height:internal[2],
+  internal_length:internal[0], internal_width:internal[1], internal_height:internal[2],
+  external_length:external[0], external_width:external[1], external_height:external[2],
+});
 
 test('1. ajuste exacto en las dimensiones internas',()=>{
   const p=generatePackingPlan([line({lengthCm:10,widthCm:10,heightCm:10})],[box()]);
@@ -115,4 +121,108 @@ test('protección final se agrega al volumen externo, sin alterar el peso físic
 test('cantidades fraccionarias y demasiado grandes se rechazan sin truncarlas',()=>{
   assert.equal(normalizePackingLines([line({quantity:1.5})]).missingLines.length,1);
   assert.throws(()=>normalizePackingLines([line({quantity:2001})]),/divide el envío/);
+});
+
+test('optimiza una orden pequeña en una sola caja pequeña',()=>{
+  const plan=generatePackingPlan([line({quantity:5})],[box(),box('medium',20)],'MIN_PACKAGES');
+  assert.equal(plan.status,'READY_FOR_QUOTE');
+  assert.equal(plan.metrics.packageCount,1);
+  assert.equal(plan.packages[0].packagingTypeId,'small');
+});
+
+test('prefiere dos cajas pequeñas cuando tienen menor peso volumétrico que una grande',()=>{
+  const small=rectangularBox('small',[10,10,10],[12,12,12]);
+  const large=rectangularBox('large',[20,20,20],[22,22,22]);
+  const plan=generatePackingPlan([line({quantity:9})],[small,large],'MIN_PACKAGES');
+  assert.equal(plan.metrics.packageCount,2);
+  assert.deepEqual(plan.packages.map((item)=>item.packagingTypeId),['small','small']);
+  assert.ok(plan.metrics.volumetricWeight < (22*22*22)/5000);
+});
+
+test('usa menos cajas cuando el peso volumétrico es equivalente',()=>{
+  const narrow=rectangularBox('narrow',[5,5,5],[10,10,10]);
+  const wide=rectangularBox('wide',[10,5,5],[20,5,10]);
+  const plan=generatePackingPlan([line({quantity:2})],[narrow,wide],'MIN_PACKAGES');
+  assert.equal(plan.metrics.volumetricWeight,0.2);
+  assert.equal(plan.metrics.packageCount,1);
+  assert.equal(plan.packages[0].packagingTypeId,'wide');
+});
+
+test('compara una combinación heterogénea contra dos cajas medianas',()=>{
+  const small=rectangularBox('small',[10,10,10],[12,12,12]);
+  const medium=rectangularBox('medium',[12,12,12],[14,14,14]);
+  const plan=generatePackingPlan([
+    line({productId:1,productName:'Grande A',lengthCm:10,widthCm:10,heightCm:10}),
+    line({lineId:2,productId:2,productName:'Grande B',lengthCm:11,widthCm:11,heightCm:11}),
+  ],[small,medium],'MIN_PACKAGES');
+  assert.deepEqual(plan.packages.map((item)=>item.packagingTypeId).sort(),['medium','small']);
+  assert.equal(plan.metrics.packageCount,2);
+  assert.ok(plan.metrics.volumetricWeight < 2*((14*14*14)/5000));
+});
+
+test('rechaza una dimensión imposible aunque el volumen del producto sea menor',()=>{
+  const plan=generatePackingPlan([line({lengthCm:55,widthCm:5,heightCm:5})],[rectangularBox('box',[40,30,25],[42,32,27])],'MIN_PACKAGES');
+  assert.equal(plan.unpackedItems.length,1);
+  assert.equal(plan.unpackedItems[0].evaluatedPackaging?.[0].id,'box');
+});
+
+test('permite la rotación física necesaria',()=>{
+  const plan=generatePackingPlan([line({lengthCm:10,widthCm:8,heightCm:4})],[rectangularBox('rotated',[8,4,10],[10,6,12])],'MIN_PACKAGES');
+  assert.equal(plan.status,'READY_FOR_QUOTE');
+});
+
+test('cambia la combinación cuando una caja supera su peso máximo',()=>{
+  const limited=rectangularBox('limited',[10,10,10],[12,12,12],3);
+  const larger=rectangularBox('larger',[20,20,20],[22,22,22],20);
+  const plan=generatePackingPlan([line({quantity:2,weightKg:2})],[limited,larger],'MIN_PACKAGES');
+  assert.equal(plan.status,'READY_FOR_QUOTE');
+  assert.equal(plan.packages.length,2);
+  assert.ok(plan.packages.every((item)=>item.totalWeight<=3));
+});
+
+test('reparte unidades repetidas entre diferentes cajas',()=>{
+  const small=rectangularBox('small',[10,10,10],[12,12,12]);
+  const medium=rectangularBox('medium',[15,15,15],[17,17,17]);
+  const plan=generatePackingPlan([line({quantity:10})],[small,medium],'MIN_PACKAGES');
+  assert.equal(plan.status,'READY_FOR_QUOTE');
+  assert.equal(plan.packages.reduce((sum,item)=>sum+item.items.length,0),10);
+  assert.ok(new Set(plan.packages.map((item)=>item.packagingTypeId)).size>=1);
+});
+
+test('devuelve el producto imposible con embalajes evaluados',()=>{
+  const boxes=[rectangularBox('small',[5,5,5],[7,7,7]),rectangularBox('medium',[10,10,10],[12,12,12])];
+  const plan=generatePackingPlan([line({lengthCm:20,widthCm:20,heightCm:20,weightKg:2})],boxes,'MIN_PACKAGES');
+  assert.equal(plan.status,'PARTIALLY_PACKED');
+  assert.equal(plan.unpackedItems[0].code,'OVERSIZE');
+  assert.deepEqual(plan.unpackedItems[0].evaluatedPackaging?.map((item)=>item.id),['small','medium']);
+});
+
+test('utiliza un cuarto tipo de caja configurado sin cambios de código',()=>{
+  const extra=rectangularBox('extra-large',[35,35,35],[37,37,37]);
+  const plan=generatePackingPlan([line({lengthCm:34,widthCm:34,heightCm:34})],[box(),box('medium',20),box('large',30),extra],'MIN_PACKAGES');
+  assert.equal(plan.status,'READY_FOR_QUOTE');
+  assert.equal(plan.packages[0].packagingTypeId,'extra-large');
+});
+
+test('prefiere una caja pequeña y mediana cuando vence a una grande en peso volumétrico',()=>{
+  const small=rectangularBox('small',[10,10,10],[12,12,12]);
+  const medium=rectangularBox('medium',[12,12,12],[14,14,14]);
+  const large=rectangularBox('large',[25,25,25],[27,27,27]);
+  const plan=generatePackingPlan([
+    line({lengthCm:10,widthCm:10,heightCm:10}),
+    line({lineId:2,productId:2,lengthCm:11,widthCm:11,heightCm:11}),
+  ],[small,medium,large],'MIN_PACKAGES');
+  assert.deepEqual(plan.packages.map((item)=>item.packagingTypeId).sort(),['medium','small']);
+  assert.ok(plan.metrics.volumetricWeight < (27*27*27)/5000);
+});
+
+test('desempata con menor espacio desperdiciado y expone pesos separados',()=>{
+  const tight=rectangularBox('tight',[9,9,9],[10,10,10]);
+  const loose=rectangularBox('loose',[10,10,10],[10,10,10]);
+  const plan=generatePackingPlan([line({lengthCm:5,widthCm:5,heightCm:5})],[tight,loose],'MIN_PACKAGES');
+  assert.equal(plan.packages[0].packagingTypeId,'tight');
+  assert.equal(plan.packages[0].volumetricWeight,0.2);
+  assert.equal(plan.packages[0].billableWeight,1.5);
+  assert.equal(plan.metrics.totalUsedVolume,125);
+  assert.equal(plan.metrics.wastedVolume,604);
 });

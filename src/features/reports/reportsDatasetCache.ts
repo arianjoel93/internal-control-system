@@ -14,6 +14,7 @@ const LEGACY_REPORTS_DATASET_CACHE_STORAGE_KEYS = [
 // Keep only the active report and its warm-up range within a bounded budget.
 const MAX_CACHE_ENTRIES = 2;
 const MAX_CACHE_BYTES = 3_000_000;
+const MAX_CACHE_RECORDS = 8_000;
 
 type CachedReportsDatasetEntry = {
   key: string;
@@ -56,6 +57,10 @@ export function saveStoredCommercialDataset(
   const storage = getStorage();
   if (!storage) return false;
 
+  // Avoid synchronously serializing a large annual dataset just to discover
+  // afterward that it exceeds the local-storage budget.
+  if (countDatasetRecords(dataset) > MAX_CACHE_RECORDS) return false;
+
   try {
     clearLegacyDatasetCaches(storage);
     const parsed = readCacheState(storage);
@@ -86,6 +91,20 @@ export function saveStoredCommercialDataset(
   } catch {
     return false;
   }
+}
+
+function countDatasetRecords(dataset: OdooCommercialDataset) {
+  return [
+    dataset.orders,
+    dataset.orderLines,
+    dataset.invoices,
+    dataset.invoiceLines,
+    dataset.crmLeads,
+    dataset.purchaseOrders,
+    dataset.purchaseOrderLines,
+    dataset.vendorBills,
+    dataset.vendorBillLines,
+  ].reduce((total, records) => total + records.length, 0);
 }
 
 export function readStoredCommercialDatasetMode(

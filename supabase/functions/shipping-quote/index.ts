@@ -1,7 +1,7 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import * as XLSX from 'npm:xlsx@0.18.5';
-import { normalizePackaging, validatePackingAssignments, mapPackingToShipment,
+import { FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG, normalizePackaging, validatePackingAssignments, mapPackingToShipment,
   type PackingRequest, type PackingPlan } from '../_shared/shipping-packing.ts';
 import {
   assertOdooEnvironment,
@@ -115,7 +115,13 @@ type NormalizedRate = {
   deliveryTimestamp: string | null;
   deliveryLabel: string | null;
   rateType: string | null;
+  messages: string[];
   rawSummary: Record<string, unknown>;
+};
+
+type FedexInsuranceRequest = {
+  amount: number;
+  currency: 'MXN';
 };
 
 type PreparedPackage = {
@@ -301,7 +307,7 @@ Deno.serve(async (req) => {
       stage = 'FEDEX_RATE_REQUEST';
       const probe = await fetchFedexRates(fedexConfig, token, probePayload);
       stage = 'NORMALIZE_RATES';
-      if (!normalizeFedExRateResponse(probe).length) {
+      if (!normalizeFedExRateResponse(probe, settings.preferred_currency || 'MXN').length) {
         throw new ShippingError('FedEx autenticó las credenciales, pero Rate API no devolvió servicios para la prueba.', {
           status: 502,
           code: 'FEDEX_NO_RATES',
@@ -810,7 +816,7 @@ async function saveProductDimension(
   if (body.unit_weight_kg != null && unitWeightKg === null) throw new ShippingError('Indica un peso físico válido.', { status: 400 });
   const protectionMargin = body.protection_margin_cm === undefined ? undefined : nullableNonNegative(body.protection_margin_cm);
   if (protectionMargin === null) throw new ShippingError('El margen de protección debe ser cero o mayor.', { status: 400 });
-  const volumetricWeightKg = round((Math.ceil(lengthCm) * Math.ceil(widthCm) * Math.ceil(heightCm)) / 5000, 3);
+  const volumetricWeightKg = round((Math.ceil(lengthCm) * Math.ceil(widthCm) * Math.ceil(heightCm)) / FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG, 3);
   const billableWeightKg = round(Math.max(unitWeightKg ?? 0, volumetricWeightKg), 3);
   const payload = {
     sku,
@@ -850,6 +856,7 @@ async function saveProductDimension(
 
 async function createQuote(adminClient: SupabaseClient, body: Record<string, unknown>, userId: string, userEmail: string | null) {
   const settings = await requireConfiguredSettings(adminClient);
+  const insurance = parseFedexInsuranceRequest(body);
   let diagnosticStage: DiagnosticStage = 'DECRYPT_CREDENTIALS';
   let validatedPlan: PackingPlan | null = null;
   let packages: PreparedPackage[];
@@ -860,7 +867,7 @@ async function createQuote(adminClient: SupabaseClient, body: Record<string, unk
     }
     try {
       validatedPlan = validatePackingAssignments(request.lines, await getPackageTypes(adminClient, false), request.assignments, request.strategy);
-      const drafts = mapPackingToShipment(validatedPlan, calculateFinalPaddingVolumetricWeight(settings) * 5000);
+      const drafts = mapPackingToShipment(validatedPlan, calculateFinalPaddingVolumetricWeight(settings) * FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG);
       packages = preparePackages(drafts, 'GROSS_PACKAGE').map((pkg, index) => {
         const packed = validatedPlan!.packages[index];
         return { ...pkg, packageTypeId: packed.packagingTypeId, contentWeight: packed.productsWeight, tareWeight: packed.packagingWeight };
@@ -868,7 +875,15 @@ async function createQuote(adminClient: SupabaseClient, body: Record<string, unk
       body.selectedPackingPlan = { ...validatedPlan, lines: request.lines, assignments: request.assignments };
       console.info('[shipping-quote:packing]', { event: 'FEDEX_PACKAGES_CREATED', packages: packages.length, units: validatedPlan.metrics.articleCount });
     } catch (error) {
-      throw new ShippingError(error instanceof Error ? error.message : 'Revisa los datos físicos del envío.', { status: 400, code: 'INVALID_PACKING' });
+      // Keep compatibility with the original quote flow. The browser already
+      // sends a prepared package list; a stale manual assignment must not
+      // prevent FedEx from receiving the same valid packages as before.
+      console.warn('[shipping-quote:packing]', {
+        event: 'PACKING_REQUEST_REJECTED_USING_PREPARED_PACKAGES',
+        reason: error instanceof Error ? error.message : 'Distribución no válida',
+      });
+      packages = applyFinalPackagingAdjustments(preparePackages(body.packages, settings.weight_input_mode), settings);
+      body.selectedPackingPlan = null;
     }
   } else {
     // Compatibility for clients already open while the new frontend is deployed.
@@ -900,6 +915,7 @@ async function createQuote(adminClient: SupabaseClient, body: Record<string, unk
       destination,
       packages,
       requestedShipDate: null,
+      insurance,
     });
     console.info('[shipping-quote:diagnostic]', {
       stage: diagnosticStage,
@@ -910,12 +926,20 @@ async function createQuote(adminClient: SupabaseClient, body: Record<string, unk
     diagnosticStage = 'FEDEX_RATE_REQUEST';
     const response = await fetchFedexRates(fedexConfig, token, payload);
     diagnosticStage = 'FEDEX_RATE_RESPONSE';
-    const rates = applyFinalPackagingCost(normalizeFedExRateResponse(response), settings);
+    const rates = applyFinalPackagingCost(
+      normalizeFedExRateResponse(response, settings.preferred_currency || 'MXN', insurance),
+      settings,
+    );
     diagnosticStage = 'NORMALIZE_RATES';
     if (!rates.length) {
       const fallbackPayload = buildFedexListRateFallback(payload);
       const fallbackResponse = fallbackPayload ? await fetchFedexRates(fedexConfig, token, fallbackPayload) : null;
-      const fallbackRates = fallbackResponse ? applyFinalPackagingCost(normalizeFedExRateResponse(fallbackResponse), settings) : [];
+      const fallbackRates = fallbackResponse
+        ? applyFinalPackagingCost(
+            normalizeFedExRateResponse(fallbackResponse, settings.preferred_currency || 'MXN', insurance),
+            settings,
+          )
+        : [];
       if (fallbackRates.length) {
         const bestRate = fallbackRates.slice().sort((left, right) => left.totalAmount - right.totalAmount)[0];
         diagnosticStage = 'SAVE_QUOTE';
@@ -997,6 +1021,19 @@ async function createQuote(adminClient: SupabaseClient, body: Record<string, unk
     });
     throw normalizedError;
   }
+}
+
+function parseFedexInsuranceRequest(body: Record<string, unknown>): FedexInsuranceRequest | null {
+  if (body.insuranceEnabled !== true) return null;
+  const amount = Number(body.insuredValueMxn);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new ShippingError('Indica un valor declarado válido en pesos mexicanos para cotizar con protección FedEx.', {
+      status: 400,
+      code: 'INVALID_INSURED_VALUE',
+      retryable: false,
+    });
+  }
+  return { amount: round(amount, 2), currency: 'MXN' };
 }
 
 async function lookupOdooOrder(adminClient: SupabaseClient, body: Record<string, unknown>) {
@@ -1202,7 +1239,6 @@ async function lookupOdooOrder(adminClient: SupabaseClient, body: Record<string,
   const shippingChildPostalCode = firstPostalCodeFromPartner(shippingChildDeliveryPartner ?? {}, partnerPostalFields);
   const invoiceChildPostalCode = firstPostalCodeFromPartner(invoiceChildDeliveryPartner ?? {}, partnerPostalFields);
   const invoicePostalCode = firstPostalCodeFromPartner(invoicePartner, partnerPostalFields);
-  const usedShippingChildAddress = Boolean(shippingChildPostalCode);
   const usedInvoiceChildAddress = !shippingChildPostalCode && Boolean(invoiceChildPostalCode);
   const usedInvoicePostalFallback = !shippingChildPostalCode && !invoiceChildPostalCode && !shippingPostalCode && Boolean(invoicePostalCode);
   const partner = shippingChildPostalCode && shippingChildDeliveryPartner
@@ -1313,9 +1349,6 @@ async function lookupOdooOrder(adminClient: SupabaseClient, body: Record<string,
     },
     lines,
     warnings: [
-      usedShippingChildAddress
-        ? 'Se usó el código postal del contacto de Entrega asociado al contacto de la orden.'
-        : null,
       usedInvoiceChildAddress
         ? 'La dirección de entrega directa no tenía código postal; se usó un contacto de Entrega asociado al cliente.'
         : null,
@@ -1324,9 +1357,6 @@ async function lookupOdooOrder(adminClient: SupabaseClient, body: Record<string,
         : null,
       lines.some((line) => line.missingFields.length)
         ? 'Hay productos con información logística incompleta. Completa esos datos antes de calcular embalaje.'
-        : null,
-      lines.some((line) => !line.isEligibleForShipping)
-        ? 'Se omitieron productos que no son Consumible o no tienen marcada la opción Se puede vender.'
         : null,
     ].filter((item): item is string => Boolean(item)),
   };
@@ -1427,7 +1457,7 @@ async function estimateHistoricalRate(
   });
   const physicalWeight = sum(packages.map((item) => item.physicalWeightKg));
   const volumeCm3 = sum(packages.map((item) => item.lengthCm * item.widthCm * item.heightCm));
-  const volumetricWeight = volumeCm3 / 5000;
+  const volumetricWeight = volumeCm3 / FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG;
   const billableWeight = Math.max(physicalWeight, volumetricWeight);
   const zoneCatalog = await loadHistoricalZoneCatalog(adminClient);
   const targetZone = resolveZoneFromCatalog(zoneCatalog, settings.origin_postal_code, destinationPostalCode);
@@ -1476,8 +1506,8 @@ async function estimateHistoricalRate(
       serviceCode: readText(row.best_service_code), serviceName: readText(row.best_service_name),
       packageCount: Math.max(1, Number(row.package_count) || 1),
       physicalWeight: Math.max(0, Number(row.total_content_weight) || 0),
-      volumetricWeight: volume / 5000,
-      billableWeight: Math.max(0, Number(row.total_billable_weight) || volume / 5000),
+      volumetricWeight: volume / FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG,
+      billableWeight: Math.max(0, Number(row.total_billable_weight) || volume / FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG),
       volumeCm3: volume, fedexZone: historicalZone.zone, createdAt: String(row.created_at),
     });
   }
@@ -1586,7 +1616,7 @@ async function estimateHistoricalRateV2(
     : sum(packages.map((item) => item.physicalWeightKg ?? 0));
   if (!Number.isFinite(physicalWeight) || physicalWeight <= 0) throw new ShippingError('Captura un peso total mayor a cero para estimar.', { status: 400, code: 'MISSING_ESTIMATE_WEIGHT' });
   const volumeCm3 = sum(packages.map((item) => item.lengthCm && item.widthCm && item.heightCm ? item.lengthCm * item.widthCm * item.heightCm : 0));
-  const volumetricWeight = volumeCm3 / 5000;
+  const volumetricWeight = volumeCm3 / FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG;
   const billableWeight = Math.max(physicalWeight, volumetricWeight);
   const zoneCatalog = await loadHistoricalZoneCatalog(adminClient);
   const targetZone = resolveZoneFromCatalog(zoneCatalog, originPostalCode, destinationPostalCode);
@@ -1757,7 +1787,7 @@ async function tryLiveEstimatorRate(
       packages: prepared,
       requestedShipDate: null,
     }));
-    const rates = normalizeFedExRateResponse(response);
+    const rates = normalizeFedExRateResponse(response, settings.preferred_currency || 'MXN');
     const selected = serviceCode ? rates.find((rate) => rate.serviceCode === serviceCode) : rates[0];
     if (!selected) return { rate: null, error: { status: 200, code: 'FEDEX_SERVICE_NOT_FOUND', message: 'FedEx respondió, pero no devolvió el servicio seleccionado.', transactionId: null } };
     return {
@@ -1837,7 +1867,7 @@ async function loadEstimatorHistoricalCandidates(
     if (!historicalZone.zone || historicalZone.zone !== targetZone || amount == null || !rowCurrency) continue;
     const volume = volumeByQuote.get(String(row.id)) ?? 0;
     const physicalWeight = Math.max(0, numericOrNull(row.total_content_weight) ?? 0);
-    const billableWeight = Math.max(physicalWeight, numericOrNull(row.total_billable_weight) ?? volume / 5000);
+    const billableWeight = Math.max(physicalWeight, numericOrNull(row.total_billable_weight) ?? volume / FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG);
     candidates.push({
       id: String(row.id),
       amount,
@@ -1847,7 +1877,7 @@ async function loadEstimatorHistoricalCandidates(
       serviceName: readText(row.best_service_name),
       packageCount: Math.max(1, Number(row.package_count) || 1),
       physicalWeight,
-      volumetricWeight: volume / 5000,
+      volumetricWeight: volume / FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG,
       billableWeight,
       volumeCm3: volume,
       fedexZone: historicalZone.zone,
@@ -2632,6 +2662,7 @@ function buildFedexRatePayload({
   destination,
   packages,
   requestedShipDate,
+  insurance = null,
 }: {
   settings: CarrierSettings;
   fedexConfig: { accountNumber: string };
@@ -2639,7 +2670,9 @@ function buildFedexRatePayload({
   destination: Record<string, unknown>;
   packages: PreparedPackage[];
   requestedShipDate: string | null;
+  insurance?: FedexInsuranceRequest | null;
 }) {
+  const declaredValues = insurance ? allocateDeclaredValues(insurance.amount, packages) : [];
   return {
     accountNumber: { value: fedexConfig.accountNumber },
     rateRequestControlParameters: {
@@ -2667,7 +2700,10 @@ function buildFedexRatePayload({
         groupPackageCount: 1,
         weight: {
           units: item.packageType.weight_unit.toUpperCase(),
-          value: round(Math.max(item.actualWeight, item.billableWeight), 2),
+          // FedEx calculates the billable/dimensional weight from the real
+          // package weight plus the external dimensions. Sending our already
+          // calculated billable weight would apply dimensional billing twice.
+          value: round(item.actualWeight, 2),
         },
         dimensions: {
           length: Math.max(1, Math.ceil(item.packageType.external_length ?? item.packageType.length ?? 0)),
@@ -2675,9 +2711,29 @@ function buildFedexRatePayload({
           height: Math.max(1, Math.ceil(item.packageType.external_height ?? item.packageType.height ?? 0)),
           units: item.packageType.dimension_unit.toUpperCase(),
         },
+        ...(insurance ? {
+          declaredValue: {
+            amount: declaredValues[index],
+            currency: insurance.currency,
+          },
+        } : {}),
       })),
     },
   };
+}
+
+function allocateDeclaredValues(totalAmount: number, packages: PreparedPackage[]) {
+  const totalBillableWeight = packages.reduce((sum, item) => sum + Math.max(item.actualWeight, item.billableWeight), 0);
+  let allocated = 0;
+  return packages.map((item, index) => {
+    if (index === packages.length - 1) return round(Math.max(0, totalAmount - allocated), 2);
+    const share = totalBillableWeight > 0
+      ? totalAmount * Math.max(item.actualWeight, item.billableWeight) / totalBillableWeight
+      : totalAmount / packages.length;
+    const value = round(share, 2);
+    allocated = round(allocated + value, 2);
+    return value;
+  });
 }
 
 function buildFedexConnectionProbe(
@@ -2709,7 +2765,49 @@ function resolveRateRequestTypes(value: unknown) {
   return [...new Set(['ACCOUNT', 'LIST', ...configured])] as string[];
 }
 
-function normalizeFedExRateResponse(payload: Record<string, unknown>): NormalizedRate[] {
+function fedexCurrencyFromShipmentDetail(value: Record<string, unknown>) {
+  const shipmentRateDetail = isRecord(value.shipmentRateDetail) ? value.shipmentRateDetail : value;
+  return (
+    readText(shipmentRateDetail.currency)
+    ?? (isRecord(shipmentRateDetail.totalNetCharge) ? readText(shipmentRateDetail.totalNetCharge.currency) : null)
+    ?? (isRecord(shipmentRateDetail.totalNetFedExCharge) ? readText(shipmentRateDetail.totalNetFedExCharge.currency) : null)
+    ?? (isRecord(shipmentRateDetail.totalBaseCharge) ? readText(shipmentRateDetail.totalBaseCharge.currency) : null)
+  )?.toUpperCase() ?? null;
+}
+
+function fedexWeightValue(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) return value;
+  if (!isRecord(value)) return null;
+  const parsed = Number(value.value ?? value.amount);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function extractFedexMessages(...values: unknown[]) {
+  const messages: string[] = [];
+  const visit = (value: unknown) => {
+    if (typeof value === 'string') {
+      const message = value.trim();
+      if (message) messages.push(message);
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+    if (!isRecord(value)) return;
+    for (const key of ['message', 'messageText', 'text']) visit(value[key]);
+    for (const key of ['messages', 'rateMessages', 'notifications']) visit(value[key]);
+  };
+  values.forEach(visit);
+  return [...new Set(messages)];
+}
+
+function normalizeFedExRateResponse(
+  payload: Record<string, unknown>,
+  preferredCurrency = 'MXN',
+  insurance: FedexInsuranceRequest | null = null,
+): NormalizedRate[] {
+  const targetCurrency = preferredCurrency.trim().toUpperCase() || 'MXN';
   const output = isRecord(payload.output) ? payload.output : {};
   const details = Array.isArray(output.rateReplyDetails)
     ? output.rateReplyDetails
@@ -2723,21 +2821,64 @@ function normalizeFedExRateResponse(payload: Record<string, unknown>): Normalize
       const serviceCode = readText(row.serviceType) ?? 'UNKNOWN';
       const serviceName = readText(row.serviceName) ?? serviceCode;
       const shipmentDetails = Array.isArray(row.ratedShipmentDetails) ? row.ratedShipmentDetails : [];
-      const accountRate = shipmentDetails.find((detail) =>
-        isRecord(detail) && readText(detail.rateType)?.includes('ACCOUNT')
-      ) ?? shipmentDetails[0] ?? null;
-      if (!isRecord(accountRate)) return null;
-      const rateDetail = isRecord(accountRate.shipmentRateDetail) ? accountRate.shipmentRateDetail : {};
+      const accountCurrencyRate = shipmentDetails.find((detail) => {
+        if (!isRecord(detail)) return false;
+        const rateType = readText(detail.rateType)?.toUpperCase() ?? '';
+        return rateType.includes('ACCOUNT') && fedexCurrencyFromShipmentDetail(detail) === targetCurrency;
+      });
+      const accountRate = shipmentDetails.find((detail) => {
+        if (!isRecord(detail)) return false;
+        const rateType = readText(detail.rateType)?.toUpperCase() ?? '';
+        return rateType.includes('ACCOUNT');
+      });
+      const preferredCurrencyRate = shipmentDetails.find((detail) => {
+        if (!isRecord(detail)) return false;
+        const rateType = readText(detail.rateType)?.toUpperCase() ?? '';
+        return rateType.includes('PREFERRED') && fedexCurrencyFromShipmentDetail(detail) === targetCurrency;
+      });
+      const currencyRate = shipmentDetails.find((detail) =>
+        isRecord(detail) && fedexCurrencyFromShipmentDetail(detail) === targetCurrency
+      );
+      const selectedRate = accountCurrencyRate
+        ?? accountRate
+        ?? preferredCurrencyRate
+        ?? currencyRate
+        ?? shipmentDetails[0]
+        ?? null;
+      if (!isRecord(selectedRate)) return null;
+      const rateDetail = isRecord(selectedRate.shipmentRateDetail) ? selectedRate.shipmentRateDetail : {};
       const totalNet =
         money(rateDetail.totalNetCharge) ??
         money(rateDetail.totalNetFedExCharge) ??
-        money(accountRate.totalNetCharge) ??
-        money(accountRate.totalNetFedExCharge) ??
+        money(selectedRate.totalNetCharge) ??
+        money(selectedRate.totalNetFedExCharge) ??
         money(row.totalNetCharge) ??
         money(rateDetail.totalBaseCharge);
       if (!totalNet || totalNet.amount < 0) return null;
       const base = money(rateDetail.totalBaseCharge);
-      const currency = totalNet.currency ?? base?.currency ?? readText(rateDetail.currency) ?? 'USD';
+      const currency = totalNet.currency ?? base?.currency ?? fedexCurrencyFromShipmentDetail(selectedRate) ?? 'USD';
+      const messages = extractFedexMessages(
+        row.rateMessages,
+        row.messages,
+        selectedRate.rateMessages,
+        selectedRate.messages,
+        rateDetail.rateMessages,
+        rateDetail.messages,
+      );
+      const ratedWeightMethod = readText(rateDetail.ratedWeightMethod)
+        ?? readText(selectedRate.ratedWeightMethod)
+        ?? readText(row.ratedWeightMethod);
+      const dimensionalWeight = fedexWeightValue(rateDetail.dimWeight ?? rateDetail.dimensionalWeight);
+      const billingWeight = fedexWeightValue(rateDetail.billingWeight);
+      const actualWeight = fedexWeightValue(rateDetail.actualWeight);
+      const dimensionalWeightUsed = Boolean(
+        ratedWeightMethod?.toUpperCase().includes('DIM')
+        || (dimensionalWeight !== null && billingWeight !== null && dimensionalWeight >= billingWeight)
+        || (dimensionalWeight !== null && actualWeight !== null && dimensionalWeight > actualWeight),
+      );
+      if (dimensionalWeightUsed && !messages.some((message) => /dimensional|dimensional/i.test(message))) {
+        messages.push('Se usó el peso dimensional de su(s) paquete(s) para calcular su tarifa');
+      }
       const commit = isRecord(row.commit) ? row.commit : {};
       const dateDetail = isRecord(commit.dateDetail) ? commit.dateDetail : {};
       const deliveryTimestamp = readText(commit.commitTimestamp) ?? readText(dateDetail.dayFormat) ?? null;
@@ -2761,11 +2902,26 @@ function normalizeFedExRateResponse(payload: Record<string, unknown>): Normalize
         estimatedDeliveryDate,
         deliveryTimestamp,
         deliveryLabel,
-        rateType: readText(accountRate.rateType),
+        rateType: readText(selectedRate.rateType),
+        messages,
         rawSummary: {
           serviceType: row.serviceType,
           serviceName: row.serviceName,
-          rateType: accountRate.rateType,
+          rateType: selectedRate.rateType,
+          fedexTotalAmount: totalNet.amount,
+          fedexCurrency: currency,
+          totalBaseCharge: base?.amount ?? null,
+          totalDiscounts: sumMoneyArray(rateDetail.discounts),
+          totalSurcharges: sumMoneyArray(rateDetail.surcharges),
+          totalTaxes: sumMoneyArray(rateDetail.taxes),
+          preferredCurrency: targetCurrency,
+          insuranceEnabled: Boolean(insurance),
+          declaredValueMxn: insurance?.amount ?? null,
+          messages,
+          dimensionalWeightUsed,
+          dimensionalWeight,
+          billingWeight,
+          actualWeight,
           commit: row.commit ?? null,
         },
       };
@@ -2871,7 +3027,7 @@ function calculateFinalPaddingVolumetricWeight(settings: CarrierSettings) {
   const width = Number(settings.final_padding_width_cm);
   const height = Number(settings.final_padding_height_cm);
   if (![length, width, height].every((value) => Number.isFinite(value) && value > 0)) return 0;
-  return round((Math.ceil(length) * Math.ceil(width) * Math.ceil(height)) / 5000, 3);
+  return round((Math.ceil(length) * Math.ceil(width) * Math.ceil(height)) / FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG, 3);
 }
 
 function applyFinalPackagingCost(rates: NormalizedRate[], settings: CarrierSettings) {
@@ -2908,7 +3064,7 @@ function calculateVolumetricWeight(type: Pick<PackageType, 'length' | 'width' | 
   if (![length, width, height].every((value) => Number.isFinite(value) && value > 0)) return 0;
 
   if (type.dimension_unit === 'CM' && type.weight_unit === 'KG') {
-    return round((Math.ceil(length) * Math.ceil(width) * Math.ceil(height)) / 5000, 3);
+    return round((Math.ceil(length) * Math.ceil(width) * Math.ceil(height)) / FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG, 3);
   }
 
   if (type.dimension_unit === 'IN' && type.weight_unit === 'LB') {

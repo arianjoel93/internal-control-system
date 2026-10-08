@@ -5,6 +5,7 @@ import {
   resolveServerCompanyIds,
   resolveServerSellerIds,
   selectExactActiveOdooUsers,
+  shouldUseOwnMarketingScope,
   shouldUseOwnReportScope,
 } from '../../../../supabase/functions/odoo-sales-report/salesperson-scope.ts';
 
@@ -134,6 +135,13 @@ test('el alcance global conserva la selección explícita de ningún elemento', 
   );
 });
 
+test('Marketing respeta sus permisos sin cambiar el alcance propio de Reportes', () => {
+  assert.equal(shouldUseOwnMarketingScope('marketing_agent', 'own'), false);
+  assert.equal(shouldUseOwnMarketingScope('sales_agent', 'all'), false);
+  assert.equal(shouldUseOwnMarketingScope('sales_agent', 'own'), true);
+  assert.equal(shouldUseOwnReportScope('sales_agent', 'all'), true);
+});
+
 test('administradores, propietarios y gerentes conservan la vista global', () => {
   assert.equal(shouldUseOwnReportScope('admin', 'own'), false);
   assert.equal(shouldUseOwnReportScope('owner', 'own'), false);
@@ -142,5 +150,6 @@ test('administradores, propietarios y gerentes conservan la vista global', () =>
 
 test('agentes de ventas y permisos solo propios usan el alcance restringido', () => {
   assert.equal(shouldUseOwnReportScope('sales_agent', 'all'), true);
+  assert.equal(shouldUseOwnReportScope('marketing_agent', 'all'), true);
   assert.equal(shouldUseOwnReportScope('support_agent', 'own'), true);
 });

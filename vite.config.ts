@@ -28,7 +28,10 @@ export default defineConfig(({ mode }) => {
                   : requestUrl.searchParams.get('requestedDomain') === 'all'
                     ? 'all'
                     : 'sales';
-              const loadMode = requestUrl.searchParams.get('loadMode') === 'fast' ? 'fast' : 'full';
+              const requestedLoadMode = requestUrl.searchParams.get('loadMode');
+              const loadMode = requestedLoadMode === 'fast' || requestedLoadMode === 'partition'
+                ? requestedLoadMode
+                : 'full';
               const filters = {
                 startDate: requestUrl.searchParams.get('startDate') ?? '',
                 endDate: requestUrl.searchParams.get('endDate') ?? '',

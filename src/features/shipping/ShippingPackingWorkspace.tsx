@@ -129,7 +129,7 @@ export function ShippingPackingWorkspace({plan,lines,assignments,packageTypes,st
     </div>
     <div className="shipping-packing-metrics"><span>{plan.metrics.articleCount} artículos</span><span>{plan.metrics.packageCount} paquetes</span><span>{fmtPacking(plan.metrics.grossWeight)} kg brutos</span><span>{fmtPacking(plan.metrics.averageUtilization)} % ocupación</span><span>{plan.metrics.unpackedCount} pendientes</span></div>
     <div className="shipping-packing-actions"><select aria-label="Tipo de caja nueva" value={newBox} onChange={e=>setNewBox(e.target.value)}><option value="">Elegir embalaje</option>{active.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select><button type="button" className="secondary-button" disabled={!newBox} onClick={()=>{onAssignments([...assignments,{id:nextId(),packagingTypeId:newBox,unitIds:[]}]);setPage(Math.floor(assignments.length/5));}}><Plus size={16}/>Crear caja</button></div>
-    {!active.length?<p className="form-error">Configura al menos un embalaje activo en Configuración → Embalajes.</p>:null}
+    <div className="shipping-packing-box-list" aria-label="Embalajes de la distribución">
     {assignments.slice(safePage*5,safePage*5+5).map((a,index)=>{
       const p=plan.packages.find(p=>p.id===a.id);
       const packageErrors=p?.errors ?? [];
@@ -147,9 +147,9 @@ export function ShippingPackingWorkspace({plan,lines,assignments,packageTypes,st
         {p?<details><summary>Por qué se eligió esta distribución</summary><p>{p.explanation}</p>{p.warnings.map(w=><p key={w}>{w}</p>)}</details>:null}
       </article>;
     })}
+    </div>
     {assignments.length>5?<div className="shipping-packing-toolbar"><button type="button" disabled={!safePage} onClick={()=>setPage(safePage-1)}>Anterior</button><span>{safePage+1} / {Math.ceil(assignments.length/5)}</span><button type="button" disabled={(safePage+1)*5>=assignments.length} onClick={()=>setPage(safePage+1)}>Siguiente</button></div>:null}
     {plan.unpackedItems.length?<details open className="shipping-packing-pending"><summary>Artículos pendientes ({plan.unpackedItems.length})</summary>{plan.unpackedItems.slice(0,50).map(({unit,reason})=><div className="shipping-packing-product" key={unit.id}><div>{unit.productName}<small>{reason}</small></div>{moveSelect(unit.id)}</div>)}{plan.unpackedItems.length>50?<p>Se muestran los primeros 50. Asigna estos artículos para continuar con los siguientes.</p>:null}</details>:null}
-    {[...plan.errors,...plan.missingLines.map(l=>`${l.name}: ${l.reason}`)].map((e,i)=><p className="form-error" key={`${i}:${e}`}>{e}</p>)}
     {ownUnit?<PackingModal title="Confirmar paquete individual" onClose={()=>setOwnUnit(null)}><p>Confirma que {unitMap.get(ownUnit)?.productName} puede enviarse con sus dimensiones propias y sin caja adicional. Se mantendrá como una sola unidad.</p><div className="shipping-packing-actions"><button type="button" onClick={()=>{const remaining=assignments.map(a=>({...a,unitIds:a.unitIds.filter(id=>id!==ownUnit)})).filter(a=>a.unitIds.length);onAssignments([{id:nextId(),packagingTypeId:null,ownPackageConfirmed:true,unitIds:[ownUnit]},...remaining]);setOwnUnit(null);}}>Confirmar paquete individual</button></div></PackingModal>:null}
   </section>;
 }

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { buildCommercialDashboard } from '../reportsAnalytics.ts';
+import { prepareExecutiveDataset } from '../../../../supabase/functions/report-summary-worker/model.generated.js';
 import {
   defaultReportsConfig,
   type OdooCommercialDataset,
@@ -1000,6 +1001,25 @@ function closeTo(actual: number, expected: number, epsilon = 0.0001) {
   );
 }
 
+test('el resumen persistido conserva los KPI, detalles y filtros del cálculo original', () => {
+  for (const visibilityScope of ['all', 'own'] as const) {
+    const dataset = { ...createDataset(), crmLeads: [], customerContacts: [], scopeApplied: visibilityScope, viewerRole: visibilityScope === 'own' ? 'sales_agent' : 'manager' };
+    const filters = createFilters({ visibilityScope });
+    const expected = buildCommercialDashboard(dataset, filters, defaultReportsConfig);
+    const prepared = prepareExecutiveDataset(dataset, filters, defaultReportsConfig);
+    const expectedSummary = { ...expected, details: { ...expected.details, pendingQuotes: [], previousPendingQuotes: [], expiredQuotes: [],
+      cancelledQuotes: [], convertedQuotes: [], confirmedOrders: [], postedInvoices: [] } };
+    assert.deepEqual(prepared.executiveSummary.snapshot, expectedSummary);
+    assert.equal(prepared.executiveSummary.monthlyValues.untaxedAmount, expected.invoicing.invoicedAmount.current);
+    assert.equal(prepared.executiveSummary.crmBalance.assigned, prepared.executiveSummary.crmBalance.details.length);
+    assert.equal(prepared.executiveSummary.customerBalance.newCount, prepared.executiveSummary.customerBalance.details.filter((row) => row.status === 'Nuevo').length);
+    assert.deepEqual(prepared.invoiceLines, []);
+    assert.deepEqual(prepared.orders, []);
+    assert.ok(dataset.orders.length > 0, 'el cálculo no debe mutar los datos fuente');
+    assert.deepEqual(JSON.parse(JSON.stringify(prepared)).executiveSummary.snapshot, JSON.parse(JSON.stringify(expectedSummary)));
+  }
+});
+
 test('separa cotizaciones, ventas confirmadas y conversion comercial', () => {
   const snapshot = buildCommercialDashboard(
     createDataset(),
@@ -1009,6 +1029,7 @@ test('separa cotizaciones, ventas confirmadas y conversion comercial', () => {
 
   assert.equal(snapshot.quoteSummary.totalQuotes.current, 1);
   assert.equal(snapshot.quoteSummary.pendingQuotes, 1);
+  assert.deepEqual(snapshot.details.previousPendingQuotes.map((order) => order.id), []);
   assert.equal(snapshot.quoteSummary.expiredQuotes, 0);
   assert.equal(snapshot.quoteSummary.cancelledQuotes, 1);
   assert.equal(snapshot.quoteSummary.convertedQuotes, 0);
@@ -1024,20 +1045,150 @@ test('separa cotizaciones, ventas confirmadas y conversion comercial', () => {
   closeTo(snapshot.sellers.categoryBreakdown[0]?.sharePct ?? 0, (300 / 650) * 100);
 });
 
+test('expone las cotizaciones pendientes del periodo anterior sin recalcular el dashboard', () => {
+  const dataset = createDataset();
+  const previousDraft = dataset.orders.find((order) => order.id === 7);
+  assert.ok(previousDraft);
+  const snapshot = buildCommercialDashboard(
+    {
+      ...dataset,
+      scopeApplied: 'own',
+      orders: dataset.orders.map((order) => order.id === 7
+        ? { ...order, state: 'draft', createDate: '2025-06-20T09:00:00.000Z', quotationDate: '2025-06-20T09:00:00.000Z' }
+        : order),
+    },
+    createFilters({ visibilityScope: 'own' }),
+    defaultReportsConfig,
+  );
+
+  assert.deepEqual(snapshot.details.previousPendingQuotes.map((order) => order.id), [7]);
+  assert.deepEqual(snapshot.details.pendingQuotes.map((order) => order.id), [1]);
+});
+
 test('calcula facturacion, notas de credito, margen y comparacion contra periodo anterior', () => {
   const snapshot = buildCommercialDashboard(
-    createDataset(),
-    createFilters(),
+    { ...createDataset(), scopeApplied: 'own' },
+    createFilters({ visibilityScope: 'own' }),
     defaultReportsConfig,
   );
 
   assert.equal(snapshot.invoicing.invoicedAmount.current, 650);
   assert.equal(snapshot.invoicing.refundAmount.current, 100);
-  assert.equal(snapshot.sales.soldAmount.previous, 500);
-  assert.equal(snapshot.sales.soldAmount.difference, 150);
+  assert.equal(snapshot.sales.soldAmount.previous, 0);
+  assert.equal(snapshot.sales.soldAmount.difference, 650);
+  assert.equal(snapshot.sales.soldAmount.differencePct, null);
   assert.equal(snapshot.sales.marginAmount.current, 115);
   closeTo(snapshot.sales.marginPct.current, (115 / 650) * 100);
-  assert.equal(snapshot.sales.soldAmount.trend, 'up');
+  assert.equal(snapshot.sales.soldAmount.trend, 'stable');
+});
+
+test('la dispersión diaria conserva la diferencia exacta entre ambos periodos', () => {
+  const entries = [
+    { date: '2025-06-08', amount: 70, moveType: 'out_invoice' },
+    { date: '2025-06-14', amount: 30, moveType: 'out_invoice' },
+    { date: '2026-06-01', amount: 70, moveType: 'out_invoice' },
+    { date: '2026-06-07', amount: 30, moveType: 'out_invoice' },
+    { date: '2026-06-08', amount: 100, moveType: 'out_invoice' },
+    { date: '2026-06-11', amount: -20, moveType: 'out_refund' },
+  ] as const;
+  const base = createDataset();
+  const dataset: OdooCommercialDataset = {
+    ...base,
+    scopeApplied: 'own',
+    orders: [],
+    orderLines: [],
+    invoices: entries.map((entry, index) => createInvoice({
+      id: index + 1,
+      name: `INV-${index + 1}`,
+      state: 'posted',
+      moveType: entry.moveType,
+      invoiceDate: entry.date,
+      untaxedAmountSigned: entry.amount,
+    })),
+    invoiceLines: entries.map((entry, index) => createInvoiceLine({
+      id: index + 1,
+      invoiceId: index + 1,
+      invoiceName: `INV-${index + 1}`,
+      invoiceState: 'posted',
+      moveType: entry.moveType,
+      invoiceDate: entry.date,
+      untaxedAmount: entry.amount,
+    })),
+    customerFirstPurchases: [],
+  };
+  const snapshot = buildCommercialDashboard(
+    dataset,
+    createFilters({ startDate: '2026-06-08', endDate: '2026-06-14', grouping: 'month', visibilityScope: 'own' }),
+    defaultReportsConfig,
+  );
+  const points = snapshot.dailyInvoiceDifference;
+
+  assert.equal(points.length, 7);
+  assert.equal(points[0].bucketKey, '2026-06-08');
+  assert.equal(points[0].invoicedAmount - points[0].previousInvoicedAmount, 30);
+  assert.equal(points[3].invoicedAmount, -20);
+  assert.equal(points[6].previousInvoicedAmount, 30);
+  assert.equal(points.reduce((sum, point) => sum + point.invoicedAmount - point.previousInvoicedAmount, 0),
+    snapshot.invoicing.invoicedAmount.current - snapshot.invoicing.invoicedAmount.previous);
+});
+
+test('la dispersión no pierde importes cuando los meses tienen distinta duración', () => {
+  const base = createDataset();
+  const dataset: OdooCommercialDataset = {
+    ...base,
+    scopeApplied: 'own',
+    orders: [],
+    orderLines: [],
+    invoices: [
+      createInvoice({ id: 1, name: 'INV-MAR-PREV', state: 'posted', moveType: 'out_invoice', invoiceDate: '2025-03-31', untaxedAmountSigned: 20 }),
+      createInvoice({ id: 2, name: 'INV-MAR', state: 'posted', moveType: 'out_invoice', invoiceDate: '2026-03-31', untaxedAmountSigned: 50 }),
+    ],
+    invoiceLines: [
+      createInvoiceLine({ id: 1, invoiceId: 1, invoiceName: 'INV-MAR-PREV', invoiceState: 'posted', moveType: 'out_invoice', invoiceDate: '2025-03-31', untaxedAmount: 20 }),
+      createInvoiceLine({ id: 2, invoiceId: 2, invoiceName: 'INV-MAR', invoiceState: 'posted', moveType: 'out_invoice', invoiceDate: '2026-03-31', untaxedAmount: 50 }),
+    ],
+    customerFirstPurchases: [],
+  };
+  const snapshot = buildCommercialDashboard(
+    dataset,
+    createFilters({ startDate: '2026-03-01', endDate: '2026-03-31', visibilityScope: 'own' }),
+    defaultReportsConfig,
+  );
+
+  assert.equal(snapshot.dailyInvoiceDifference.length, 31);
+  assert.equal(snapshot.dailyInvoiceDifference.at(-1)?.invoicedAmount, 50);
+  assert.equal(snapshot.dailyInvoiceDifference.reduce((sum, point) => sum + point.previousInvoicedAmount, 0), 20);
+  assert.equal(snapshot.dailyInvoiceDifference.reduce((sum, point) => sum + point.invoicedAmount - point.previousInvoicedAmount, 0), 30);
+});
+
+test('gerencia compara septiembre con el mismo septiembre del año anterior', () => {
+  const base = createDataset();
+  const makeRecord = (id: number, date: string, amount: number) => ({
+    invoice: createInvoice({ id, name: `INV-${id}`, state: 'posted', moveType: 'out_invoice', invoiceDate: date, untaxedAmountSigned: amount }),
+    line: createInvoiceLine({ id, invoiceId: id, invoiceName: `INV-${id}`, invoiceState: 'posted', moveType: 'out_invoice', invoiceDate: date, untaxedAmount: amount }),
+  });
+  const priorYear = makeRecord(901, '2025-09-15', 200);
+  const previousMonth = makeRecord(902, '2026-08-15', 900);
+  const current = makeRecord(903, '2026-09-15', 350);
+  const snapshot = buildCommercialDashboard(
+    {
+      ...base,
+      orders: [],
+      orderLines: [],
+      invoices: [priorYear.invoice, previousMonth.invoice, current.invoice],
+      invoiceLines: [priorYear.line, previousMonth.line, current.line],
+      customerFirstPurchases: [],
+    },
+    createFilters({ startDate: '2026-09-01', endDate: '2026-09-30' }),
+    defaultReportsConfig,
+  );
+
+  assert.equal(snapshot.invoicing.invoicedAmount.current, 350);
+  assert.equal(snapshot.invoicing.invoicedAmount.previous, 200);
+  assert.equal(snapshot.invoicing.invoicedAmount.difference, 150);
+  assert.equal(snapshot.agentProfile?.comparisonContext, 'Mismo rango del año anterior');
+  assert.equal(snapshot.dailyInvoiceDifference.reduce((total, point) =>
+    total + point.invoicedAmount - point.previousInvoicedAmount, 0), 150);
 });
 
 test('clasifica clientes y genera rankings y hallazgos accionables', () => {
@@ -1212,7 +1363,7 @@ test('agrupa clientes y vendedores repetidos en conversion y rankings', () => {
   assert.equal(sellerRankRows[0]?.soldAmount, 550);
 });
 
-test('compara un mes completo contra el mes calendario anterior', () => {
+test('compara un mes completo contra el mismo mes del año anterior', () => {
   const dataset: OdooCommercialDataset = {
     ...createDataset(),
     orders: [
@@ -1343,7 +1494,7 @@ test('una selección explícita vacía no muestra datos comerciales', () => {
   assert.equal(snapshot.sellers.rankingByRevenue.length, 0);
 });
 
-test('crea el perfil anual equivalente solo para agentes de ventas con alcance propio', () => {
+test('crea el perfil del periodo anterior para agentes y el alcance general de gerencia', () => {
   const baseDataset = createDataset();
   const dataset: OdooCommercialDataset = {
     ...baseDataset,
@@ -1426,7 +1577,7 @@ test('crea el perfil anual equivalente solo para agentes de ventas con alcance p
 
   assert.equal(snapshot.agentProfile?.sellerName, 'Carmen');
   assert.equal(snapshot.agentProfile?.companyName, 'Tectronic MX');
-  assert.equal(snapshot.agentProfile?.comparisonContext, 'Mismo mes del año anterior');
+  assert.equal(snapshot.agentProfile?.comparisonContext, 'Mismo rango del año anterior');
   assert.equal(revenueMetric?.comparison.previous, 250);
   assert.match(snapshot.agentProfile?.previousYearPeriodLabel ?? '', /2025/);
 
@@ -1435,7 +1586,45 @@ test('crea el perfil anual equivalente solo para agentes de ventas con alcance p
     createFilters(),
     defaultReportsConfig,
   );
-  assert.equal(globalSnapshot.agentProfile, null);
+  assert.ok(globalSnapshot.agentProfile);
+  assert.equal(globalSnapshot.agentProfile?.sellerName, 'Todos los vendedores');
+  assert.equal(globalSnapshot.agentProfile?.summary.metrics.find((metric) => metric.id === 'revenue')?.comparison.current,
+    globalSnapshot.invoicing.invoicedAmount.current);
+});
+
+test('el perfil general respeta compañía y vendedor seleccionados sin convertirse en perfil propio', () => {
+  const base = createDataset();
+  const dataset = {
+    ...base,
+    scopeApplied: 'all' as const,
+    availableFilters: {
+      ...base.availableFilters,
+      companies: [{ id: 1, label: 'Tectronic MX' }],
+      sellers: [{ id: 11, label: 'Carmen' }, { id: 22, label: 'Luis' }],
+    },
+    invoices: [...base.invoices, createInvoice({
+      id: 9091, name: 'INV-OTRO-VENDEDOR', state: 'posted', moveType: 'out_invoice',
+      invoiceDate: '2026-06-15', sellerId: 22, sellerName: 'Luis',
+      untaxedAmountSigned: 500, totalAmountSigned: 580,
+    })],
+    invoiceLines: [...base.invoiceLines, createInvoiceLine({
+      id: 9091, invoiceId: 9091, invoiceName: 'INV-OTRO-VENDEDOR',
+      invoiceState: 'posted', moveType: 'out_invoice', invoiceDate: '2026-06-15',
+      sellerId: 22, sellerName: 'Luis', untaxedAmount: 500, totalAmount: 580,
+    })],
+  };
+  const all = buildCommercialDashboard(dataset, createFilters({ companyIds: [1] }), defaultReportsConfig);
+  const allSelected = buildCommercialDashboard(dataset, createFilters({ companyIds: [1], sellerIds: [11, 22] }), defaultReportsConfig);
+  const carmen = buildCommercialDashboard(dataset, createFilters({ companyIds: [1], sellerIds: [11] }), defaultReportsConfig);
+  const luis = buildCommercialDashboard(dataset, createFilters({ companyIds: [1], sellerIds: [22] }), defaultReportsConfig);
+  assert.equal(all.agentProfile?.companyName, 'Tectronic MX');
+  assert.equal(all.agentProfile?.sellerName, 'Todos los vendedores');
+  assert.equal(allSelected.agentProfile?.sellerName, 'Todos los vendedores');
+  assert.equal(carmen.agentProfile?.sellerName, 'Carmen');
+  const revenue = (snapshot: ReturnType<typeof buildCommercialDashboard>) =>
+    snapshot.agentProfile?.summary.metrics.find((metric) => metric.id === 'revenue')?.comparison.current ?? 0;
+  assert.equal(revenue(all), revenue(carmen) + revenue(luis));
+  assert.ok(revenue(luis) >= 500);
 });
 
 test('en perfil de agente reemplaza PUBLICO EN GENERAL por direccion de entrega', () => {

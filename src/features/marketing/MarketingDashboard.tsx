@@ -3,18 +3,18 @@ import type { Session } from '@supabase/supabase-js';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft,
-  Bell,
   BookOpen,
-  Clock3,
+  CheckCircle2,
+  Copy,
   Download,
   Eye,
   Info,
   LineChart,
-  Megaphone,
+  MessageCircle,
   PieChart,
   RefreshCcw,
+  Share2,
   Target,
-  Users,
   X,
 } from 'lucide-react';
 import { EmptyState } from '../../components/EmptyState';
@@ -27,10 +27,36 @@ import {
   type OdooCommercialDataset,
   type OdooCrmLeadRecord,
   type ReportFilters,
+  type ReportOption,
   type ReportVisibilityScope,
 } from '../reports/odooSalesCore';
+import {
+  buildDefaultFilters,
+  buildQuickRange,
+  FilterToolbar,
+  recommendedGroupingForRange,
+  type QuickRangeKey,
+} from '../reports/ReportsDashboard';
 import { buildCommercialDashboard } from '../reports/reportsAnalytics';
 import { getCommercialDataset } from '../reports/reportsService';
+import { createSharedSalesReport } from '../reports/salesReportsCollaborationService';
+import { buildPreviousMarketingFilters } from './marketingPeriod';
+import {
+  buildMarketingLeadIntakeSeries,
+  buildMarketingLeadSourceRows,
+  buildMarketingInvoiceCustomerIndex,
+  marketingAssignedLeadsForPeriod,
+  marketingCrmDateKey,
+  marketingLeadCustomerInvoiceRows,
+  marketingLeadsForPeriod,
+  marketingLostLeadsForPeriod,
+  marketingNewLeadsForPeriod,
+  marketingWonLeadsForPeriod,
+  matchMarketingLeadsToInvoices,
+  sumMarketingLeadCustomerInvoices,
+  type MarketingLeadIntakePoint,
+  type MarketingLeadSourceRow,
+} from './marketingLeadData';
 import {
   readStoredCommercialDataset,
   readStoredCommercialDatasetMode,
@@ -38,7 +64,7 @@ import {
 } from '../reports/reportsDatasetCache';
 import { SidebarUserFooter } from '../admin/SidebarUserFooter';
 
-type MarketingSection = 'summary' | 'segments' | 'campaigns' | 'opportunities' | 'crm' | 'alerts';
+type MarketingSection = 'summary' | 'leads' | 'segments' | 'campaigns' | 'opportunities' | 'crm' | 'alerts';
 
 type MarketingDashboardProps = {
   session: Session;
@@ -49,21 +75,29 @@ type MarketingDashboardProps = {
 
 const marketingSections: Array<{ id: MarketingSection; label: string; icon: ReactNode }> = [
   { id: 'summary', label: 'Resumen', icon: <LineChart size={18} /> },
-  { id: 'segments', label: 'Segmentación', icon: <Users size={18} /> },
-  { id: 'campaigns', label: 'Campañas', icon: <Megaphone size={18} /> },
-  { id: 'opportunities', label: 'Oportunidades', icon: <Target size={18} /> },
-  { id: 'crm', label: 'CRM y leads', icon: <Clock3 size={18} /> },
-  { id: 'alerts', label: 'Alertas', icon: <Bell size={18} /> },
+  { id: 'leads', label: 'Leads', icon: <Target size={18} /> },
 ];
 
 export function MarketingDashboard({ session, userRole, visibilityScope, onOpenHub }: MarketingDashboardProps) {
-  const [activeSection, setActiveSection] = useState<MarketingSection>('summary');
+  const [activeSection, setActiveSection] = useState<MarketingSection>('leads');
   const [activeDecisionDetail, setActiveDecisionDetail] = useState<MarketingDecisionDetailKey>('risk');
-  const [monthlyReportStatus, setMonthlyReportStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
-  const [monthlyReportError, setMonthlyReportError] = useState<string | null>(null);
+  const [isMarketingProfileOpen, setIsMarketingProfileOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareState, setShareState] = useState<{
+    key: string;
+    status: 'preparing' | 'ready' | 'copied' | 'error';
+    url: string | null;
+    error: string | null;
+  } | null>(null);
+  const [retainedSellerOptions, setRetainedSellerOptions] = useState<ReportOption[]>([]);
   const [fullDatasetEnabled, setFullDatasetEnabled] = useState(false);
-  const filters = useMemo(() => buildMarketingFilters(visibilityScope), [visibilityScope]);
-  const previousMonthFilters = useMemo(() => buildPreviousMonthMarketingFilters(filters), [filters]);
+  const [filters, setFilters] = useState<ReportFilters>(() => buildDefaultFilters(visibilityScope));
+  const [draftFilters, setDraftFilters] = useState<ReportFilters>(() => buildDefaultFilters(visibilityScope));
+  const hasPendingFilterChanges = useMemo(
+    () => JSON.stringify(filters) !== JSON.stringify(draftFilters),
+    [draftFilters, filters],
+  );
+  const previousPeriodFilters = useMemo(() => buildPreviousMarketingFilters(filters), [filters]);
   const cachedDataset = useMemo(
     () => readStoredCommercialDataset(filters, 'sales', session.user.id),
     [filters, session.user.id],
@@ -72,32 +106,6 @@ export function MarketingDashboard({ session, userRole, visibilityScope, onOpenH
     () => readStoredCommercialDatasetMode(filters, 'sales', session.user.id),
     [filters, session.user.id],
   );
-  const previousMonthCachedDataset = useMemo(
-    () => readStoredCommercialDataset(previousMonthFilters, 'sales', session.user.id),
-    [previousMonthFilters, session.user.id],
-  );
-  const previousMonthCachedDatasetMode = useMemo(
-    () => readStoredCommercialDatasetMode(previousMonthFilters, 'sales', session.user.id),
-    [previousMonthFilters, session.user.id],
-  );
-  const previousMonthReportQuery = useQuery({
-    queryKey: [
-      'marketing-previous-month-report',
-      session.user.id,
-      previousMonthFilters.startDate,
-      previousMonthFilters.endDate,
-    ],
-    queryFn: () => readMarketingMonthlyReport({
-      periodEnd: previousMonthFilters.endDate,
-      periodStart: previousMonthFilters.startDate,
-      userId: session.user.id,
-    }),
-    staleTime: Number.POSITIVE_INFINITY,
-    retry: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-    refetchOnWindowFocus: false,
-  });
   const persistedNotificationsQuery = useQuery({
     queryKey: ['marketing-agent-notifications', session.user.id],
     queryFn: () => listMarketingAgentNotifications(session.user.id),
@@ -110,17 +118,18 @@ export function MarketingDashboard({ session, userRole, visibilityScope, onOpenH
   });
   const refetchPersistedNotifications = persistedNotificationsQuery.refetch;
   const fastDatasetQuery = useQuery({
-    queryKey: ['marketing-dashboard-dataset', session.user.id, visibilityScope, 'fast', filters],
-    queryFn: () => getCommercialDataset(filters, 'sales', 'fast'),
-    initialData: () => cachedDataset ?? undefined,
+    queryKey: ['marketing-dashboard-dataset', session.user.id, visibilityScope, 'lead-dates-v3', 'fast', filters],
+    queryFn: () => getCommercialDataset(filters, 'sales', 'fast', 'marketing'),
+    initialData: () => cachedDataset?.crmLeads?.every((lead) => Object.prototype.hasOwnProperty.call(lead, 'stageIsWon'))
+      ? cachedDataset : undefined,
     staleTime: Number.POSITIVE_INFINITY,
     refetchOnMount: false,
     refetchOnReconnect: false,
     refetchOnWindowFocus: false,
   });
   const fullDatasetQuery = useQuery({
-    queryKey: ['marketing-dashboard-dataset', session.user.id, visibilityScope, 'full', filters],
-    queryFn: () => getCommercialDataset(filters, 'sales', 'full'),
+    queryKey: ['marketing-dashboard-dataset', session.user.id, visibilityScope, 'lead-dates-v3', 'full', filters],
+    queryFn: () => getCommercialDataset(filters, 'sales', 'full', 'marketing'),
     enabled:
       fullDatasetEnabled &&
       Boolean(fastDatasetQuery.data) &&
@@ -134,10 +143,71 @@ export function MarketingDashboard({ session, userRole, visibilityScope, onOpenH
   });
   const displayDataset = fullDatasetQuery.data ?? fastDatasetQuery.data ?? null;
   const datasetError = fullDatasetQuery.error ?? fastDatasetQuery.error;
+  const sellerOptions = useMemo(() => {
+    const current = displayDataset
+      ? [
+          ...displayDataset.availableFilters.sellers,
+          ...marketingLeadsForPeriod(displayDataset, filters)
+            .filter((lead) => lead.sellerId && lead.sellerName)
+            .map((lead) => ({ id: lead.sellerId as number, label: lead.sellerName as string })),
+        ]
+      : [];
+    const catalog = new Map([...retainedSellerOptions, ...current].map((option) => [String(option.id), option]));
+    return [...catalog.values()].sort((a, b) => a.label.localeCompare(b.label, 'es-MX'));
+  }, [displayDataset, filters, retainedSellerOptions]);
+  const filterDataset = useMemo(() => {
+    if (!displayDataset) return undefined;
+    const leads = marketingLeadsForPeriod(displayDataset, filters);
+    const merge = (options: ReportOption[], field: 'company' | 'team' | 'customer') => {
+      const catalog = new Map(options.map((option) => [String(option.id), option]));
+      leads.forEach((lead) => {
+        const id = field === 'company' ? lead.companyId : field === 'team' ? lead.teamId : lead.customerId;
+        const label = field === 'company' ? lead.companyName : field === 'team' ? lead.teamName : lead.customerName;
+        if (id && label) catalog.set(String(id), { id, label });
+      });
+      return [...catalog.values()];
+    };
+    return {
+      ...displayDataset,
+      availableFilters: {
+        ...displayDataset.availableFilters,
+        companies: merge(displayDataset.availableFilters.companies, 'company'),
+        sellers: sellerOptions,
+        teams: merge(displayDataset.availableFilters.teams, 'team'),
+        customers: merge(displayDataset.availableFilters.customers, 'customer'),
+      },
+    };
+  }, [displayDataset, filters, sellerOptions]);
+  const previousPeriodCachedDataset = useMemo(
+    () => readStoredCommercialDataset(previousPeriodFilters, 'sales', session.user.id),
+    [previousPeriodFilters, session.user.id],
+  );
+  const previousPeriodCachedDatasetMode = useMemo(
+    () => readStoredCommercialDatasetMode(previousPeriodFilters, 'sales', session.user.id),
+    [previousPeriodFilters, session.user.id],
+  );
+  const previousPeriodQuery = useQuery({
+    queryKey: ['marketing-leads-previous-period', session.user.id, 'lead-dates-v3', previousPeriodFilters],
+    queryFn: () => getCommercialDataset(previousPeriodFilters, 'sales', 'fast', 'marketing'),
+    enabled: activeSection === 'leads' && Boolean(displayDataset),
+    initialData: previousPeriodCachedDataset?.crmLeads?.every((lead) => Object.prototype.hasOwnProperty.call(lead, 'stageIsWon'))
+      ? previousPeriodCachedDataset : undefined,
+    staleTime: Number.POSITIVE_INFINITY,
+    retry: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    refetchOnWindowFocus: false,
+  });
 
   useEffect(() => {
     setFullDatasetEnabled(false);
   }, [filters, session.user.id, visibilityScope]);
+
+  useEffect(() => {
+    const nextFilters = buildDefaultFilters(visibilityScope);
+    setFilters(nextFilters);
+    setDraftFilters(nextFilters);
+  }, [visibilityScope]);
 
   useEffect(() => {
     if (!fastDatasetQuery.data || fastDatasetQuery.isFetching) return;
@@ -159,59 +229,84 @@ export function MarketingDashboard({ session, userRole, visibilityScope, onOpenH
     }
   }, [displayDataset, filters, fullDatasetQuery.data, session.user.id]);
 
+  useEffect(() => {
+    if (previousPeriodQuery.data) {
+      saveStoredCommercialDataset(
+        previousPeriodFilters,
+        previousPeriodQuery.data,
+        'sales',
+        session.user.id,
+        previousPeriodCachedDatasetMode === 'full' && previousPeriodQuery.data === previousPeriodCachedDataset ? 'full' : 'fast',
+      );
+    }
+  }, [previousPeriodFilters, previousPeriodQuery.data, session.user.id]);
+
   const snapshot = useMemo(
     () => displayDataset ? buildCommercialDashboard(displayDataset, filters, defaultReportsConfig) : null,
     [displayDataset, filters],
   );
   const marketing = useMemo(
-    () => snapshot && displayDataset ? buildMarketingViewModel(snapshot, displayDataset) : null,
-    [displayDataset, snapshot],
+    () => snapshot && displayDataset
+      ? buildMarketingViewModel(snapshot, displayDataset, previousPeriodFilters, previousPeriodQuery.data ?? null)
+      : null,
+    [displayDataset, previousPeriodFilters, previousPeriodQuery.data, snapshot],
   );
+  const shareKey = JSON.stringify([filters, activeSection, displayDataset?.fetchedAt, previousPeriodQuery.data?.fetchedAt]);
+  const currentShareState = shareState?.key === shareKey ? shareState : null;
+  const shareStatus = currentShareState?.status ?? 'idle';
+  const shareUrl = currentShareState?.url ?? null;
+  const shareError = currentShareState?.error ?? null;
+  const marketingAgentScore = marketing && marketing.leads.previousReady
+    ? buildMarketingAgentScore(marketing.leads.current, marketing.leads.previous)
+    : null;
   useEffect(() => {
     if (!marketing || userRole !== 'marketing_agent') return;
     void syncMarketingAgentNotifications(session.user.id, session.user.email ?? '', marketing)
       .then(() => refetchPersistedNotifications());
   }, [marketing, refetchPersistedNotifications, session.user.email, session.user.id, userRole]);
-  const handleDownloadPreviousMonthReport = async () => {
-    setMonthlyReportStatus('loading');
-    setMonthlyReportError(null);
+  useEffect(() => {
+    if (!isShareModalOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsShareModalOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isShareModalOpen]);
 
+  async function prepareShareLink() {
+    if (!marketing || !displayDataset || shareStatus === 'preparing' || shareUrl) return;
+    const requestedShareKey = shareKey;
+    setShareState({ key: requestedShareKey, status: 'preparing', url: null, error: null });
     try {
-      const storedReport = previousMonthReportQuery.data;
-      if (storedReport?.report_html) {
-        downloadHtmlReport(
-          storedReport.report_html,
-          `reporte-marketing-${previousMonthFilters.startDate}-${previousMonthFilters.endDate}.html`,
-        );
-        setMonthlyReportStatus('ready');
-        return;
-      }
-
-      let previousDataset = previousMonthCachedDatasetMode === 'full' ? previousMonthCachedDataset : null;
-      if (!previousDataset) {
-        previousDataset = await getCommercialDataset(previousMonthFilters, 'sales', 'full');
-        saveStoredCommercialDataset(previousMonthFilters, previousDataset, 'sales', session.user.id, 'full');
-      }
-      const previousSnapshot = buildCommercialDashboard(previousDataset, previousMonthFilters, defaultReportsConfig);
-      const previousMarketing = buildMarketingViewModel(previousSnapshot, previousDataset);
-      const periodLabel = formatPeriodLabel(previousMonthFilters.startDate, previousMonthFilters.endDate);
-      const reportHtml = buildMarketingMonthlyReportHtml(previousMarketing, periodLabel);
-      await saveMarketingMonthlyReport({
-        html: reportHtml,
-        marketing: previousMarketing,
-        periodEnd: previousMonthFilters.endDate,
-        periodLabel,
-        periodStart: previousMonthFilters.startDate,
-        userId: session.user.id,
+      const selectedSeller = visibilityScope === 'own'
+        ? displayDataset.sellerScope?.label ?? 'Vendedor asociado'
+        : describeMarketingSelection(filters.sellerIds, sellerOptions, 'Todos');
+      const selectedCompany = visibilityScope === 'own'
+        ? displayDataset.companyScope?.label ?? 'Compañía asociada'
+        : describeMarketingSelection(filters.companyIds, filterDataset?.availableFilters.companies ?? [], 'Todas las compañías');
+      const selectedTeam = filters.teamId
+        ? filterDataset?.availableFilters.teams.find((option) => Number(option.id) === filters.teamId)?.label ?? `ID ${filters.teamId}`
+        : 'Todos';
+      const selectedCustomer = filters.customerId
+        ? filterDataset?.availableFilters.customers.find((option) => Number(option.id) === filters.customerId)?.label ?? `ID ${filters.customerId}`
+        : 'Todos';
+      const periodLabel = formatPeriodLabel(filters.startDate, filters.endDate);
+      const url = await createSharedSalesReport({
+        companyName: selectedCompany,
+        sellerName: selectedSeller,
+        title: `Marketing · ${activeSection === 'leads' ? 'Leads' : 'Resumen estratégico'}`,
+        reportPeriod: periodLabel,
+        reportHtml: buildMarketingSharedReportHtml(marketing, periodLabel, selectedSeller, selectedCompany, selectedTeam, selectedCustomer),
       });
-      void previousMonthReportQuery.refetch();
-      downloadHtmlReport(reportHtml, `reporte-marketing-${previousMonthFilters.startDate}-${previousMonthFilters.endDate}.html`);
-      setMonthlyReportStatus('ready');
+      setShareState((current) => current?.key === requestedShareKey
+        ? { key: requestedShareKey, status: 'ready', url, error: null }
+        : current);
     } catch (error) {
-      setMonthlyReportStatus('error');
-      setMonthlyReportError(error instanceof Error ? error.message : 'No se pudo generar el reporte del mes anterior.');
+      setShareState((current) => current?.key === requestedShareKey
+        ? { key: requestedShareKey, status: 'error', url: null, error: error instanceof Error ? error.message : 'No se pudo crear el enlace.' }
+        : current);
     }
-  };
+  }
 
   return (
     <div className="admin-shell reports-shell marketing-shell">
@@ -232,19 +327,23 @@ export function MarketingDashboard({ session, userRole, visibilityScope, onOpenH
             <nav className="admin-nav reports-nav-group" aria-label="Marketing">
               {marketingSections.map((section) => (
                 <button
+                  id={section.id === 'leads' ? 'marketing-leads-nav' : undefined}
                   key={section.id}
                   type="button"
                   className={activeSection === section.id ? 'active' : undefined}
-                  onClick={() => setActiveSection(section.id)}
+                  onClick={() => {
+                    setActiveSection(section.id);
+                    if (section.id === 'leads') {
+                      const crmFilters = (current: ReportFilters) => ({ ...current, productId: null, categoryId: null, currencyCode: null, channel: null, stateScope: 'all' as const });
+                      setFilters(crmFilters);
+                      setDraftFilters(crmFilters);
+                    }
+                  }}
                 >
                   {section.icon}
                   {section.label}
                 </button>
               ))}
-              <button type="button" onClick={() => openModuleDocs('marketing')}>
-                <BookOpen size={18} />
-                Docs
-              </button>
             </nav>
           </section>
         </div>
@@ -255,10 +354,28 @@ export function MarketingDashboard({ session, userRole, visibilityScope, onOpenH
           <div className="reports-heading">
             <div>
               <p className="eyebrow">Inteligencia comercial Odoo</p>
-              <h1>Marketing</h1>
-              <p>Segmentación, CRM, campañas sugeridas y alertas para orientar mercadotecnia con datos reales de Odoo.</p>
+              <h1>{activeSection === 'leads' ? 'Leads' : 'Marketing'}</h1>
             </div>
             <div className="marketing-heading-actions">
+              {userRole === 'marketing_agent' && marketingAgentScore ? (
+                <button
+                  type="button"
+                  className="marketing-profile-score-button"
+                  onClick={() => setIsMarketingProfileOpen(true)}
+                  aria-label={`Abrir calificación del CRM filtrado: ${marketingAgentScore.total} de 100`}
+                >
+                  <span
+                    className={`marketing-profile-score-ring score-${marketingAgentScore.tone}`}
+                    style={{ '--marketing-score': `${marketingAgentScore.total * 3.6}deg` } as CSSProperties}
+                  >
+                    <strong>{marketingAgentScore.total}</strong>
+                  </span>
+                  <span>
+                    <small>CRM filtrado</small>
+                    <b>{marketingAgentScore.rating}</b>
+                  </span>
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="secondary-button"
@@ -272,28 +389,50 @@ export function MarketingDashboard({ session, userRole, visibilityScope, onOpenH
                 className="secondary-button"
                 onClick={() => {
                   setFullDatasetEnabled(true);
+                  setShareState(null);
                   void fastDatasetQuery.refetch();
                   void fullDatasetQuery.refetch();
+                  void previousPeriodQuery.refetch();
                 }}
               >
                 <RefreshCcw size={16} />
                 Actualizar
               </button>
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={monthlyReportStatus === 'loading'}
-                onClick={() => void handleDownloadPreviousMonthReport()}
-              >
-                <Download size={16} />
-                {monthlyReportStatus === 'loading' ? 'Preparando reporte...' : 'Descargar reporte del mes anterior'}
+              <button type="button" className="secondary-button" disabled={!marketing} onClick={() => {
+                setIsShareModalOpen(true);
+                void prepareShareLink();
+              }}>
+                <Share2 size={16} />
+                Compartir enlace
               </button>
             </div>
           </div>
 
-          {monthlyReportError ? (
-            <div className="marketing-inline-error">{monthlyReportError}</div>
-          ) : null}
+          <FilterToolbar
+            activeFilters={draftFilters}
+            appliedFilters={filters}
+            companyLocked={visibilityScope === 'own'}
+            dataset={filterDataset}
+            hasPendingChanges={hasPendingFilterChanges}
+            sellerLocked={visibilityScope === 'own'}
+            sellerLabel="Vendedor asociado"
+            sellerOptions={sellerOptions}
+            crmOnly={activeSection === 'leads'}
+            onApplyQuickRange={(key: QuickRangeKey) => {
+              const range = buildQuickRange(key);
+              setDraftFilters((current) => ({
+                ...current,
+                ...range,
+                grouping: recommendedGroupingForRange(range),
+              }));
+            }}
+            onApplyFilters={() => {
+              if (!hasPendingFilterChanges) return;
+              setRetainedSellerOptions(sellerOptions);
+              setFilters(draftFilters);
+            }}
+            onChange={setDraftFilters}
+          />
 
           {!marketing && fastDatasetQuery.isLoading ? (
             <article className="panel reports-empty">
@@ -311,6 +450,10 @@ export function MarketingDashboard({ session, userRole, visibilityScope, onOpenH
             </article>
           ) : null}
 
+          {activeSection === 'leads' && previousPeriodQuery.error ? (
+            <div className="marketing-inline-error">No se pudo cargar el periodo anterior. Los indicadores actuales siguen disponibles; presiona Actualizar para reintentar.</div>
+          ) : null}
+
           {marketing ? (
             <MarketingSectionContent
               activeDecisionDetail={activeDecisionDetail}
@@ -318,7 +461,40 @@ export function MarketingDashboard({ session, userRole, visibilityScope, onOpenH
               marketing={marketing}
               onSelectDecisionDetail={setActiveDecisionDetail}
               persistedNotifications={persistedNotificationsQuery.data ?? []}
+              userRole={userRole}
             />
+          ) : null}
+          {isMarketingProfileOpen && marketing && marketingAgentScore ? (
+            <MarketingAgentProfileModal
+              current={marketing.leads.current}
+              score={marketingAgentScore}
+              onClose={() => setIsMarketingProfileOpen(false)}
+            />
+          ) : null}
+          {isShareModalOpen ? (
+            <div className="report-share-modal-backdrop" role="presentation" onMouseDown={(event) => {
+              if (event.currentTarget === event.target) setIsShareModalOpen(false);
+            }}>
+              <section className="report-share-modal" role="dialog" aria-modal="true" aria-labelledby="marketing-share-title">
+                <div className="report-share-modal-head">
+                  <div><span>Compartir Marketing</span><h2 id="marketing-share-title">Reporte del periodo aplicado</h2></div>
+                  <button type="button" className="icon-button" aria-label="Cerrar" onClick={() => setIsShareModalOpen(false)}><X size={17} /></button>
+                </div>
+                <p className="report-share-modal-copy">El enlace conserva una copia fija de los indicadores del periodo y vendedor aplicados. Quien tenga el enlace podrá verla sin iniciar sesión.</p>
+                {shareStatus === 'idle' ? <button type="button" className="secondary-button" onClick={() => void prepareShareLink()}>Preparar enlace actualizado</button> : null}
+                {shareStatus === 'preparing' ? <div className="report-share-status"><RefreshCcw size={16} /> Preparando enlace...</div> : null}
+                {shareError ? <div className="report-share-status is-error">{shareError}<button type="button" className="text-button" onClick={() => void prepareShareLink()}>Reintentar</button></div> : null}
+                <div className="report-share-options">
+                  <a className={`report-share-option is-whatsapp${shareUrl ? '' : ' is-disabled'}`} href={shareUrl ? `https://wa.me/?text=${encodeURIComponent(`Reporte de Marketing: ${shareUrl}`)}` : undefined} target="_blank" rel="noreferrer" onClick={(event) => { if (!shareUrl) event.preventDefault(); }}><MessageCircle size={18} /><span>WhatsApp</span></a>
+                  <button type="button" className="report-share-option is-copy" disabled={!shareUrl} onClick={async () => {
+                    if (!shareUrl) return;
+                    try { await navigator.clipboard.writeText(shareUrl); } catch { window.prompt('Copia el enlace:', shareUrl); }
+                    setShareState((current) => current?.key === shareKey ? { ...current, status: 'copied' } : current);
+                  }}>{shareStatus === 'copied' ? <CheckCircle2 size={18} /> : <Copy size={18} />}<span>{shareStatus === 'copied' ? 'Enlace copiado' : 'Copiar enlace'}</span></button>
+                  <a className={`report-share-option is-email${shareUrl ? '' : ' is-disabled'}`} href={shareUrl ? `mailto:?subject=${encodeURIComponent('Reporte de Marketing')}&body=${encodeURIComponent(shareUrl)}` : undefined} onClick={(event) => { if (!shareUrl) event.preventDefault(); }}><Share2 size={18} /><span>Correo</span></a>
+                </div>
+              </section>
+            </div>
           ) : null}
         </section>
       </main>
@@ -332,14 +508,20 @@ function MarketingSectionContent({
   marketing,
   onSelectDecisionDetail,
   persistedNotifications,
+  userRole,
 }: {
   activeDecisionDetail: MarketingDecisionDetailKey;
   activeSection: MarketingSection;
   marketing: MarketingViewModel;
   onSelectDecisionDetail: (detail: MarketingDecisionDetailKey) => void;
   persistedNotifications: MarketingPersistedNotification[];
+  userRole: AdminUserRole;
 }) {
   const [activeInsight, setActiveInsight] = useState<MarketingInsightModalData | null>(null);
+
+  if (activeSection === 'leads') {
+    return <MarketingLeadsSection isMarketingAgent={userRole === 'marketing_agent'} marketing={marketing} />;
+  }
 
   if (activeSection === 'segments') {
     return (
@@ -501,6 +683,16 @@ function MarketingSectionContent({
           title="Categorías que explican la demanda"
         />
       </div>
+      <LazyMarketingBlock minHeight={280}>
+        {() => (
+          <MarketingPanel title="Audiencias y productos" subtitle="Distribución de clientes por segmento y productos con mayor demanda en el periodo.">
+            <div className="marketing-two-column">
+              <MarketingSegmentDonutChart segments={marketing.segments} />
+              <MarketingBarChart rows={marketing.productBars} title="Productos que impulsan la demanda" subtitle="Facturación por producto" />
+            </div>
+          </MarketingPanel>
+        )}
+      </LazyMarketingBlock>
       <LazyMarketingBlock minHeight={220}>
         {() => (
           <MarketingNotificationCenter
@@ -598,7 +790,7 @@ function MarketingSectionContent({
                     <Download size={14} />
                     Descargar CSV
                   </button>
-                  <MarketingMiniTable rows={method.rows} />
+                  <MarketingMethodChart marketing={marketing} title={method.title} />
                 </article>
               ))}
             </div>
@@ -652,6 +844,637 @@ function MarketingSectionContent({
         )}
       </LazyMarketingBlock>
       {activeInsight ? <MarketingInsightModal insight={activeInsight} onClose={() => setActiveInsight(null)} /> : null}
+    </div>
+  );
+}
+
+function MarketingLeadsSection({
+  isMarketingAgent,
+  marketing,
+}: {
+  isMarketingAgent: boolean;
+  marketing: MarketingViewModel;
+}) {
+  const [activeKpi, setActiveKpi] = useState<MarketingLeadKpiKey | null>(null);
+  const current = marketing.leads.current;
+  const previous = marketing.leads.previous;
+  const marketingAgentScore = marketing.leads.previousReady ? buildMarketingAgentScore(current, previous) : null;
+  const comparisonLabel = `vs. ${marketing.leads.previousRangeLabel}`;
+  const leadKpis = [
+    { key: 'assigned', label: 'Leads asignados', value: formatNumber(current.assigned), delta: formatLeadDelta(current.assigned, previous.assigned), tone: 'neutral' },
+    { key: 'won', label: 'Leads ganados', value: formatNumber(current.won), delta: formatLeadDelta(current.won, previous.won), tone: 'good' },
+    { key: 'lost', label: 'Leads perdidos', value: formatNumber(current.lost), delta: formatLeadDelta(current.lost, previous.lost), tone: 'risk' },
+    { key: 'billed', label: 'Facturación sin impuestos', value: formatCurrency(current.billedAmount), delta: formatLeadDelta(current.billedAmount, previous.billedAmount), tone: 'good' },
+    { key: 'wonRate', label: 'Cumplimiento de cierre', value: formatPercent(current.wonRate), delta: formatLeadDelta(current.wonRate, previous.wonRate, true), tone: 'good' },
+    { key: 'open', label: 'En seguimiento', value: formatNumber(current.open), delta: formatLeadDelta(current.open, previous.open), tone: 'neutral' },
+  ] as const;
+
+  return (
+    <div className="reports-stack marketing-leads-section">
+      {isMarketingAgent && marketingAgentScore ? (
+        <MarketingPanel
+          title="Calificación del CRM filtrado"
+          subtitle="Este indicador resume los leads de los vendedores seleccionados, no el desempeño individual del agente de marketing."
+        >
+          <MarketingAgentProfileCard score={marketingAgentScore} current={current} />
+        </MarketingPanel>
+      ) : null}
+      <MarketingPanel
+        title="Resultados de leads del periodo"
+        subtitle={`${marketing.leads.currentRangeLabel} · ${comparisonLabel}. Asignados por fecha de asignación; ganados y perdidos por fecha de cierre; facturación por fecha de factura.`}
+      >
+        <div className="marketing-lead-kpis">
+          {leadKpis.map((kpi) => (
+            <article className={`marketing-lead-kpi tone-${kpi.tone}`} key={kpi.label}>
+              <span className="marketing-lead-kpi-label">{kpi.label}</span>
+              <strong title={kpi.value}>{kpi.value}</strong>
+              <span className="marketing-lead-kpi-delta">{marketing.leads.previousReady ? `${kpi.delta} vs. periodo anterior` : 'Comparación anterior pendiente'}</span>
+              <button type="button" className="marketing-lead-kpi-more" onClick={() => setActiveKpi(kpi.key)}>
+                Ver más
+              </button>
+            </article>
+          ))}
+        </div>
+      </MarketingPanel>
+
+      <MarketingPanel
+        title="Lectura ejecutiva de leads"
+        subtitle="Indicadores visuales para identificar calidad del embudo, presión de seguimiento y evolución frente al corte anterior."
+      >
+        <MarketingLeadOverviewCharts
+          current={current}
+          previous={previous}
+          previousReady={marketing.leads.previousReady}
+          previousRangeLabel={marketing.leads.previousRangeLabel}
+        />
+        {marketing.leads.previousReady ? <MarketingLeadDecisionCards current={current} previous={previous} /> : null}
+      </MarketingPanel>
+
+      <MarketingPanel
+        title="Prospección y origen de leads"
+        subtitle="Leads creados en el periodo seleccionado. El origen corresponde a la fuente registrada en Odoo; no se infiere del nombre del cliente."
+      >
+        <MarketingLeadAcquisitionCharts
+          current={current}
+          intake={marketing.leads.intake}
+          previous={previous}
+          previousReady={marketing.leads.previousReady}
+        />
+      </MarketingPanel>
+
+      <MarketingPanel
+        title="De la prospección a la factura"
+        subtitle="Coincidencias entre leads nuevos y facturas publicadas del mismo cliente y vendedor dentro del periodo; no implica atribución causal de la venta."
+      >
+        <MarketingLeadInvoiceConversion current={current} previous={previous} previousReady={marketing.leads.previousReady} />
+        <MarketingLeadSellerConversionChart current={current} previous={previous} previousReady={marketing.leads.previousReady} />
+      </MarketingPanel>
+
+      <MarketingPanel
+        title="Oportunidades abiertas y seguimiento"
+        subtitle={`Estado operativo de los leads del corte ${marketing.leads.currentRangeLabel}. Los importes esperados no son facturación.`}
+      >
+        <MarketingLeadCrmOverview crm={marketing.leads.crm} />
+      </MarketingPanel>
+
+      {marketing.leads.previousReady ? <MarketingPanel
+        title="Tendencia de facturación de clientes con lead"
+        subtitle={`Facturación sin impuestos del periodo de clientes vinculados a leads: periodo seleccionado vs. ${marketing.leads.previousRangeLabel}.`}
+      >
+        <MarketingLeadBillingTrendChart
+          current={current}
+          previous={previous}
+          previousRangeLabel={marketing.leads.previousRangeLabel}
+        />
+      </MarketingPanel> : null}
+
+      <MarketingPanel
+        title="Cumplimiento por agente de ventas"
+        subtitle="La barra compara cierres ganados y perdidos del corte, junto con asignados aún en seguimiento; el porcentaje es ganados entre todos los cierres del periodo."
+      >
+        <MarketingLeadPerformanceChart current={current} />
+      </MarketingPanel>
+
+      <MarketingPanel
+        title="Detalle operativo"
+        subtitle="El detalle completo se conserva para auditoría y campañas; aquí se muestra el volumen listo para descargar sin saturar el tablero."
+      >
+        <div className="marketing-detail-actions marketing-leads-actions">
+          <div className="marketing-leads-detail-summary">
+            <strong>{formatNumber(marketing.leads.currentRows.length)}</strong>
+            <span>leads incluidos en el periodo seleccionado</span>
+          </div>
+          <button
+            type="button"
+            className="marketing-export-button"
+            onClick={() => exportMarketingRowsCsv('Leads del periodo', marketing.leads.currentRows)}
+          >
+            <Download size={14} />
+            Descargar CSV
+          </button>
+        </div>
+      </MarketingPanel>
+      {activeKpi ? (
+        <MarketingRowsModal detail={marketing.leads.kpiDetails[activeKpi]} onClose={() => setActiveKpi(null)} />
+      ) : null}
+    </div>
+  );
+}
+
+function MarketingLeadAcquisitionCharts({
+  current,
+  intake,
+  previous,
+  previousReady,
+}: {
+  current: MarketingLeadPeriodSummary;
+  intake: MarketingLeadIntakePoint[];
+  previous: MarketingLeadPeriodSummary;
+  previousReady: boolean;
+}) {
+  const topSources = current.sourceRows.slice(0, 5);
+  const otherSources = current.sourceRows.slice(5);
+  const remaining = otherSources.reduce((total, row) => total + row.count, 0);
+  const remainingInvoiced = otherSources.reduce((total, row) => total + row.invoiced, 0);
+  const maxSource = Math.max(1, ...topSources.map((row) => row.count), remaining);
+  const maxIntake = Math.max(1, ...intake.flatMap((point) => [point.current, point.previous]));
+  const unknown = current.sourceRows.find((row) => row.name === 'Sin origen registrado')?.count ?? 0;
+
+  return (
+    <div className="marketing-lead-acquisition-grid">
+      <article className="marketing-lead-donut-card">
+        <div className="marketing-chart-heading">
+          <div>
+            <strong>Origen de los leads creados</strong>
+            <p>Volumen por canal y oportunidades ganadas dentro de cada canal.</p>
+          </div>
+          <span className="marketing-chart-period">{formatNumber(current.created)} nuevos</span>
+        </div>
+        {current.created && !current.sourceReady ? (
+          <p className="marketing-empty-note">Actualiza los datos de Odoo para consultar el origen de estos leads.</p>
+        ) : current.created ? (
+          <div className="marketing-lead-source-chart">
+            {topSources.map((row) => (
+              <div className="marketing-lead-source-row" key={row.name}>
+                <div><span title={row.name}>{row.name}</span><strong>{formatNumber(row.count)}</strong></div>
+                <i className="marketing-lead-source-track"><em style={{ width: `${row.count / maxSource * 100}%` }} /></i>
+                <small>{formatNumber(row.won)} ganados · {formatNumber(row.invoiced)} con factura · {formatPercent(row.count ? row.invoiced / row.count * 100 : 0)} del origen</small>
+              </div>
+            ))}
+            {remaining > 0 ? <div className="marketing-lead-source-row">
+              <div><span>Otros orígenes</span><strong>{formatNumber(remaining)}</strong></div>
+              <i className="marketing-lead-source-track"><em style={{ width: `${remaining / maxSource * 100}%` }} /></i>
+              <small>{formatNumber(remainingInvoiced)} con factura · {formatPercent(remainingInvoiced / remaining * 100)} del grupo</small>
+            </div> : null}
+            {unknown > 0 ? <p className="marketing-lead-source-note">{formatNumber(unknown)} leads no tienen fuente de origen registrada en Odoo.</p> : null}
+          </div>
+        ) : <p className="marketing-empty-note">No hay leads creados en este periodo.</p>}
+      </article>
+      <article className="marketing-lead-comparison-card">
+        <div className="marketing-chart-heading">
+          <div>
+            <strong>Ritmo de captación</strong>
+            <p>Leads nuevos a lo largo del periodo, alineados con el corte anterior.</p>
+          </div>
+          <span className="marketing-chart-period">{formatNumber(current.created)} vs. {previousReady ? formatNumber(previous.created) : '...'}</span>
+        </div>
+        {previousReady ? (
+          <div
+            className="marketing-lead-intake-chart"
+            role="img"
+            aria-label="Leads nuevos por tramo del periodo actual y anterior"
+            style={{ '--intake-count': intake.length } as CSSProperties}
+          >
+            {intake.map((point, index) => (
+              <div className="marketing-lead-intake-column" key={`${point.label}-${index}`} title={`${point.label}: ${point.current} actuales, ${point.previous} anteriores`}>
+                <div className="marketing-lead-intake-bars">
+                  <i className="current" style={{ height: `${point.current / maxIntake * 100}%` }} />
+                  <i className="previous" style={{ height: `${point.previous / maxIntake * 100}%` }} />
+                </div>
+                <span>{point.label}</span>
+              </div>
+            ))}
+          </div>
+        ) : <p className="marketing-empty-note">Cargando el periodo anterior para comparar la captación.</p>}
+        {previousReady ? <div className="marketing-lead-comparison-legend">
+          <span><i className="current" />Actual</span>
+          <span><i className="previous" />Anterior</span>
+          <strong>{formatLeadDelta(current.created, previous.created)} vs. periodo anterior</strong>
+        </div> : null}
+      </article>
+    </div>
+  );
+}
+
+function MarketingLeadInvoiceConversion({
+  current,
+  previous,
+  previousReady,
+}: {
+  current: MarketingLeadPeriodSummary;
+  previous: MarketingLeadPeriodSummary;
+  previousReady: boolean;
+}) {
+  const rate = current.linked ? current.invoiced / current.linked * 100 : 0;
+  const previousRate = previous.linked ? previous.invoiced / previous.linked * 100 : 0;
+  const coverage = current.created ? current.linked / current.created * 100 : 0;
+  const donutStyle = {
+    '--marketing-lead-donut': `conic-gradient(#39715a 0 ${rate}%, #e2ece5 ${rate}% 100%)`,
+  } as CSSProperties;
+
+  return (
+    <div className="marketing-lead-invoice-overview">
+      <div className="marketing-lead-donut" style={donutStyle} role="img" aria-label={`${formatPercent(rate)} de leads vinculados tienen una factura coincidente`}>
+        <div><strong>{formatPercent(rate)}</strong><span>con factura</span></div>
+      </div>
+      <div className="marketing-lead-invoice-facts">
+        <div><span>Leads creados</span><strong>{formatNumber(current.created)}</strong><small>{previousReady ? formatLeadDelta(current.created, previous.created) : 'Comparación pendiente'} vs. anterior</small></div>
+        <div><span>Con cliente y vendedor vinculados</span><strong>{formatNumber(current.linked)}</strong><small>{formatPercent(coverage)} de los leads nuevos</small></div>
+        <div><span>Con factura coincidente</span><strong>{formatNumber(current.invoiced)}</strong><small>{previousReady ? `${formatLeadDelta(rate, previousRate, true)} de tasa` : 'Comparación pendiente'}</small></div>
+      </div>
+      <p>La tasa usa como base solo los leads con cliente y vendedor vinculados. Una factura se asocia a un único lead; los leads sin vínculo no se consideran ventas perdidas.</p>
+    </div>
+  );
+}
+
+function MarketingLeadSellerConversionChart({
+  current,
+  previous,
+  previousReady,
+}: {
+  current: MarketingLeadPeriodSummary;
+  previous: MarketingLeadPeriodSummary;
+  previousReady: boolean;
+}) {
+  const sellers = current.sellerRows.filter((row) => row.created > 0)
+    .sort((a, b) => b.created - a.created || a.sellerName.localeCompare(b.sellerName, 'es-MX'));
+  const max = Math.max(1, ...sellers.map((row) => row.created));
+  const previousBySeller = new Map(previous.sellerRows.map((row) => [String(row.sellerId ?? row.sellerName), row]));
+
+  return <div className="marketing-lead-seller-invoice-chart">
+    <div className="marketing-chart-heading">
+      <div><strong>Prospección por vendedor</strong><p>Leads creados y coincidencias con factura del mismo cliente y vendedor.</p></div>
+      <span className="marketing-chart-period">{formatNumber(sellers.length)} vendedores</span>
+    </div>
+    <div className="marketing-lead-seller-invoice-list">
+      {sellers.length ? sellers.map((row) => {
+        const previousRow = previousBySeller.get(String(row.sellerId ?? row.sellerName));
+        const rate = row.linked ? row.invoiced / row.linked * 100 : 0;
+        const previousRate = previousRow?.linked ? previousRow.invoiced / previousRow.linked * 100 : 0;
+        return <div className="marketing-lead-seller-invoice-row" key={`${row.sellerId ?? 'none'}-${row.sellerName}`}>
+          <div className="marketing-lead-seller-invoice-label"><strong title={row.sellerName}>{row.sellerName}</strong><small>{formatNumber(row.created)} nuevos · {formatNumber(row.invoiced)} con factura</small></div>
+          <div className="marketing-lead-seller-invoice-track" title={`${row.created} creados; ${row.invoiced} con factura`}>
+            <i style={{ width: `${row.created / max * 100}%` }} />
+            <em style={{ width: `${row.invoiced / max * 100}%` }} />
+          </div>
+          <div className="marketing-lead-seller-invoice-rate"><strong>{row.linked ? formatPercent(rate) : 'Sin vínculo'}</strong><small>{previousReady && row.linked && previousRow?.linked ? `${formatLeadDelta(rate, previousRate, true)} vs. anterior` : `${formatNumber(row.linked)} vinculados`}</small></div>
+        </div>;
+      }) : <p className="marketing-empty-note">No hay leads nuevos por vendedor en este periodo.</p>}
+    </div>
+  </div>;
+}
+
+function MarketingLeadCrmOverview({ crm }: { crm: ReturnType<typeof buildCrmMarketingInsights> }) {
+  const kpis = [
+    { label: 'Leads y oportunidades', value: formatNumber(crm.totalCount) },
+    { label: 'Abiertas', value: formatNumber(crm.openCount) },
+    { label: 'Valor esperado', value: formatCurrency(crm.pipelineAmount) },
+    { label: 'Valor esperado ponderado', value: formatCurrency(crm.weightedPipeline) },
+    { label: 'Cambios en los últimos 7 días', value: formatNumber(crm.recentChanges) },
+    { label: 'Vencidas o sin movimiento en 7 días', value: formatNumber(crm.attentionCount) },
+  ];
+  const maxAttention = Math.max(1, ...crm.attentionBySeller.map((row) => row.count));
+  return <div className="marketing-lead-crm-overview">
+    <div className="marketing-lead-crm-kpis">{kpis.map((kpi) => <div key={kpi.label}><span>{kpi.label}</span><strong>{kpi.value}</strong></div>)}</div>
+    <div className="marketing-lead-crm-charts">
+      <div className="marketing-lead-crm-funnel"><div className="marketing-chart-heading"><div><strong>Etapas de oportunidades abiertas</strong><p>Cantidad y valor esperado por etapa de los leads incluidos en el filtro.</p></div></div><MarketingFunnelChart rows={crm.funnelRows} /></div>
+      <MarketingBarChart
+        title="Seguimiento pendiente por vendedor"
+        subtitle="Leads abiertos vencidos o sin cambios recientes; cada lead se cuenta una vez."
+        rows={crm.attentionBySeller.map((row) => ({
+          label: row.sellerName,
+          meta: `${formatCurrency(row.expectedRevenue)} de valor esperado`,
+          sharePct: row.count / maxAttention * 100,
+          value: formatNumber(row.count),
+        }))}
+      />
+    </div>
+  </div>;
+}
+
+function MarketingLeadOverviewCharts({
+  current,
+  previous,
+  previousReady,
+  previousRangeLabel,
+}: {
+  current: MarketingLeadPeriodSummary;
+  previous: MarketingLeadPeriodSummary;
+  previousReady: boolean;
+  previousRangeLabel: string;
+}) {
+  const total = current.won + current.lost;
+  const donutStyle = {
+    '--marketing-lead-donut': total > 0
+      ? `conic-gradient(#39715a 0 ${current.wonRate}%, #bd685d ${current.wonRate}% 100%)`
+      : 'conic-gradient(#dfe8e3 0 100%)',
+  } as CSSProperties;
+
+  const comparisonRows = [
+    { current: current.assigned, label: 'Asignados', previous: previous.assigned, value: formatNumber },
+    { current: current.won, label: 'Ganados', previous: previous.won, value: formatNumber },
+    { current: current.lost, label: 'Perdidos', previous: previous.lost, value: formatNumber },
+    { current: current.open, label: 'En seguimiento', previous: previous.open, value: formatNumber },
+  ];
+  const maxComparison = Math.max(1, ...comparisonRows.flatMap((row) => [row.current, row.previous]));
+
+  return (
+    <div className={`marketing-lead-overview-grid${previousReady ? '' : ' is-loading'}`}>
+      <article className="marketing-lead-donut-card">
+        <div className="marketing-chart-heading">
+          <div>
+            <strong>Cierre y seguimiento</strong>
+            <p>Ganados frente a perdidos cerrados en el periodo. Los asignados son una cohorte distinta.</p>
+          </div>
+          <span className="marketing-chart-period">{formatNumber(total)} casos</span>
+        </div>
+        <div className="marketing-lead-donut-layout">
+          <div className="marketing-lead-donut" style={donutStyle}>
+            <div>
+              <strong>{formatPercent(current.wonRate)}</strong>
+              <span>cierre</span>
+            </div>
+          </div>
+          <div className="marketing-lead-donut-legend">
+            <div><i className="won" /><span>Ganados en el corte</span><strong>{formatNumber(current.won)}</strong></div>
+            <div><i className="lost" /><span>Perdidos en el corte</span><strong>{formatNumber(current.lost)}</strong></div>
+            <div><i className="open" /><span>Asignados en seguimiento</span><strong>{formatNumber(current.open)}</strong></div>
+          </div>
+        </div>
+      </article>
+
+      <article className="marketing-lead-comparison-card">
+        <div className="marketing-chart-heading">
+          <div>
+            <strong>Tendencia contra el periodo anterior</strong>
+            <p>{previousReady ? `Las barras comparan cada indicador con ${previousRangeLabel}.` : 'El periodo actual ya está disponible; el anterior se añade al terminar la consulta.'}</p>
+          </div>
+          <span className="marketing-chart-period">{previousReady ? 'Actual vs anterior' : 'Periodo actual'}</span>
+        </div>
+        <div className="marketing-lead-comparison-chart">
+          {comparisonRows.map((row) => (
+            <div className="marketing-lead-comparison-row" key={row.label}>
+              <div className="marketing-lead-comparison-label">
+                <span>{row.label}</span>
+                <strong>{row.value(row.current)}</strong>
+              </div>
+              <div className="marketing-lead-dual-track">
+                <i className="current" style={{ width: `${row.current / maxComparison * 100}%` }} />
+                {previousReady ? <i className="previous" style={{ width: `${row.previous / maxComparison * 100}%` }} /> : null}
+              </div>
+              <span className="marketing-lead-comparison-delta">{previousReady ? formatLeadDelta(row.current, row.previous) : '—'}</span>
+            </div>
+          ))}
+        </div>
+        <div className="marketing-lead-comparison-legend">
+          <span><i className="current" />Periodo seleccionado</span>
+          {previousReady ? <span><i className="previous" />Periodo anterior</span> : null}
+        </div>
+      </article>
+    </div>
+  );
+}
+
+function MarketingLeadBillingTrendChart({
+  current,
+  previous,
+  previousRangeLabel,
+}: {
+  current: MarketingLeadPeriodSummary;
+  previous: MarketingLeadPeriodSummary;
+  previousRangeLabel: string;
+}) {
+  const values = [previous.billedAmount, current.billedAmount];
+  const max = Math.max(1, ...values);
+  const points = values.map((value, index) => {
+    const x = index === 0 ? 42 : 258;
+    const y = 126 - (value / max) * 88;
+    return `${x},${Math.max(28, y)}`;
+  });
+
+  return (
+    <div className="marketing-lead-billing-trend">
+      <div className="marketing-lead-billing-trend-summary">
+        <div>
+          <span>Facturación actual</span>
+          <strong>{formatCurrency(current.billedAmount)}</strong>
+          <small>{formatLeadDelta(current.billedAmount, previous.billedAmount)} vs periodo anterior</small>
+        </div>
+        <div>
+          <span>Periodo anterior</span>
+          <strong>{formatCurrency(previous.billedAmount)}</strong>
+          <small>{previousRangeLabel}</small>
+        </div>
+      </div>
+      <div className="marketing-lead-billing-svg-wrap">
+        <svg viewBox="0 0 300 160" role="img" aria-label="Tendencia de facturación de clientes con lead contra el periodo anterior">
+          <defs>
+            <linearGradient id="marketing-billing-gradient" x1="0" x2="1">
+              <stop offset="0%" stopColor="#9aaca3" />
+              <stop offset="100%" stopColor="#39715a" />
+            </linearGradient>
+          </defs>
+          <line x1="28" y1="126" x2="272" y2="126" className="axis" />
+          <line x1="28" y1="82" x2="272" y2="82" className="grid" />
+          <line x1="28" y1="38" x2="272" y2="38" className="grid" />
+          <polyline points={points.join(' ')} className="trend-line" style={{ stroke: 'url(#marketing-billing-gradient)' }} />
+          {points.map((point, index) => {
+            const [x, y] = point.split(',');
+            return <circle key={`${index}-${point}`} cx={x} cy={y} r="5" className={`trend-point ${index === 0 ? 'previous' : 'current'}`} />;
+          })}
+          <text x="42" y="148" textAnchor="middle">Anterior</text>
+          <text x="258" y="148" textAnchor="middle">Actual</text>
+        </svg>
+        <div className="marketing-lead-comparison-legend">
+          <span><i className="previous" />Periodo anterior</span>
+          <span><i className="current" />Periodo actual</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type MarketingAgentScore = {
+  dimensions: Array<{ label: string; score: number }>;
+  rating: string;
+  summary: string;
+  tone: 'good' | 'warning' | 'risk';
+  total: number;
+};
+
+function buildMarketingAgentScore(
+  current: MarketingLeadPeriodSummary,
+  previous: MarketingLeadPeriodSummary,
+): MarketingAgentScore {
+  const handlingScore = current.created > 0 ? (current.invoiced / current.created) * 100 : 0;
+  const followUpScore = current.assigned > 0 ? ((current.assigned - current.open) / current.assigned) * 100 : 0;
+  const billingTrendScore = previous.billedAmount <= 0
+    ? (current.billedAmount > 0 ? 100 : 0)
+    : clampNumber(50 + ((current.billedAmount - previous.billedAmount) / previous.billedAmount) * 50, 0, 100);
+  const dimensions = [
+    { label: 'Conversión de leads', score: current.wonRate },
+    { label: 'De lead a factura', score: handlingScore },
+    { label: 'Seguimiento', score: followUpScore },
+    { label: 'Tendencia de facturación', score: billingTrendScore },
+  ];
+  const total = Math.round(
+    dimensions[0].score * 0.4 +
+    dimensions[1].score * 0.25 +
+    dimensions[2].score * 0.2 +
+    dimensions[3].score * 0.15,
+  );
+  const tone = total >= 75 ? 'good' : total >= 55 ? 'warning' : 'risk';
+  const rating = total >= 85 ? 'Excelente' : total >= 75 ? 'Sólido' : total >= 55 ? 'En desarrollo' : 'Requiere atención';
+
+  return {
+    dimensions: dimensions.map((dimension) => ({ ...dimension, score: Math.round(clampNumber(dimension.score, 0, 100)) })),
+    rating,
+    summary: total >= 75
+      ? 'El embudo muestra un desempeño saludable; mantén la cadencia y enfoca las mejoras en los leads pendientes.'
+      : 'Hay oportunidad de mejorar el seguimiento y la conversión antes de ampliar el volumen de leads.',
+    tone,
+    total: clampNumber(total, 0, 100),
+  };
+}
+
+function MarketingAgentProfileCard({
+  current,
+  score,
+}: {
+  current: MarketingLeadPeriodSummary;
+  score: MarketingAgentScore;
+}) {
+  return (
+    <div className={`marketing-agent-profile-card score-${score.tone}`}>
+      <div className="marketing-agent-score-ring" style={{ '--marketing-score': `${score.total * 3.6}deg` } as CSSProperties}>
+        <div><strong>{score.total}</strong><span>de 100</span></div>
+      </div>
+      <div className="marketing-agent-profile-copy">
+        <span>Calificación del CRM filtrado</span>
+        <h3>{score.rating}</h3>
+        <p>{score.summary}</p>
+        <small>{formatNumber(current.assigned)} leads · {formatNumber(current.won)} ganados · {formatCurrency(current.billedAmount)} atribuible</small>
+      </div>
+      <div className="marketing-agent-score-dimensions">
+        {score.dimensions.map((dimension) => (
+          <div key={dimension.label}>
+            <span>{dimension.label}<b>{dimension.score}</b></span>
+            <i><em style={{ width: `${dimension.score}%` }} /></i>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MarketingAgentProfileModal({
+  current,
+  onClose,
+  score,
+}: {
+  current: MarketingLeadPeriodSummary;
+  onClose: () => void;
+  score: MarketingAgentScore;
+}) {
+  return (
+    <div className="modal-backdrop marketing-agent-profile-backdrop" role="dialog" aria-modal="true" aria-label="Calificación del CRM filtrado">
+      <article className="modal-card marketing-agent-profile-modal">
+        <header className="modal-head">
+          <div>
+            <span>Desempeño comercial del CRM</span>
+            <h2>Calificación del CRM filtrado</h2>
+            <p>Resultado de los leads y vendedores seleccionados, comparado con el periodo anterior. No atribuye individualmente estos resultados al agente de marketing.</p>
+          </div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Cerrar perfil"><X size={18} /></button>
+        </header>
+        <MarketingAgentProfileCard current={current} score={score} />
+      </article>
+    </div>
+  );
+}
+
+function MarketingLeadDecisionCards({
+  current,
+  previous,
+}: {
+  current: MarketingLeadPeriodSummary;
+  previous: MarketingLeadPeriodSummary;
+}) {
+  const followUpShare = current.assigned > 0 ? (current.open / current.assigned) * 100 : 0;
+  const previousFollowUpShare = previous.assigned > 0 ? (previous.open / previous.assigned) * 100 : 0;
+  const cards = [
+    {
+      label: 'Facturación de clientes con lead',
+      value: formatCurrency(current.billedAmount),
+      delta: formatLeadDelta(current.billedAmount, previous.billedAmount),
+      note: 'Facturas del corte, sin duplicar clientes',
+    },
+    {
+      label: 'Presión de seguimiento',
+      value: formatPercent(followUpShare),
+      delta: formatLeadDelta(followUpShare, previousFollowUpShare, true),
+      note: 'Leads que aún requieren acción',
+    },
+    {
+      label: 'Ganados y perdidos',
+      value: formatNumber(current.won + current.lost),
+      delta: formatLeadDelta(current.won + current.lost, previous.won + previous.lost),
+      note: 'Cierres ganados y perdidos en el corte',
+    },
+  ];
+
+  return (
+    <div className="marketing-lead-decision-cards">
+      {cards.map((card) => (
+        <article key={card.label}>
+          <span>{card.label}</span>
+          <strong>{card.value}</strong>
+          <small>{card.delta} vs periodo anterior</small>
+          <p>{card.note}</p>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function MarketingLeadPerformanceChart({ current }: { current: MarketingLeadPeriodSummary }) {
+  if (!current.sellerRows.length) {
+    return <p className="marketing-empty-note">No hay leads asignados en el periodo seleccionado.</p>;
+  }
+  const maxAssigned = Math.max(1, ...current.sellerRows.map((row) => row.won + row.lost + row.open));
+
+  return (
+    <div className="marketing-lead-performance-chart">
+      <p className="marketing-chart-caveat">Los ganados y perdidos pueden provenir de asignaciones de otros periodos.</p>
+      <div className="marketing-lead-chart-legend">
+        <span><i className="won" />Ganados</span>
+        <span><i className="lost" />Perdidos</span>
+        <span><i className="open" />En seguimiento</span>
+      </div>
+      {current.sellerRows.map((row) => (
+        <div className="marketing-lead-performance-row" key={`${row.sellerId ?? 'none'}-${row.sellerName}`}>
+          <div className="marketing-lead-performance-label">
+            <strong>{row.sellerName}</strong>
+            <small>{formatNumber(row.assigned)} asignados · {formatCurrency(row.billedAmount)} facturado</small>
+          </div>
+          <div className="marketing-lead-performance-track" aria-label={`${row.sellerName}: ${formatPercent(row.wonRate)} de cumplimiento`}>
+            <i className="won" style={{ width: `${Math.max(0, row.won / maxAssigned * 100)}%` }} />
+            <i className="lost" style={{ width: `${Math.max(0, row.lost / maxAssigned * 100)}%` }} />
+            <i className="open" style={{ width: `${Math.max(0, row.open / maxAssigned * 100)}%` }} />
+          </div>
+          <strong className="marketing-lead-performance-rate">{formatPercent(row.wonRate)}</strong>
+        </div>
+      ))}
     </div>
   );
 }
@@ -843,6 +1666,47 @@ function MarketingBarChart({
   );
 }
 
+function MarketingSegmentDonutChart({ segments }: { segments: MarketingViewModel['segments'] }) {
+  const colors = ['#39715a', '#be805e', '#6e90a4', '#aa9a68', '#b76d74'];
+  const visible = segments.filter((segment) => segment.customers > 0).slice(0, 5);
+  const total = segments.reduce((sum, segment) => sum + segment.customers, 0);
+  let offset = 0;
+  const stops = visible.map((segment, index) => {
+    const start = offset;
+    offset += total ? segment.customers / total * 100 : 0;
+    return `${colors[index]} ${start}% ${offset}%`;
+  });
+  if (offset < 100) stops.push(`#e1e8e1 ${offset}% 100%`);
+
+  return <article className="marketing-chart-card marketing-segment-chart">
+    <div className="reports-info-copy"><strong>Clientes por segmento</strong><p>Audiencias RFM para decidir retención, recompra y recuperación.</p></div>
+    <div className="marketing-segment-layout">
+      <div className="marketing-segment-ring" style={{ background: total ? `conic-gradient(${stops.join(', ')})` : '#e1e8e1' }} role="img" aria-label={`${formatNumber(total)} clientes segmentados`}>
+        <div><strong>{formatNumber(total)}</strong><span>clientes</span></div>
+      </div>
+      <div className="marketing-segment-legend">
+        {visible.map((segment, index) => <div key={segment.label}><i style={{ background: colors[index] }} /><span>{segment.label}</span><strong>{segment.shareLabel}</strong></div>)}
+      </div>
+    </div>
+  </article>;
+}
+
+function MarketingMethodChart({ marketing, title }: { marketing: MarketingViewModel; title: string }) {
+  const rows = title === 'RFM para segmentación'
+    ? marketing.segmentBars
+    : title === 'Pareto comercial'
+      ? marketing.decisionDetails.audiences.chartRows
+      : title === 'Pipeline ponderado'
+        ? marketing.leads.crm.funnelRows.map((row) => ({ label: row.label, value: row.amount, sharePct: row.sharePct, meta: row.value }))
+        : marketing.leads.crm.attentionBySeller.slice(0, 5).map((row) => ({
+          label: row.sellerName,
+          value: formatNumber(row.count),
+          sharePct: row.count / Math.max(1, marketing.leads.crm.attentionBySeller[0]?.count ?? 1) * 100,
+          meta: `${formatCurrency(row.expectedRevenue)} esperado`,
+        }));
+  return <MarketingBarChart rows={rows} title={title === 'Higiene de leads' ? 'Seguimiento por vendedor' : 'Distribución visible'} subtitle="Detalle visual del indicador" />;
+}
+
 function MarketingFunnelChart({ rows }: { rows: MarketingFunnelRow[] }) {
   return (
     <div className="marketing-funnel">
@@ -941,7 +1805,7 @@ function MarketingRowsModal({
           <div className="marketing-insight-table-head">
             <div className="reports-info-copy">
               <strong>{formatNumber(visibleRows.length)} de {formatNumber(detail.tableRows.length)} registros disponibles</strong>
-              <p>Clientes, vendedores, productos, contacto y contexto asociados al indicador seleccionado.</p>
+              <p>Registros de Odoo y contexto asociados al indicador seleccionado.</p>
             </div>
             <button
               type="button"
@@ -1234,6 +2098,7 @@ type MarketingViewModel = {
   };
   highValueCustomers: MarketingRankRow[];
   kpis: Array<{ label: string; value: string }>;
+  leads: MarketingLeadsAnalytics;
   methods: Array<{
     action: string;
     csvRows?: MarketingMiniRow[];
@@ -1276,6 +2141,7 @@ type MarketingMiniRow = {
   customerName?: string | null;
   email?: string | null;
   label: string;
+  leadId?: number;
   meta?: string;
   phone?: string | null;
   products?: string | null;
@@ -1328,9 +2194,54 @@ type MarketingInsightModalData = {
   type: 'method' | 'executive' | 'notification';
 };
 
+type MarketingLeadSellerRow = {
+  assigned: number;
+  billedAmount: number;
+  created: number;
+  invoiced: number;
+  linked: number;
+  lost: number;
+  open: number;
+  sellerId: number | null;
+  sellerName: string;
+  won: number;
+  wonRate: number;
+};
+
+type MarketingLeadPeriodSummary = {
+  assigned: number;
+  billedAmount: number;
+  created: number;
+  invoiced: number;
+  linked: number;
+  lost: number;
+  open: number;
+  sellerRows: MarketingLeadSellerRow[];
+  sourceReady: boolean;
+  sourceRows: MarketingLeadSourceRow[];
+  won: number;
+  wonRate: number;
+};
+
+type MarketingLeadsAnalytics = {
+  crm: ReturnType<typeof buildCrmMarketingInsights>;
+  current: MarketingLeadPeriodSummary;
+  kpiDetails: Record<MarketingLeadKpiKey, MarketingDecisionDetailModel>;
+  currentRows: MarketingMiniRow[];
+  currentRangeLabel: string;
+  intake: MarketingLeadIntakePoint[];
+  previous: MarketingLeadPeriodSummary;
+  previousReady: boolean;
+  previousRangeLabel: string;
+};
+
+type MarketingLeadKpiKey = 'assigned' | 'won' | 'lost' | 'billed' | 'wonRate' | 'open';
+
 function buildMarketingViewModel(
   snapshot: ReturnType<typeof buildCommercialDashboard>,
   dataset: OdooCommercialDataset,
+  previousFilters: ReportFilters | null = null,
+  previousDataset: OdooCommercialDataset | null = null,
 ): MarketingViewModel {
   const totalClients = snapshot.clientLifecycle.rows.length;
   const atRisk = snapshot.clientLifecycle.summary.atRiskCustomers;
@@ -1338,8 +2249,14 @@ function buildMarketingViewModel(
   const topProducts = snapshot.products.topByRevenue.slice(0, 6);
   const topProduct = topProducts[0] ?? null;
   const conversion = snapshot.conversion.overall.current;
+  const leads = buildMarketingLeadsAnalytics({
+    dataset,
+    filters: snapshot.filters,
+    previousDataset,
+    previousFilters,
+  });
   const concentration = snapshot.pareto.customers.rows.slice(0, 5).reduce((sum, row) => sum + row.individualPct, 0);
-  const crm = buildCrmMarketingInsights(dataset.crmLeads ?? []);
+  const crm = buildCrmMarketingInsights(marketingLeadsForPeriod(dataset, snapshot.filters), snapshot.filters.endDate);
   const customerContactIndex = buildCustomerContactIndex(dataset);
   const atRiskShare = totalClients > 0 ? (atRisk / totalClients) * 100 : 0;
   const healthScore = calculateMarketingHealthScore({
@@ -1475,6 +2392,7 @@ function buildMarketingViewModel(
       { label: 'Leads u oportunidades activas', value: formatNumber(crm.openCount) },
       { label: 'Oportunidades sin seguimiento', value: formatNumber(crm.staleCount) },
     ],
+    leads,
     categoryBars,
     categoryCampaignRows: categoryCustomerRows,
     crmKpis: [
@@ -1796,8 +2714,244 @@ function buildMarketingViewModel(
   };
 }
 
-function buildCrmMarketingInsights(leads: OdooCrmLeadRecord[]) {
-  const today = new Date();
+function buildMarketingLeadsAnalytics({
+  dataset,
+  filters,
+  previousDataset,
+  previousFilters,
+}: {
+  dataset: OdooCommercialDataset;
+  filters: ReportFilters;
+  previousDataset: OdooCommercialDataset | null;
+  previousFilters: ReportFilters | null;
+}): MarketingLeadsAnalytics {
+  const current = summarizeMarketingLeadPeriod(dataset, filters);
+  const previous = previousDataset && previousFilters
+    ? summarizeMarketingLeadPeriod(previousDataset, previousFilters)
+    : emptyMarketingLeadPeriod();
+
+  return {
+    crm: buildCrmMarketingInsights(marketingLeadsForPeriod(dataset, filters), filters.endDate),
+    current,
+    currentRows: buildMarketingLeadRows(dataset, filters),
+    kpiDetails: buildMarketingLeadKpiDetails(dataset, filters),
+    currentRangeLabel: formatPeriodLabel(filters.startDate, filters.endDate),
+    intake: previousDataset && previousFilters
+      ? buildMarketingLeadIntakeSeries(
+          marketingNewLeadsForPeriod(marketingLeadsForPeriod(dataset, filters), filters),
+          filters,
+          marketingNewLeadsForPeriod(marketingLeadsForPeriod(previousDataset, previousFilters), previousFilters),
+          previousFilters,
+        )
+      : [],
+    previous,
+    previousReady: Boolean(previousDataset && previousFilters),
+    previousRangeLabel: previousFilters
+      ? formatPeriodLabel(previousFilters.startDate, previousFilters.endDate)
+      : 'Periodo anterior pendiente de cargar',
+  };
+}
+
+function summarizeMarketingLeadPeriod(
+  dataset: OdooCommercialDataset,
+  filters: ReportFilters,
+): MarketingLeadPeriodSummary {
+  const leads = dataset.crmLeads ?? [];
+  const assignedLeads = marketingAssignedLeadsForPeriod(leads, filters);
+  const wonLeads = marketingWonLeadsForPeriod(leads, filters);
+  const lostLeads = marketingLostLeadsForPeriod(leads, filters);
+  const wonIds = new Set(wonLeads.map((lead) => lead.id));
+  const lostIds = new Set(lostLeads.map((lead) => lead.id));
+  const assignedIds = new Set(assignedLeads.map((lead) => lead.id));
+  const openLeads = assignedLeads.filter((lead) => lead.active && !wonIds.has(lead.id) && !lostIds.has(lead.id) &&
+    !(lead.stageIsWon ?? lead.probability >= 100) && !isClosedStage(lead.stageName));
+  const openIds = new Set(openLeads.map((lead) => lead.id));
+  const createdLeads = marketingNewLeadsForPeriod(leads, filters);
+  const createdIds = new Set(createdLeads.map((lead) => lead.id));
+  const invoicedLeadIds = matchMarketingLeadsToInvoices(createdLeads, dataset, filters);
+  const leadBilling = sumMarketingLeadCustomerInvoices(leads, dataset, filters);
+  const rows = new Map<string, MarketingLeadSellerRow>();
+
+  leads.forEach((lead) => {
+    if (!assignedIds.has(lead.id) && !wonIds.has(lead.id) && !lostIds.has(lead.id) &&
+      !createdIds.has(lead.id) && !(lead.sellerId && leadBilling.bySeller.has(lead.sellerId))) return;
+    const sellerName = lead.sellerName || 'Sin vendedor';
+    const key = String(lead.sellerId ?? 'none');
+    const existing = rows.get(key) ?? {
+      assigned: 0,
+      billedAmount: 0,
+      created: 0,
+      invoiced: 0,
+      linked: 0,
+      lost: 0,
+      open: 0,
+      sellerId: lead.sellerId,
+      sellerName,
+      won: 0,
+      wonRate: 0,
+    };
+    if (assignedIds.has(lead.id)) existing.assigned += 1;
+    if (createdIds.has(lead.id)) {
+      existing.created += 1;
+      if (lead.customerId && lead.sellerId) existing.linked += 1;
+      if (invoicedLeadIds.has(lead.id)) existing.invoiced += 1;
+    }
+    if (wonIds.has(lead.id)) existing.won += 1;
+    if (lostIds.has(lead.id)) existing.lost += 1;
+    if (openIds.has(lead.id)) existing.open += 1;
+    rows.set(key, existing);
+  });
+
+  marketingLeadCustomerInvoiceRows(leads, dataset, filters).forEach((invoice) => {
+    if (!invoice.sellerId || rows.has(String(invoice.sellerId))) return;
+    rows.set(String(invoice.sellerId), {
+      assigned: 0,
+      billedAmount: 0,
+      created: 0,
+      invoiced: 0,
+      linked: 0,
+      lost: 0,
+      open: 0,
+      sellerId: invoice.sellerId,
+      sellerName: invoice.sellerName || 'Sin vendedor',
+      won: 0,
+      wonRate: 0,
+    });
+  });
+
+  rows.forEach((row) => {
+    row.billedAmount = row.sellerId ? leadBilling.bySeller.get(row.sellerId) ?? 0 : 0;
+    row.wonRate = row.won + row.lost > 0 ? (row.won / (row.won + row.lost)) * 100 : 0;
+  });
+
+  return {
+    assigned: assignedLeads.length,
+    billedAmount: leadBilling.total,
+    created: createdLeads.length,
+    invoiced: invoicedLeadIds.size,
+    linked: createdLeads.filter((lead) => lead.customerId && lead.sellerId).length,
+    lost: lostLeads.length,
+    open: openLeads.length,
+    sellerRows: [...rows.values()].sort((left, right) =>
+      right.won - left.won || right.wonRate - left.wonRate || right.assigned - left.assigned || left.sellerName.localeCompare(right.sellerName, 'es-MX'),
+    ),
+    sourceReady: createdLeads.every((lead) => Object.prototype.hasOwnProperty.call(lead, 'sourceName')),
+    sourceRows: buildMarketingLeadSourceRows(createdLeads, (lead) => wonIds.has(lead.id), invoicedLeadIds),
+    won: wonLeads.length,
+    wonRate: wonLeads.length + lostLeads.length > 0
+      ? (wonLeads.length / (wonLeads.length + lostLeads.length)) * 100 : 0,
+  };
+}
+
+function emptyMarketingLeadPeriod(): MarketingLeadPeriodSummary {
+  return {
+    assigned: 0,
+    billedAmount: 0,
+    created: 0,
+    invoiced: 0,
+    linked: 0,
+    lost: 0,
+    open: 0,
+    sellerRows: [],
+    sourceReady: true,
+    sourceRows: [],
+    won: 0,
+    wonRate: 0,
+  };
+}
+
+function buildMarketingLeadRows(dataset: OdooCommercialDataset, filters: ReportFilters): MarketingMiniRow[] {
+  const invoicesByCustomer = buildMarketingInvoiceCustomerIndex(dataset, filters);
+  const allLeads = dataset.crmLeads ?? [];
+  const assignedIds = new Set(marketingAssignedLeadsForPeriod(allLeads, filters).map((lead) => lead.id));
+  const wonIds = new Set(marketingWonLeadsForPeriod(allLeads, filters).map((lead) => lead.id));
+  const lostIds = new Set(marketingLostLeadsForPeriod(allLeads, filters).map((lead) => lead.id));
+  return allLeads.filter((lead) => assignedIds.has(lead.id) || wonIds.has(lead.id) || lostIds.has(lead.id))
+    .map((lead) => {
+      const billedAmount = lead.customerId ? invoicesByCustomer.get(lead.customerId)?.amount ?? 0 : 0;
+      const statusLabel = wonIds.has(lead.id)
+        ? 'Ganado en el periodo'
+        : lostIds.has(lead.id)
+          ? 'Perdido en el periodo'
+          : 'Asignado en el periodo';
+      const referenceDate = parseDate(lead.closedDate ?? lead.writeDate ?? lead.createDate);
+      const days = referenceDate ? Math.max(0, daysBetween(referenceDate, parseDate(filters.endDate) ?? new Date())) : null;
+      return {
+        customerName: lead.customerName,
+        email: lead.emailFrom,
+        label: lead.name || lead.customerName || `Lead ${lead.id}`,
+        leadId: lead.id,
+        meta: [
+          `CRM #${lead.id}`,
+          lead.sellerName ? `Vendedor: ${lead.sellerName}` : null,
+          lead.customerName ? `Cliente: ${lead.customerName}` : null,
+          lead.stageName ? `Etapa: ${lead.stageName}` : null,
+          lead.assignmentDate ? `Asignación: ${marketingCrmDateKey(lead.assignmentDate)}` : null,
+          (wonIds.has(lead.id) || lostIds.has(lead.id)) && lead.closedDate ? `Cierre: ${marketingCrmDateKey(lead.closedDate)}` : null,
+          lostIds.has(lead.id) && lead.lostReasonName ? `Motivo: ${lead.lostReasonName}` : null,
+          lead.deadlineDate ? `Fecha límite: ${lead.deadlineDate}` : null,
+          days !== null ? `${formatNumber(days)} días desde última actividad` : null,
+          `Esperado: ${formatCurrency(Math.max(0, lead.expectedRevenue))}`,
+          billedAmount ? 'La facturación del cliente puede figurar en más de un lead; el KPI no la duplica.' : null,
+        ].filter(Boolean).join(' · '),
+        phone: lead.phone,
+        seller: lead.sellerName ?? 'Sin vendedor',
+        status: statusLabel,
+        value: `${statusLabel} · ${formatCurrency(billedAmount)} facturado`,
+      };
+    })
+    .sort((left, right) => left.status === 'Perdido en el periodo' ? -1 : right.status === 'Perdido en el periodo' ? 1 : left.label.localeCompare(right.label, 'es-MX'));
+}
+
+function buildMarketingLeadKpiDetails(
+  dataset: OdooCommercialDataset,
+  filters: ReportFilters,
+): Record<MarketingLeadKpiKey, MarketingDecisionDetailModel> {
+  const leads = dataset.crmLeads ?? [];
+  const assigned = marketingAssignedLeadsForPeriod(leads, filters);
+  const won = marketingWonLeadsForPeriod(leads, filters);
+  const lost = marketingLostLeadsForPeriod(leads, filters);
+  const open = assigned.filter((lead) => lead.active && !(lead.stageIsWon ?? lead.probability >= 100) &&
+    !isClosedStage(lead.stageName));
+  const rowsByLead = new Map(buildMarketingLeadRows(dataset, filters).map((row) => [row.leadId, row]));
+  const leadRows = (selected: typeof leads) => selected.map((lead) => rowsByLead.get(lead.id)).filter((row): row is MarketingMiniRow => Boolean(row));
+  const invoiceRows: MarketingMiniRow[] = marketingLeadCustomerInvoiceRows(leads, dataset, filters).map((invoice) => ({
+    customerId: invoice.customerId,
+    customerName: invoice.customerName,
+    label: invoice.name || `Factura #${invoice.id}`,
+    meta: [
+      `account.move #${invoice.id}`,
+      `Fecha de factura: ${invoice.invoiceDate}`,
+      invoice.moveType === 'out_refund' ? 'Nota de crédito' : 'Factura de cliente',
+      invoice.companyName ? `Compañía: ${invoice.companyName}` : null,
+      invoice.customerName ? `Cliente: ${invoice.customerName}` : null,
+      invoice.sellerName ? `Vendedor: ${invoice.sellerName}` : null,
+      `Estado: ${invoice.state}`,
+    ].filter(Boolean).join(' · '),
+    seller: invoice.sellerName,
+    status: invoice.moveType === 'out_refund' ? 'Nota de crédito' : 'Factura',
+    value: formatCurrency(invoice.untaxedAmountSigned),
+  }));
+  const make = (title: string, description: string, tableRows: MarketingMiniRow[]): MarketingDecisionDetailModel => ({
+    title,
+    description: `${description} Periodo: ${formatPeriodLabel(filters.startDate, filters.endDate)}. Se respetan los filtros de compañía y vendedor aplicados arriba.`,
+    tableRows,
+    chartRows: [],
+    chartTitle: title,
+    chartSubtitle: '',
+  });
+  return {
+    assigned: make('Leads asignados', 'crm.lead con vendedor y date_open (fecha de asignación) dentro del periodo; incluye leads creados antes y los que después fueron archivados.', leadRows(assigned)),
+    won: make('Leads ganados', 'crm.lead activo en etapa ganada (crm.stage.is_won) y date_closed dentro del periodo, sin importar la fecha de creación.', leadRows(won)),
+    lost: make('Leads perdidos', 'Filtro Odoo Lost: active = false, probability = 0 y date_closed dentro del periodo. El motivo de pérdida se muestra cuando está registrado.', leadRows(lost)),
+    billed: make('Facturación sin impuestos', 'account.move publicado de tipo factura o nota de crédito de cliente, con invoice_date dentro del periodo y cliente vinculado a un lead creado antes de la factura. Cada documento se suma una sola vez; la asociación por cliente no demuestra causalidad del lead.', invoiceRows),
+    wonRate: make('Cumplimiento de cierre', 'Leads ganados / (ganados + perdidos), usando exclusivamente cierres ocurridos dentro del periodo. El mismo lead puede haber sido asignado en otro periodo.', leadRows([...won, ...lost])),
+    open: make('En seguimiento', 'De los leads asignados en el periodo, aquellos que permanecen activos y no están en etapa ganada al momento de consultar. Es un estado actual de esa cohorte, no una reconstrucción histórica.', leadRows(open)),
+  };
+}
+
+function buildCrmMarketingInsights(leads: OdooCrmLeadRecord[], periodEnd: string) {
+  const today = new Date(`${periodEnd}T12:00:00Z`);
   const activeLeads = leads.filter((lead) => lead.active !== false);
   const openLeads = activeLeads.filter((lead) => !lead.closedDate && !isClosedStage(lead.stageName));
   const pipelineAmount = openLeads.reduce((sum, lead) => sum + Math.max(0, lead.expectedRevenue), 0);
@@ -1807,7 +2961,7 @@ function buildCrmMarketingInsights(leads: OdooCrmLeadRecord[]) {
   );
   const recentChanges = activeLeads.filter((lead) => {
     const date = parseDate(lead.writeDate ?? lead.createDate);
-    return date ? daysBetween(date, today) <= 7 : false;
+    return date ? daysBetween(date, today) >= 0 && daysBetween(date, today) <= 7 : false;
   }).length;
   const staleLeads = openLeads.filter((lead) => {
     const lastUpdate = parseDate(lead.writeDate ?? lead.createDate);
@@ -1835,14 +2989,14 @@ function buildCrmMarketingInsights(leads: OdooCrmLeadRecord[]) {
     sharePct: (row.rawValue / maxStageCount) * 100,
     value: `${formatNumber(row.rawValue)} oportunidades`,
   }));
-  const followUps = [...staleLeads, ...overdueLeads]
+  const attentionLeads = [...staleLeads, ...overdueLeads]
     .filter((lead, index, rows) => rows.findIndex((row) => row.id === lead.id) === index)
     .sort((left, right) => {
       const leftDeadline = parseDate(left.deadlineDate)?.getTime() ?? Number.MAX_SAFE_INTEGER;
       const rightDeadline = parseDate(right.deadlineDate)?.getTime() ?? Number.MAX_SAFE_INTEGER;
       return leftDeadline - rightDeadline || right.expectedRevenue - left.expectedRevenue;
-    })
-    .slice(0, 8)
+    });
+  const followUps = attentionLeads.slice(0, 8)
     .map((lead) => {
       const contact = [lead.emailFrom, lead.phone].filter(Boolean).join(' · ');
       const lastUpdate = parseDate(lead.writeDate ?? lead.createDate);
@@ -1863,6 +3017,13 @@ function buildCrmMarketingInsights(leads: OdooCrmLeadRecord[]) {
         value: `${lead.sellerName ?? 'Sin vendedor'} · ${formatCurrency(lead.expectedRevenue)}`,
       };
     });
+  const attentionBySeller = Array.from(groupBy(attentionLeads, (lead) => lead.sellerName || 'Sin vendedor').entries())
+    .map(([sellerName, rows]) => ({
+      sellerName,
+      count: rows.length,
+      expectedRevenue: rows.reduce((sum, lead) => sum + Math.max(0, lead.expectedRevenue), 0),
+    }))
+    .sort((a, b) => b.count - a.count || a.sellerName.localeCompare(b.sellerName, 'es-MX'));
   const sellerRows = Array.from(groupBy(staleLeads, (lead) => lead.sellerName || 'Sin vendedor').entries())
     .map(([sellerName, rows]) => ({
       label: sellerName,
@@ -1875,6 +3036,8 @@ function buildCrmMarketingInsights(leads: OdooCrmLeadRecord[]) {
     .map(({ label, meta, value }) => ({ label, meta, value }));
 
   return {
+    attentionCount: attentionLeads.length,
+    attentionBySeller,
     followUps,
     openCount: openLeads.length,
     overdueCount: overdueLeads.length,
@@ -2529,42 +3692,6 @@ function marketingClientStatusPriority(status: string) {
   return 0;
 }
 
-function buildMarketingFilters(visibilityScope: ReportVisibilityScope): ReportFilters {
-  const today = new Date();
-  const endDate = today.toISOString().slice(0, 10);
-  const startDate = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-01`;
-
-  return {
-    startDate,
-    endDate,
-    companyId: null,
-    companyIds: [],
-    sellerId: null,
-    sellerIds: [],
-    teamId: null,
-    customerId: null,
-    productId: null,
-    categoryId: null,
-    currencyCode: null,
-    channel: null,
-    stateScope: 'all',
-    grouping: 'month',
-    visibilityScope,
-  };
-}
-
-function buildPreviousMonthMarketingFilters(filters: ReportFilters): ReportFilters {
-  const currentStart = new Date(`${filters.startDate}T00:00:00.000Z`);
-  const previousStart = new Date(Date.UTC(currentStart.getUTCFullYear(), currentStart.getUTCMonth() - 1, 1));
-  const previousEnd = new Date(Date.UTC(currentStart.getUTCFullYear(), currentStart.getUTCMonth(), 0));
-
-  return {
-    ...filters,
-    startDate: previousStart.toISOString().slice(0, 10),
-    endDate: previousEnd.toISOString().slice(0, 10),
-  };
-}
-
 function groupBy<T>(rows: T[], keyGetter: (row: T) => string) {
   const grouped = new Map<string, T[]>();
   rows.forEach((row) => {
@@ -2608,45 +3735,65 @@ function formatPeriodLabel(startDate: string, endDate: string) {
   return `${formatter.format(new Date(`${startDate}T00:00:00.000Z`))} - ${formatter.format(new Date(`${endDate}T00:00:00.000Z`))}`;
 }
 
-function buildMarketingMonthlyReportHtml(marketing: MarketingViewModel, periodLabel: string) {
-  const listItems = (rows: MarketingRankRow[] | MarketingMiniRow[]) => rows
-    .slice(0, 10)
-    .map((row) => `<tr><td>${escapeHtml(row.label)}</td><td>${escapeHtml(readMarketingRowTextField(row, 'seller'))}</td><td>${escapeHtml(readMarketingRowTextField(row, 'products'))}</td><td>${escapeHtml(row.value)}</td><td>${escapeHtml(readMarketingRowTextField(row, 'email'))}</td><td>${escapeHtml(readMarketingRowTextField(row, 'phone'))}</td><td>${escapeHtml(readMarketingRowTextField(row, 'address'))}</td><td>${escapeHtml(readMarketingRowMeta(row))}</td></tr>`)
-    .join('');
+function describeMarketingSelection(ids: number[] | undefined, options: ReportOption[], allLabel: string) {
+  if (ids?.includes(-1)) return 'Ninguno';
+  if (!ids?.length) return allLabel;
+  return ids.map((id) => options.find((option) => Number(option.id) === id)?.label ?? `ID ${id}`).join(', ');
+}
+
+function buildMarketingSharedReportHtml(marketing: MarketingViewModel, periodLabel: string, sellerName: string, companyName: string, teamName: string, customerName: string) {
   const kpis = marketing.kpis
     .map((kpi) => `<article><span>${escapeHtml(kpi.label)}</span><strong>${escapeHtml(kpi.value)}</strong></article>`)
     .join('');
   const decisions = marketing.decisions
     .map((decision) => `<article><small>${escapeHtml(decision.area)}</small><h3>${escapeHtml(decision.title)}</h3><p>${escapeHtml(decision.description)}</p><b>${escapeHtml(decision.metric)}</b></article>`)
     .join('');
+  const leads = marketing.leads.current;
+  const leadKpis = [
+    ['Leads asignados', formatNumber(leads.assigned)],
+    ['Ganados', formatNumber(leads.won)],
+    ['Perdidos', formatNumber(leads.lost)],
+    ['Facturación sin impuestos', formatCurrency(leads.billedAmount)],
+    ['Cumplimiento de cierre', formatPercent(leads.wonRate)],
+  ].map(([label, value]) => `<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join('');
+  const sellerRows = leads.sellerRows.map((row) => `<tr><td>${escapeHtml(row.sellerName)}</td><td>${formatNumber(row.assigned)}</td><td>${formatNumber(row.won)}</td><td>${formatNumber(row.lost)}</td><td>${formatCurrency(row.billedAmount)}</td><td>${formatPercent(row.wonRate)}</td></tr>`).join('');
+  const comparison = marketing.leads.previousReady
+    ? `<section><h2>Comparativa anterior</h2><p>${escapeHtml(marketing.leads.previousRangeLabel)}</p><div class="kpis"><article><span>Leads asignados</span><strong>${formatNumber(marketing.leads.previous.assigned)}</strong></article><article><span>Facturación sin impuestos</span><strong>${formatCurrency(marketing.leads.previous.billedAmount)}</strong></article></div></section>`
+    : '<section><h2>Comparativa anterior</h2><p>Pendiente de cargar. No se presenta como cero.</p></section>';
+  const maxCategory = Math.max(1, ...marketing.categoryBars.map((row) => row.sharePct));
+  const categories = marketing.categoryBars.map((row) => `<div class="bar-row"><span>${escapeHtml(row.label)}</span><div class="bar"><i style="width:${Math.max(0, Math.min(100, row.sharePct / maxCategory * 100))}%"></i></div><strong>${escapeHtml(row.value)}</strong></div>`).join('');
 
   return `<!doctype html>
 <html lang="es-MX">
 <head>
   <meta charset="utf-8" />
-  <title>Reporte ejecutivo de Marketing - ${escapeHtml(periodLabel)}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Reporte de Marketing - ${escapeHtml(periodLabel)}</title>
   <style>
-    body{font-family:Georgia,'Times New Roman',serif;background:#f4f1ea;color:#243532;margin:0;padding:32px}
+    body{font-family:Georgia,'Times New Roman',serif;background:#f4f1ea;color:#243532;margin:0;padding:clamp(16px,4vw,32px)}
     header,section{background:#fff;border:1px solid #dce4dd;border-radius:24px;margin:0 0 18px;padding:24px}
     h1,h2,h3,p{margin-top:0} h1{font-size:32px} h2{font-size:20px;color:#2f7d73}
     .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
     article{border:1px solid #e1e8e2;border-radius:18px;padding:16px;background:#fbfaf7}
     article span,small{color:#63746f;text-transform:uppercase;letter-spacing:.08em;font-size:11px}
-    article strong{display:block;font-size:22px;margin-top:8px}
-    table{width:100%;border-collapse:collapse} th,td{border-bottom:1px solid #e1e8e2;padding:10px;text-align:left} th{color:#2f7d73}
+    article strong{display:block;font-size:22px;margin-top:8px;overflow-wrap:anywhere}
+    .table-wrap{overflow-x:auto} table{width:100%;border-collapse:collapse} th,td{border-bottom:1px solid #e1e8e2;padding:10px;text-align:left} th{color:#2f7d73}
+    .bar-row{display:grid;grid-template-columns:minmax(110px,1fr) minmax(120px,3fr) auto;align-items:center;gap:12px;margin:12px 0}.bar{height:12px;border-radius:99px;background:#e4eee8;overflow:hidden}.bar i{display:block;height:100%;background:#39715a;border-radius:99px}
+    @media(max-width:600px){.bar-row{grid-template-columns:1fr}.bar-row strong{font-size:13px}}
   </style>
 </head>
 <body>
   <header>
     <small>Corporación Tectronic</small>
-    <h1>Reporte ejecutivo de Marketing</h1>
-    <p>Periodo analizado: ${escapeHtml(periodLabel)}. Datos generados desde Odoo y conservados en Supabase.</p>
+    <h1>Reporte de Marketing</h1>
+    <p>Periodo: ${escapeHtml(periodLabel)} · Compañía: ${escapeHtml(companyName)} · Vendedor asociado: ${escapeHtml(sellerName)} · Equipo: ${escapeHtml(teamName)} · Cliente: ${escapeHtml(customerName)}.</p>
   </header>
-  <section><h2>KPIs del mes</h2><div class="kpis">${kpis}</div></section>
+  <section><h2>Control de leads</h2><div class="kpis">${leadKpis}</div></section>
+  ${comparison}
+  <section><h2>Cumplimiento por vendedor</h2><div class="table-wrap"><table><thead><tr><th>Vendedor</th><th>Asignados</th><th>Ganados</th><th>Perdidos</th><th>Facturación</th><th>Cierre</th></tr></thead><tbody>${sellerRows}</tbody></table></div></section>
+  <section><h2>Resumen estratégico</h2><div class="kpis">${kpis}</div></section>
+  <section><h2>Categorías de demanda</h2>${categories || '<p>Sin datos en este periodo.</p>'}</section>
   <section><h2>Mapa de decisiones</h2><div class="kpis">${decisions}</div></section>
-  <section><h2>Clientes en riesgo</h2><table><thead><tr><th>Cliente</th><th>Vendedor</th><th>Productos</th><th>Valor</th><th>Correo</th><th>Teléfono</th><th>Dirección</th><th>Contexto</th></tr></thead><tbody>${listItems(marketing.decisionDetails.risk.tableRows)}</tbody></table></section>
-  <section><h2>Categorías principales</h2><table><thead><tr><th>Cliente</th><th>Vendedor</th><th>Productos</th><th>Valor</th><th>Correo</th><th>Teléfono</th><th>Dirección</th><th>Contexto</th></tr></thead><tbody>${listItems(marketing.decisionDetails.demand.tableRows)}</tbody></table></section>
-  <section><h2>Higiene de leads</h2><table><thead><tr><th>Cliente / oportunidad</th><th>Vendedor</th><th>Productos</th><th>Valor</th><th>Correo</th><th>Teléfono</th><th>Dirección</th><th>Contexto</th></tr></thead><tbody>${listItems(marketing.decisionDetails.crm.tableRows)}</tbody></table></section>
 </body>
 </html>`;
 }
@@ -2752,69 +3899,6 @@ function slugifyFilename(value: string) {
     .slice(0, 70) || 'marketing';
 }
 
-async function saveMarketingMonthlyReport({
-  html,
-  marketing,
-  periodEnd,
-  periodLabel,
-  periodStart,
-  userId,
-}: {
-  html: string;
-  marketing: MarketingViewModel;
-  periodEnd: string;
-  periodLabel: string;
-  periodStart: string;
-  userId: string;
-}) {
-  const snapshot = {
-    alerts: marketing.alerts,
-    decisions: marketing.decisions,
-    health: marketing.health,
-    kpis: marketing.kpis,
-    periodLabel,
-  };
-  const { error } = await supabase.from('marketing_report_exports').insert({
-    created_by: userId,
-    period_end: periodEnd,
-    period_label: periodLabel,
-    period_start: periodStart,
-    report_html: html,
-    snapshot,
-    title: 'Reporte ejecutivo de Marketing',
-  });
-
-  if (error) {
-    throw new Error(`No se pudo guardar el reporte en Supabase: ${error.message}`);
-  }
-}
-
-async function readMarketingMonthlyReport({
-  periodEnd,
-  periodStart,
-  userId,
-}: {
-  periodEnd: string;
-  periodStart: string;
-  userId: string;
-}) {
-  const { data, error } = await supabase
-    .from('marketing_report_exports')
-    .select('id, report_html, period_label, created_at')
-    .eq('created_by', userId)
-    .eq('period_start', periodStart)
-    .eq('period_end', periodEnd)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(`No se pudo consultar el reporte guardado: ${error.message}`);
-  }
-
-  return data;
-}
-
 async function listMarketingAgentNotifications(userId: string): Promise<MarketingPersistedNotification[]> {
   const { data, error } = await supabase
     .from('sales_agent_notifications')
@@ -2906,17 +3990,6 @@ function resolveMarketingNotificationCategory(title: string): SalesAgentNotifica
   return 'sales_decline';
 }
 
-function downloadHtmlReport(html: string, filename: string) {
-  const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
-
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, '&amp;')
@@ -2941,4 +4014,14 @@ function formatNumber(value: number) {
 
 function formatPercent(value: number) {
   return `${value.toFixed(1)}%`;
+}
+
+function formatLeadDelta(current: number, previous: number, isPercentagePoint = false) {
+  if (previous === 0) return current === 0 ? 'Sin cambio' : 'Nuevo';
+  const delta = isPercentagePoint ? current - previous : (current - previous) / Math.abs(previous) * 100;
+  return `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}${isPercentagePoint ? ' pp' : '%'}`;
+}
+
+function clampNumber(value: number, minimum: number, maximum: number) {
+  return Math.min(maximum, Math.max(minimum, Number.isFinite(value) ? value : minimum));
 }

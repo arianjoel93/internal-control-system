@@ -7,10 +7,8 @@ import {
 } from "react";
 import {
   BarChart3,
-  Calculator,
   CalendarPlus,
   ClipboardList,
-  PackageSearch,
   Edit2,
   Eye,
   FileText,
@@ -91,8 +89,6 @@ import { SupportDetails } from "../support/SupportDetails";
 import { SupportForm } from "./SupportForm";
 import { InventoryDashboard } from "./InventoryDashboard";
 import { PolicyDashboard } from "./PolicyDashboard";
-import { CalculatorDashboard } from "./CalculatorDashboard";
-import { QuoterDashboard } from "../quoting/QuoterDashboard";
 import { ShippingQuotesDashboard } from "../shipping/ShippingQuotesDashboard";
 import { MarketingDashboard } from "../marketing/MarketingDashboard";
 import { FormsDashboard } from "../forms/FormsDashboard";
@@ -105,7 +101,7 @@ import { saveStoredCommercialDataset } from "../reports/reportsDatasetCache";
 import type { ReportRequestedDomain } from "../reports/odooSalesCore";
 import { SidebarUserFooter } from "./SidebarUserFooter";
 import {
-  adminModules,
+  visibleAdminModules,
   adminUserRoles,
   applyRolePermissionDefaults,
   buildEmptyPermissionDraft,
@@ -134,9 +130,7 @@ type AdminModule =
   | "reports"
   | "marketing"
   | "forms"
-  | "quoting"
   | "shipping_quotes"
-  | "calculator"
   | "settings";
 type SettingsSection = "permissions" | "support_mailer";
 type ModuleAccess = {
@@ -146,9 +140,7 @@ type ModuleAccess = {
   reports: { can_access: boolean; visibility_scope: "all" | "own" };
   marketing: { can_access: boolean; visibility_scope: "all" | "own" };
   forms: { can_access: boolean; visibility_scope: "all" | "own" };
-  quoting: { can_access: boolean; visibility_scope: "all" | "own" };
   shipping_quotes: { can_access: boolean; visibility_scope: "all" | "own" };
-  calculator: { can_access: boolean; visibility_scope: "all" | "own" };
 };
 
 type ModelDraft = {
@@ -183,9 +175,7 @@ function normalizeAdminModule(value: string | null): AdminModule | null {
     value === "reports" ||
     value === "marketing" ||
     value === "forms" ||
-    value === "quoting" ||
     value === "shipping_quotes" ||
-    value === "calculator" ||
     value === "settings"
   ) {
     return value;
@@ -268,20 +258,8 @@ function AdminDashboard({ session }: { session: Session }) {
     reports: { can_access: false, visibility_scope: "all" },
     marketing: { can_access: false, visibility_scope: "all" },
     forms: { can_access: false, visibility_scope: "all" },
-    quoting: { can_access: false, visibility_scope: "all" },
     shipping_quotes: { can_access: false, visibility_scope: "all" },
-    calculator: { can_access: false, visibility_scope: "all" },
   };
-  const canAccessPurchases =
-    currentRole !== "support_agent" &&
-    (owner ||
-      (permissionActive &&
-        (currentRole === "purchase_agent" ||
-          Boolean(
-            permissionsQuery.data?.module_permissions.some(
-              (item) => item.module_key === "purchases" && item.can_access,
-            ),
-          ))));
   const moduleAccess: ModuleAccess = owner
     ? {
         supports: { can_access: true, visibility_scope: "all" },
@@ -290,9 +268,7 @@ function AdminDashboard({ session }: { session: Session }) {
         reports: { can_access: true, visibility_scope: "all" },
         marketing: { can_access: true, visibility_scope: "all" },
         forms: { can_access: true, visibility_scope: "all" },
-        quoting: { can_access: true, visibility_scope: "all" },
         shipping_quotes: { can_access: true, visibility_scope: "all" },
-        calculator: { can_access: true, visibility_scope: "all" },
       }
     : currentRole === "support_agent"
       ? supportAgentAccess
@@ -304,9 +280,7 @@ function AdminDashboard({ session }: { session: Session }) {
           reports: { can_access: false, visibility_scope: "all" },
           marketing: { can_access: false, visibility_scope: "all" },
           forms: { can_access: false, visibility_scope: "all" },
-          quoting: { can_access: false, visibility_scope: "all" },
           shipping_quotes: { can_access: false, visibility_scope: "all" },
-          calculator: { can_access: false, visibility_scope: "all" },
         }
       : {
           supports: getModuleAccessFromPermission(
@@ -333,21 +307,13 @@ function AdminDashboard({ session }: { session: Session }) {
             permissionsQuery.data,
             "forms",
           ),
-          quoting: getModuleAccessFromPermission(
-            permissionsQuery.data,
-            "quoting",
-          ),
           shipping_quotes: getModuleAccessFromPermission(
             permissionsQuery.data,
             "shipping_quotes",
           ),
-          calculator: getModuleAccessFromPermission(
-            permissionsQuery.data,
-            "calculator",
-          ),
         };
   const canAccessSalesReports = moduleAccess.reports.can_access;
-  const canOpenReports = canAccessSalesReports || canAccessPurchases;
+  const canOpenReports = canAccessSalesReports;
   const canManageReportsSettings = owner || currentRole === "manager";
 
   const visibleModule: AdminModule =
@@ -357,18 +323,12 @@ function AdminDashboard({ session }: { session: Session }) {
     (activeModule === "reports" && !canOpenReports) ||
     (activeModule === "marketing" && !moduleAccess.marketing.can_access) ||
     (activeModule === "forms" && !moduleAccess.forms.can_access) ||
-    (activeModule === "quoting" && !moduleAccess.quoting.can_access) ||
     (activeModule === "shipping_quotes" && !moduleAccess.shipping_quotes.can_access) ||
-    (activeModule === "calculator" && !moduleAccess.calculator.can_access) ||
     (activeModule === "settings" && !owner)
       ? "home"
       : activeModule;
 
-  const preloadDomain: ReportRequestedDomain | null = canAccessSalesReports
-    ? "sales"
-    : canAccessPurchases
-      ? "purchases"
-      : null;
+  const preloadDomain: ReportRequestedDomain | null = canAccessSalesReports ? "sales" : null;
   const preloadVisibilityScope =
     currentRole === "sales_agent"
       ? "own"
@@ -466,9 +426,7 @@ function AdminDashboard({ session }: { session: Session }) {
     setSearchParams((currentParams) => {
       const nextParams = new URLSearchParams(currentParams);
       nextParams.set("module", "reports");
-      if (!canAccessSalesReports && canAccessPurchases) {
-        nextParams.set("reportsSection", "purchases");
-      }
+      if (nextParams.get("reportsSection") === "purchases") nextParams.set("reportsSection", "executive");
       return nextParams;
     });
   }
@@ -528,9 +486,7 @@ function AdminDashboard({ session }: { session: Session }) {
         onOpenReports={openReportsModule}
         onOpenMarketing={() => openModule("marketing")}
         onOpenForms={() => openModule("forms")}
-        onOpenQuoting={() => openModule("quoting")}
         onOpenShippingQuotes={() => openModule("shipping_quotes")}
-        onOpenCalculator={() => openModule("calculator")}
         onOpenSettings={() => openModule("settings")}
       />,
     );
@@ -554,15 +510,6 @@ function AdminDashboard({ session }: { session: Session }) {
     );
   }
 
-  if (visibleModule === "calculator" && moduleAccess.calculator.can_access) {
-    return withOdooPreload(
-      <CalculatorDashboard
-        session={session}
-        onOpenHub={() => openModule("home")}
-      />,
-    );
-  }
-
   if (visibleModule === "reports" && canOpenReports) {
     return (
       <ReportsDashboard
@@ -573,7 +520,7 @@ function AdminDashboard({ session }: { session: Session }) {
             : moduleAccess.reports.visibility_scope
         }
         canAccessSales={canAccessSalesReports}
-        canAccessPurchases={canAccessPurchases}
+        canAccessPurchases={false}
         canManageReportsSettings={canManageReportsSettings}
         onOpenHub={() => openModule("home")}
       />
@@ -585,7 +532,7 @@ function AdminDashboard({ session }: { session: Session }) {
       <MarketingDashboard
         session={session}
         userRole={currentRole}
-        visibilityScope={moduleAccess.marketing.visibility_scope}
+        visibilityScope={currentRole === "marketing_agent" ? "all" : moduleAccess.marketing.visibility_scope}
         onOpenHub={() => openModule("home")}
       />,
     );
@@ -596,15 +543,6 @@ function AdminDashboard({ session }: { session: Session }) {
       <FormsDashboard
         session={session}
         visibilityScope={moduleAccess.forms.visibility_scope}
-        onOpenHub={() => openModule("home")}
-      />,
-    );
-  }
-
-  if (visibleModule === "quoting" && moduleAccess.quoting.can_access) {
-    return withOdooPreload(
-      <QuoterDashboard
-        session={session}
         onOpenHub={() => openModule("home")}
       />,
     );
@@ -641,9 +579,7 @@ function AdminDashboard({ session }: { session: Session }) {
         onOpenReports={openReportsModule}
         onOpenMarketing={() => openModule("marketing")}
         onOpenForms={() => openModule("forms")}
-        onOpenQuoting={() => openModule("quoting")}
         onOpenShippingQuotes={() => openModule("shipping_quotes")}
-        onOpenCalculator={() => openModule("calculator")}
         onOpenSettings={() => openModule("settings")}
       />,
     );
@@ -668,9 +604,7 @@ function ModuleHub({
   onOpenReports,
   onOpenMarketing,
   onOpenForms,
-  onOpenQuoting,
   onOpenShippingQuotes,
-  onOpenCalculator,
   onOpenSettings,
 }: {
   session: Session;
@@ -683,9 +617,7 @@ function ModuleHub({
   onOpenReports: () => void;
   onOpenMarketing: () => void;
   onOpenForms: () => void;
-  onOpenQuoting: () => void;
   onOpenShippingQuotes: () => void;
-  onOpenCalculator: () => void;
   onOpenSettings: () => void;
 }) {
   const hasVisibleModules =
@@ -695,9 +627,7 @@ function ModuleHub({
     canOpenReports ||
     moduleAccess.marketing.can_access ||
     moduleAccess.forms.can_access ||
-    moduleAccess.quoting.can_access ||
     moduleAccess.shipping_quotes.can_access ||
-    moduleAccess.calculator.can_access ||
     canOpenSettings;
 
   return (
@@ -796,18 +726,6 @@ function ModuleHub({
               <strong>Formularios</strong>
             </button>
           ) : null}
-          {moduleAccess.quoting.can_access ? (
-            <button
-              type="button"
-              className="module-tile"
-              onClick={onOpenQuoting}
-            >
-              <span className="module-icon quoting-module">
-                <PackageSearch size={34} />
-              </span>
-              <strong>Cotizador IMEBA</strong>
-            </button>
-          ) : null}
           {moduleAccess.shipping_quotes.can_access ? (
             <button
               type="button"
@@ -818,18 +736,6 @@ function ModuleHub({
                 <Truck size={34} />
               </span>
               <strong>Cotizador de Envíos</strong>
-            </button>
-          ) : null}
-          {moduleAccess.calculator.can_access ? (
-            <button
-              type="button"
-              className="module-tile"
-              onClick={onOpenCalculator}
-            >
-              <span className="module-icon calculator-module">
-                <Calculator size={34} />
-              </span>
-              <strong>Calculadora</strong>
             </button>
           ) : null}
           {canOpenSettings ? (
@@ -1345,7 +1251,7 @@ function SettingsDashboard({
                       <SlidersHorizontal size={22} />
                     </div>
                     <div className="permissions-module-list">
-                      {adminModules.map((module) => {
+                      {visibleAdminModules.map((module) => {
                         const moduleDraft = activePermissionDraft[module.key];
                         return (
                           <div
@@ -1526,7 +1432,7 @@ function SettingsDashboard({
               </div>
             ) : null}
             <div className="permissions-module-list">
-              {adminModules.map((module) => {
+              {visibleAdminModules.map((module) => {
                 const moduleDraft = selectedOwner
                   ? { can_access: true, visibility_scope: "all" as const }
                   : activePermissionDraft[module.key];
@@ -1884,7 +1790,7 @@ function PermissionModulesSummary({
   draft: ModulePermissionDraft;
   owner: boolean;
 }) {
-  const activeModules = adminModules.filter(
+  const activeModules = visibleAdminModules.filter(
     (module) => owner || draft[module.key]?.can_access,
   );
   const visibleModules = activeModules.slice(0, 4);
@@ -1919,7 +1825,7 @@ function PermissionScopeSummary({
     return <span className="permission-chip neutral">Todo el sistema</span>;
   }
 
-  const activeModules = adminModules.filter((module) => draft[module.key]?.can_access);
+  const activeModules = visibleAdminModules.filter((module) => draft[module.key]?.can_access);
   const allScopeCount = activeModules.filter(
     (module) => draft[module.key]?.visibility_scope === "all",
   ).length;
@@ -2109,7 +2015,7 @@ function CreateAdminUserForm({
           : "Configura los módulos que este usuario podrá ver al iniciar sesión."}
       </div>
       <div className="permissions-module-list">
-        {adminModules.map((module) => {
+        {visibleAdminModules.map((module) => {
           const moduleDraft = isOwner
             ? { can_access: true, visibility_scope: "all" as const }
             : draft[module.key];

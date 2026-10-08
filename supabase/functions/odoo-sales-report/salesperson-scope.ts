@@ -92,5 +92,13 @@ export function shouldUseOwnReportScope(
     return false;
   }
 
-  return role === 'sales_agent' || permissionScope === 'own';
+  return role === 'sales_agent' || role === 'marketing_agent' || permissionScope === 'own';
+}
+
+export function shouldUseOwnMarketingScope(role: string, permissionScope: unknown) {
+  if (role === 'owner' || role === 'manager' || role === 'admin' || role === 'marketing_agent') {
+    return false;
+  }
+
+  return permissionScope === 'own';
 }

@@ -1,4 +1,8 @@
 import type { ShippingPackageType } from '../../lib/types';
+// The direct Node test runner needs the explicit TypeScript extension here;
+// the Vite/TypeScript build resolves the same module normally.
+// @ts-expect-error Node strip-types resolution requires the .ts suffix.
+import { FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG } from './packingConstants.ts';
 
 const TOP_PACKING_PLANS = 7;
 const MAX_PACKING_ITERATIONS = 28;
@@ -883,11 +887,11 @@ function boxVolume(box: PackingBox) {
 }
 
 function externalVolumetricWeight(box: PackingBox) {
-  return (Math.ceil(box.externalLengthCm) * Math.ceil(box.externalWidthCm) * Math.ceil(box.externalHeightCm)) / 5000;
+  return (Math.ceil(box.externalLengthCm) * Math.ceil(box.externalWidthCm) * Math.ceil(box.externalHeightCm)) / FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG;
 }
 
 function volumetricWeightFromExternalDimensions(pkg: PackedPackage) {
-  return round((Math.ceil(pkg.externalLengthCm) * Math.ceil(pkg.externalWidthCm) * Math.ceil(pkg.externalHeightCm)) / 5000, 3);
+  return round((Math.ceil(pkg.externalLengthCm) * Math.ceil(pkg.externalWidthCm) * Math.ceil(pkg.externalHeightCm)) / FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG, 3);
 }
 
 function emptyVolumePercent(plan: PackingPlan) {

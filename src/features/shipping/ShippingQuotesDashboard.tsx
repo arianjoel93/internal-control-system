@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   ClipboardList,
+  Copy,
   Database,
   Eye,
   FileSpreadsheet,
@@ -48,6 +49,7 @@ import {
 } from './shippingQuoteMath';
 import { mapPackingToShipment,
   type PackingStrategy, type PackingAssignment } from '../../../supabase/functions/_shared/shipping-packing';
+import { FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG } from './packingConstants';
 import { ShippingProductInputs, ShippingPackingWorkspace, PhysicalRulesFields } from './ShippingPackingWorkspace';
 import { ShippingPackagingSettings } from './ShippingPackagingSettings';
 import { buildPackingPreview, packingInputKey } from './packingPreview';
@@ -229,6 +231,7 @@ function NewShippingQuoteSection({
   const [packingEdits, setPackingEdits] = useState<{ key: string; assignments: PackingAssignment[] } | null>(null);
   const [quote, setQuote] = useState<ShippingQuoteDetail | null>(null);
   const [quotedInputKey, setQuotedInputKey] = useState<string | null>(null);
+  const [distributeShippingCost, setDistributeShippingCost] = useState(false);
   const lastResolvedPostalCodeRef = useRef<string | null>(null);
   const [postalLookup, setPostalLookup] = useState<{ status: 'idle' | 'loading' | 'success' | 'error'; message: string }>({
     status: 'idle',
@@ -247,10 +250,15 @@ function NewShippingQuoteSection({
   const packing = useMemo(() => buildPackingPreview(shippableOrderLines, packageTypes, packingStrategy, manualAssignments),
     [shippableOrderLines, packageTypes, packingStrategy, manualAssignments]);
   const packages = packing.plan?.status === 'READY_FOR_QUOTE'
-    ? mapPackingToShipment(packing.plan, finalPackagingAdjustment.extraVolumetricWeightKg * 5000) : [];
+    ? mapPackingToShipment(packing.plan, finalPackagingAdjustment.extraVolumetricWeightKg * FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG) : [];
   const prepared = preparePackages({ drafts: packages, packageTypes: [], weightInputMode: 'GROSS_PACKAGE' });
-  const summary = { ...summarizePackages(prepared.packages), baseVolumetricWeight: packing.plan?.packages.reduce((sum,p) => sum + p.externalDimensions.length*p.externalDimensions.width*p.externalDimensions.height/5000,0) ?? 0 };
-  const currentInputKey = JSON.stringify([packingKey, packing.assignments, destination, config?.updated_at]);
+  const summary = { ...summarizePackages(prepared.packages), baseVolumetricWeight: packing.plan?.packages.reduce((sum,p) => sum + p.externalDimensions.length*p.externalDimensions.width*p.externalDimensions.height/FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG,0) ?? 0 };
+  const currentInputKey = JSON.stringify([
+    packingKey,
+    packing.assignments,
+    destination,
+    config?.updated_at,
+  ]);
   const displayedQuote = quotedInputKey === currentInputKey ? quote : null;
   const lookupOrderMutation = useMutation({
     mutationFn: lookupOdooShippingOrder,
@@ -290,7 +298,6 @@ function NewShippingQuoteSection({
         packages,
         odooOrderId: orderResult?.order.id ?? null,
         odooOrderName: orderResult?.order.name ?? null,
-        packingRequest: { version: 1, strategy: packingStrategy, lines: shippableOrderLines, assignments: packing.assignments },
       });
     },
     onSuccess: ({ quote: nextQuote }, inputKey) => {
@@ -377,33 +384,46 @@ function NewShippingQuoteSection({
                     Completa peso y dimensiones faltantes en “Productos de la orden”.
                   </p>
                 ) : null}
-                {excludedOrderLines.length ? (
-                  <p className="shipping-filter-note">
-                    {excludedOrderLines.length} producto(s) no entran en la cotización porque no son Consumible o no tienen marcada la opción Se puede vender.
-                  </p>
-                ) : null}
-                {packageMessage ? <p className="form-error">{packageMessage}</p> : null}
               </div>
             ) : null}
           </div>
           {orderResult ? <ShippingProductInputs lines={shippableOrderLines} isAdmin={isAdmin} onChange={line => {
             setLineOverrides(current => ({...current, [line.lineId]: line})); setPackingEdits(null); setQuote(null);
           }} /> : null}
+          {packing.error ? <p className="form-error">{packing.error}</p> : null}
+          {packageMessage ? <p className="form-error">{packageMessage}</p> : null}
           {postalLookup.status === 'error' ? <p className="form-error">{postalLookup.message}</p> : null}
-          {orderResult?.warnings.map(w => <p className="shipping-filter-note" key={w}>{w}</p>)}
+          {quoteMutation.error ? <p className="form-error">{quoteMutation.error.message}</p> : null}
           <article className="panel shipping-rate-panel">
           <div className="panel-header">
             <h2>Resultados</h2>
             <span>{displayedQuote?.rates.length ?? 0} servicios</span>
           </div>
-          {displayedQuote ? <RateList quote={displayedQuote} /> : <EmptyState title="Sin cotización">Revisa los productos y su distribución para consultar servicios FedEx.</EmptyState>}
+          {isAdmin ? <label className="shipping-free-shipping-toggle">
+            <input type="checkbox" checked={distributeShippingCost} onChange={(event) => setDistributeShippingCost(event.target.checked)} />
+            <span className="shipping-free-shipping-toggle-track" aria-hidden="true"><span /></span>
+            <span>
+              <strong>Distribuir envío en productos</strong>
+              <small>Calcula el precio de cada producto con su parte proporcional del envío.</small>
+            </span>
+          </label> : null}
+          {displayedQuote ? (
+            <RateList
+              quote={displayedQuote}
+              lines={shippableOrderLines}
+              orderCurrency={orderResult?.order.currencyCode ?? 'MXN'}
+              distributeShippingCost={isAdmin && distributeShippingCost}
+            />
+          ) : <EmptyState title="Sin cotización">Revisa los productos y su distribución para consultar servicios FedEx.</EmptyState>}
         </article>
         </div>
       </article>
       <aside className="shipping-side-column">
         <form className="panel shipping-summary-card" onSubmit={(event) => {
           event.preventDefault();
-          if (prepared.errors.length || packing.plan?.status !== 'READY_FOR_QUOTE') return;
+          if (prepared.errors.length || packing.plan?.status !== 'READY_FOR_QUOTE') {
+            return;
+          }
           quoteMutation.mutate(currentInputKey);
         }}>
           <div className="shipping-band-head compact">
@@ -417,32 +437,23 @@ function NewShippingQuoteSection({
             onStrategy={s => {setPackingStrategy(s);setPackingEdits(null);setQuote(null);}}
             onAssignments={assignments => {setPackingEdits({key:packingKey,assignments});setQuote(null);}}
             onRecalculate={() => {setPackingEdits(null);setQuote(null);}} /> : <p>Busca una orden para preparar su distribución.</p>}
-          {packing.error ? <p className="form-error">{packing.error}</p> : null}
           <div className="shipping-summary-grid compact">
             <Metric label="Paquetes" value={`${summary.packageCount}`} />
             <Metric label="Peso real" value={`${formatNumber(summary.actualWeight)} kg`} />
             <Metric label="Vol. base" value={`${formatNumber(summary.baseVolumetricWeight)} kg`} />
-            <Metric label="Protección final" value={`+${formatNumber(finalPackagingAdjustment.extraVolumetricWeightKg)} kg`} />
+            <Metric label="Vol. adicional empaque" value={`+${formatNumber(finalPackagingAdjustment.extraVolumetricWeightKg)} kg`} />
             <Metric label="Vol. total" value={`${formatNumber(summary.volumetricWeight)} kg`} />
             <Metric label="Facturable total" value={`${formatNumber(summary.billableWeight)} kg`} />
           </div>
           {(finalPackagingAdjustment.extraVolumetricWeightKg > 0 || finalPackagingAdjustment.materialCostMxn > 0) ? (
             <div className="shipping-final-packaging-summary">
               {finalPackagingAdjustment.extraVolumetricWeightKg > 0 ? (
-                <span>Protección final: +{formatNumber(finalPackagingAdjustment.extraVolumetricWeightKg)} kg volumétricos</span>
+                <span>Volumen adicional de empaque: +{formatNumber(finalPackagingAdjustment.extraVolumetricWeightKg)} kg volumétricos</span>
               ) : null}
               {finalPackagingAdjustment.materialCostMxn > 0 ? (
                 <span>Materia prima de empaque: {formatMoney(finalPackagingAdjustment.materialCostMxn, 'MXN')}</span>
               ) : null}
             </div>
-          ) : null}
-          {prepared.errors.length ? (
-            <div className="shipping-errors">
-              {prepared.errors.map((error) => <p key={error}>{error}</p>)}
-            </div>
-          ) : null}
-          {quoteMutation.error ? (
-            <p className="form-error">{quoteMutation.error.message}</p>
           ) : null}
           <button type="submit" disabled={quoteMutation.isPending || prepared.errors.length > 0 || !packages.length || packing.plan?.status !== 'READY_FOR_QUOTE'}>
             {quoteMutation.isPending ? <RefreshCw size={16} className="spin-icon" /> : <Truck size={16} />}
@@ -986,9 +997,41 @@ function QuoteDetail({ quote }: { quote: ShippingQuoteDetail }) {
   );
 }
 
-function RateList({ quote }: { quote: ShippingQuoteDetail }) {
+function RateList({
+  quote,
+  lines = [],
+  orderCurrency = 'MXN',
+  distributeShippingCost = false,
+}: {
+  quote: ShippingQuoteDetail;
+  lines?: ShippingOrderLine[];
+  orderCurrency?: string;
+  distributeShippingCost?: boolean;
+}) {
   const exchangeRateQuery = useShippingExchangeRate();
   const exchangeRate = exchangeRateQuery.data;
+  const [copiedValue, setCopiedValue] = useState<string | null>(null);
+  const copyValue = async (key: string, value: string) => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const helper = document.createElement('textarea');
+        helper.value = value;
+        helper.setAttribute('readonly', '');
+        helper.style.position = 'fixed';
+        helper.style.opacity = '0';
+        document.body.appendChild(helper);
+        helper.select();
+        document.execCommand('copy');
+        helper.remove();
+      }
+      setCopiedValue(key);
+      window.setTimeout(() => setCopiedValue(current => current === key ? null : current), 1600);
+    } catch {
+      setCopiedValue(null);
+    }
+  };
   if (!quote.rates.length) {
     return <EmptyState title="Sin servicios">FedEx no devolvió servicios para esta cotización.</EmptyState>;
   }
@@ -1001,17 +1044,34 @@ function RateList({ quote }: { quote: ShippingQuoteDetail }) {
             <span>{rate.service_code}</span>
           </div>
           <div>
-            <strong>Total final {formatRateTotalInMxn(rate, exchangeRate)}</strong>
+            <span className="shipping-rate-total">
+              <strong>
+                {readFinalPackagingCostMxn(rate.raw_summary) > 0 ? 'Total con empaque' : 'Total FedEx'} {formatRateTotalInMxn(rate, exchangeRate)}
+              </strong>
+              <button
+                type="button"
+                title="Copiar total"
+                aria-label="Copiar total"
+                onClick={() => void copyValue(`${rate.id}-total`, formatRateTotalInMxn(rate, exchangeRate))}
+              >
+                {copiedValue === `${rate.id}-total` ? <CheckCircle2 size={14} /> : <Copy size={14} />}
+              </button>
+            </span>
             <span>{rate.delivery_label ?? 'Tiempo de entrega no disponible'}</span>
           </div>
+          {readRateMessages(rate.raw_summary).map((message, index) => (
+            <span className="shipping-rate-message" key={`${rate.id}-message-${index}`}>
+              {message}
+            </span>
+          ))}
           {readFinalPackagingCostMxn(rate.raw_summary) > 0 ? (
             <span className="shipping-rate-conversion">
-              FedEx: {formatRateCarrierCostInMxn(rate, exchangeRate)} · Empaque: {formatMoney(readFinalPackagingCostMxn(rate.raw_summary), 'MXN')}
+              Total FedEx: {formatRateCarrierCostInMxn(rate, exchangeRate)} · Empaque: {formatMoney(readFinalPackagingCostMxn(rate.raw_summary), 'MXN')}
             </span>
           ) : null}
           {shouldShowOriginalCurrency(rate.currency, exchangeRate) ? (
             <span className="shipping-rate-conversion">
-              Original FedEx: {formatMoney(rate.total_amount, rate.currency)} · TC USD/MXN {exchangeRate ? formatRate(exchangeRate.rate) : '-'}
+              Original FedEx: {formatMoney(readFedexCarrierAmount(rate), rate.currency)} · TC USD/MXN {exchangeRate ? formatRate(exchangeRate.rate) : '-'}
             </span>
           ) : null}
           {normalizeCurrencyCode(rate.currency) === 'USD' && exchangeRateQuery.error ? (
@@ -1019,13 +1079,101 @@ function RateList({ quote }: { quote: ShippingQuoteDetail }) {
           ) : null}
           <small>
             Base {rate.base_amount !== null ? formatMoneyInMxn(rate.base_amount, rate.currency, exchangeRate) : '-'} ·
-            Descuentos {rate.discount_amount !== null ? formatMoneyInMxn(rate.discount_amount, rate.currency, exchangeRate) : '-'} ·
+            Descuentos {rate.discount_amount !== null ? `-${formatMoneyInMxn(rate.discount_amount, rate.currency, exchangeRate)}` : '-'} ·
             Recargos {rate.surcharge_amount !== null ? formatMoneyInMxn(rate.surcharge_amount, rate.currency, exchangeRate) : '-'} ·
             Impuestos {rate.tax_amount !== null ? formatMoneyInMxn(rate.tax_amount, rate.currency, exchangeRate) : '-'}
           </small>
+          {distributeShippingCost && lines.length ? (
+            <ShippingIncludedProducts
+              allocations={buildShippingProductAllocations(
+                lines,
+                getRateTotalInMxn(rate, exchangeRate),
+              )}
+              currency={orderCurrency}
+              copiedValue={copiedValue}
+              onCopy={copyValue}
+            />
+          ) : null}
         </div>
       ))}
     </div>
+  );
+}
+
+type ShippingProductAllocation = {
+  key: string;
+  name: string;
+  quantity: number;
+  sharePercent: number;
+  originalUnitPrice: number;
+  shippingAllocated: number;
+  shippingPerUnit: number;
+  adjustedUnitPrice: number;
+};
+
+function ShippingIncludedProducts({
+  allocations,
+  currency,
+  copiedValue,
+  onCopy,
+}: {
+  allocations: ShippingProductAllocation[];
+  currency: string;
+  copiedValue: string | null;
+  onCopy: (key: string, value: string) => void;
+}) {
+  const normalizedCurrency = normalizeCurrencyCode(currency);
+  return (
+    <div className="shipping-included-products">
+      <div className="shipping-included-products-head">
+        <strong>Precios con envío incluido</strong>
+        <small>El envío se distribuye según el subtotal de cada producto.</small>
+      </div>
+      <div className="shipping-included-products-list">
+        {allocations.map((item) => {
+          const original = formatMoney(item.originalUnitPrice, normalizedCurrency);
+          const shipping = formatMoney(item.shippingPerUnit, normalizedCurrency);
+          const adjusted = formatMoney(item.adjustedUnitPrice, normalizedCurrency);
+          return (
+            <div className="shipping-included-product" key={item.key}>
+              <div className="shipping-included-product-name">
+                <strong>{item.name}</strong>
+                <small>{item.quantity} pieza(s) · {formatRate(item.sharePercent)}% del subtotal</small>
+              </div>
+              <CopyableShippingValue label="Precio" value={original} copyKey={`${item.key}-original`} copiedValue={copiedValue} onCopy={onCopy} />
+              <CopyableShippingValue label="Envío asignado" value={shipping} copyKey={`${item.key}-shipping`} copiedValue={copiedValue} onCopy={onCopy} />
+              <CopyableShippingValue label="Nuevo precio unitario" value={adjusted} copyKey={`${item.key}-adjusted`} copiedValue={copiedValue} onCopy={onCopy} emphasized />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CopyableShippingValue({
+  label,
+  value,
+  copyKey,
+  copiedValue,
+  onCopy,
+  emphasized = false,
+}: {
+  label: string;
+  value: string;
+  copyKey: string;
+  copiedValue: string | null;
+  onCopy: (key: string, value: string) => void;
+  emphasized?: boolean;
+}) {
+  return (
+    <span className={`shipping-copyable-value${emphasized ? ' emphasized' : ''}`}>
+      <small>{label}</small>
+      <strong>{value}</strong>
+      <button type="button" title={`Copiar ${label.toLowerCase()}`} aria-label={`Copiar ${label.toLowerCase()}`} onClick={() => void onCopy(copyKey, value)}>
+        {copiedValue === copyKey ? <CheckCircle2 size={14} /> : <Copy size={14} />}
+      </button>
+    </span>
   );
 }
 
@@ -1081,7 +1229,7 @@ function getFinalPackagingAdjustment(config: Awaited<ReturnType<typeof getShippi
   const width = Number(config?.final_padding_width_cm ?? 0);
   const height = Number(config?.final_padding_height_cm ?? 0);
   const extraVolumetricWeightKg = config?.final_volume_padding_enabled && [length, width, height].every((value) => Number.isFinite(value) && value > 0)
-    ? round((Math.ceil(length) * Math.ceil(width) * Math.ceil(height)) / 5000, 3)
+    ? round((Math.ceil(length) * Math.ceil(width) * Math.ceil(height)) / FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG, 3)
     : 0;
   const materialCostMxn = config?.final_packaging_cost_enabled && Number.isFinite(Number(config.final_packaging_material_cost))
     ? Math.max(0, Number(config.final_packaging_material_cost))
@@ -1255,22 +1403,57 @@ function formatRateTotalInMxn(
   rate: ShippingQuoteDetail['rates'][number],
   exchangeRate?: ExchangeRateResult,
 ) {
+  return formatMoney(getRateTotalInMxn(rate, exchangeRate), 'MXN');
+}
+
+function getRateTotalInMxn(
+  rate: ShippingQuoteDetail['rates'][number],
+  exchangeRate?: ExchangeRateResult,
+) {
   const finalPackagingCostMxn = readFinalPackagingCostMxn(rate.raw_summary);
-  const converted = convertMoneyToMxn(rate.total_amount, rate.currency, exchangeRate);
-  const alreadyIncluded = readNumberFromRecord(rate.raw_summary, 'finalPackagingMaterialCost') > 0;
-  const total = alreadyIncluded ? converted : converted + finalPackagingCostMxn;
-  return formatMoney(total, 'MXN');
+  const converted = convertMoneyToMxn(readFedexCarrierAmount(rate), rate.currency, exchangeRate);
+  return round(converted + finalPackagingCostMxn, 2);
 }
 
 function formatRateCarrierCostInMxn(
   rate: ShippingQuoteDetail['rates'][number],
   exchangeRate?: ExchangeRateResult,
 ) {
-  const finalPackagingCostMxn = readFinalPackagingCostMxn(rate.raw_summary);
-  const converted = convertMoneyToMxn(rate.total_amount, rate.currency, exchangeRate);
-  const alreadyIncluded = readNumberFromRecord(rate.raw_summary, 'finalPackagingMaterialCost') > 0;
-  const carrierCost = alreadyIncluded ? Math.max(0, converted - finalPackagingCostMxn) : converted;
-  return formatMoney(carrierCost, 'MXN');
+  return formatMoney(convertMoneyToMxn(readFedexCarrierAmount(rate), rate.currency, exchangeRate), 'MXN');
+}
+
+function readFedexCarrierAmount(rate: ShippingQuoteDetail['rates'][number]) {
+  const rawAmount = Number(rate.raw_summary.fedexTotalAmount);
+  return Number.isFinite(rawAmount) && rawAmount >= 0 ? rawAmount : rate.total_amount;
+}
+
+function buildShippingProductAllocations(
+  lines: ShippingOrderLine[],
+  shippingCost: number,
+): ShippingProductAllocation[] {
+  const products = lines.filter((line) => line.quantity > 0);
+  if (!products.length) return [];
+  const productTotals = products.map((line) => Math.max(0, line.priceUnit) * line.quantity);
+  const totalProducts = productTotals.reduce((sum, value) => sum + value, 0);
+  let allocatedShipping = 0;
+  return products.map((line, index) => {
+    const share = totalProducts > 0 ? productTotals[index] / totalProducts : 1 / products.length;
+    const shippingAllocated = index === products.length - 1
+      ? round(Math.max(0, shippingCost - allocatedShipping), 2)
+      : round(Math.max(0, shippingCost) * share, 2);
+    allocatedShipping = round(allocatedShipping + shippingAllocated, 2);
+    const shippingPerUnit = round(shippingAllocated / line.quantity, 2);
+    return {
+      key: `${line.lineId}-${line.productId}`,
+      name: line.productName || line.description || 'Producto',
+      quantity: line.quantity,
+      sharePercent: round(share * 100, 2),
+      originalUnitPrice: line.priceUnit,
+      shippingAllocated,
+      shippingPerUnit,
+      adjustedUnitPrice: round(line.priceUnit + shippingPerUnit, 2),
+    };
+  });
 }
 
 function readFinalPackagingCostMxn(value: Record<string, unknown>) {
@@ -1278,6 +1461,17 @@ function readFinalPackagingCostMxn(value: Record<string, unknown>) {
     readNumberFromRecord(value, 'finalPackagingMaterialCost'),
     readNumberFromRecord(value, 'finalPackagingMaterialCostPendingMxn'),
   );
+}
+
+function readRateMessages(value: Record<string, unknown>) {
+  const raw = value.messages ?? value.message;
+  const values = Array.isArray(raw) ? raw : [raw];
+  return [...new Set(values.map((item) => {
+    if (typeof item === 'string') return item.trim();
+    if (!item || typeof item !== 'object') return '';
+    const record = item as Record<string, unknown>;
+    return String(record.message ?? record.messageText ?? record.text ?? '').trim();
+  }).filter(Boolean))];
 }
 
 function readNumberFromRecord(value: Record<string, unknown>, key: string) {

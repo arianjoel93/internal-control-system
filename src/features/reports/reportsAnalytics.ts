@@ -88,6 +88,14 @@ export type TrendPoint = {
   accumulatedSoldAmount: number;
 };
 
+export type DailyInvoiceDifferencePoint = Pick<
+  TrendPoint,
+  'bucketKey' | 'label' | 'invoicedAmount' | 'previousInvoicedAmount'
+> & {
+  previousLabel: string;
+  bucketKind?: 'day' | 'month';
+};
+
 export type ParetoRow = {
   position: number;
   key: string;
@@ -231,6 +239,7 @@ export type AnnualMonthlyComparisonRow = {
 export type AnnualMonthlyComparisonSnapshot = {
   year: number;
   previousYear: number;
+  closedThroughMonth?: number | null;
   currentTotal: number;
   previousTotal: number;
   targetTotal: number;
@@ -336,6 +345,7 @@ export type Hallazgo = {
 
 export type DashboardDetails = {
   pendingQuotes: OdooOrderRecord[];
+  previousPendingQuotes: OdooOrderRecord[];
   expiredQuotes: OdooOrderRecord[];
   cancelledQuotes: OdooOrderRecord[];
   convertedQuotes: OdooOrderRecord[];
@@ -385,6 +395,7 @@ export type CommercialDashboardSnapshot = {
     reactivationRatePct: MetricComparison;
   };
   trend: TrendPoint[];
+  dailyInvoiceDifference: DailyInvoiceDifferencePoint[];
   pareto: {
     customers: ParetoSummary;
     products: ParetoSummary;
@@ -484,10 +495,11 @@ export function buildCommercialDashboard(
   filters: ReportFilters,
   config: ReportsConfig,
 ): CommercialDashboardSnapshot {
+  reportDateKeyCache.clear();
   const sanitizedConfig = sanitizeConfig(config);
   const filtered = filterDataset(dataset, filters);
   const currentPeriod = buildPeriodRange(filters.startDate, filters.endDate);
-  const previousPeriod = buildPreviousPeriodRange(currentPeriod);
+  const previousPeriod = buildPreviousYearEquivalentRange(currentPeriod);
   const currentYearToDatePeriod = buildYearToDateRange(currentPeriod.end);
   const previousYearToDatePeriod = buildPreviousYearToDateRange(currentPeriod.end);
   const previousYearEquivalentPeriod = buildPreviousYearEquivalentRange(currentPeriod);
@@ -598,6 +610,7 @@ export function buildCommercialDashboard(
     isQuoteConvertedByInvoice(order, previousYearEquivalentPeriod.end, quoteInvoiceIndex),
   );
   const pendingQuotes = currentQuotes.filter((order) => isQuotationState(order.state));
+  const previousPendingQuotes = previousQuotes.filter((order) => isQuotationState(order.state));
   const expiredQuotes = pendingQuotes.filter((order) => isExpiredQuote(order, currentPeriod.end));
 
   const currentQuoteConversionDays = average(
@@ -713,9 +726,16 @@ export function buildCommercialDashboard(
     grouping: filters.grouping,
     invoiceLines: currentInvoiceLines,
     invoices: currentInvoices,
-    previousYearInvoiceLines: previousYearEquivalentInvoiceLines,
+    previousInvoiceLines,
+    previousRange: previousPeriod,
     range: currentPeriod,
   });
+  const dailyInvoiceDifference = buildDailyInvoiceDifferencePoints(
+    currentInvoiceLines,
+    previousInvoiceLines,
+    currentPeriod,
+    previousPeriod,
+  );
 
   const paretoCustomers = buildParetoSummary({
     dimension: 'customers',
@@ -740,6 +760,18 @@ export function buildCommercialDashboard(
   });
 
   const customerSummary = buildCustomerSummary(customerLifecycleRows, currentPeriod);
+  const previousCustomerLifecycleRows = buildClientLifecycleRows({
+    customerFirstPurchases: filtered.customerFirstPurchases,
+    allInvoiceLines: postedCustomerMoveLines,
+    allInvoices: postedCustomerMoves,
+    config: sanitizedConfig,
+    currentPeriod: previousPeriod,
+    previousPeriod: buildPreviousPeriodRange(previousPeriod),
+  });
+  const previousCustomerSummary = buildCustomerSummary(
+    previousCustomerLifecycleRows,
+    previousPeriod,
+  );
   const previousYearCustomerLifecycleRows = buildClientLifecycleRows({
     customerFirstPurchases: filtered.customerFirstPurchases,
     allInvoiceLines: postedCustomerMoveLines,
@@ -831,6 +863,7 @@ export function buildCommercialDashboard(
 
   const details: DashboardDetails = {
     pendingQuotes,
+    previousPendingQuotes,
     expiredQuotes,
     cancelledQuotes: currentCancelledQuotes,
     convertedQuotes: currentConvertedQuotes,
@@ -867,9 +900,11 @@ export function buildCommercialDashboard(
     sellerRows: significantSellerRows,
   });
   const agentProfile =
-    dataset.scopeApplied === 'own' && dataset.viewerRole === 'sales_agent'
+    (dataset.scopeApplied === 'own' && dataset.viewerRole === 'sales_agent') || dataset.scopeApplied === 'all'
       ? buildAgentPerformanceProfile({
-          companyName: dataset.companyScope?.label ?? 'Compañía asignada',
+          companyName: dataset.scopeApplied === 'own'
+            ? dataset.companyScope?.label ?? 'Compañía asignada'
+            : resolveReportScopeLabel(filters.companyIds, filters.companyId, dataset.availableFilters.companies, 'Todas las compañías'),
           currentCustomerRows: customerLifecycleRows,
           currentCustomerSummary: customerSummary,
           currentInvoiceLines,
@@ -881,25 +916,29 @@ export function buildCommercialDashboard(
           currentSalesOrders: currentConfirmedOrders,
           currentRefundInvoices,
           currentConvertedQuotes,
-          previousCustomerRows: previousYearCustomerLifecycleRows,
-          previousCustomerSummary: previousYearCustomerSummary,
-          previousInvoiceLines: previousYearEquivalentInvoiceLines,
-          previousInvoices: previousYearEquivalentInvoices,
-          previousPeriod: previousYearEquivalentPeriod,
-          previousPublishedInvoiceLines: previousYearEquivalentPublishedInvoiceLines,
-          previousPublishedInvoices: previousYearEquivalentPublishedInvoices,
-          previousQuotes: previousYearEquivalentQuotes,
-          previousSalesOrders: previousYearEquivalentConfirmedOrders,
-          previousRefundInvoices: previousYearEquivalentRefundInvoices,
-          previousConvertedQuotes: previousYearEquivalentConvertedQuotes,
-          sellerName:
-            dataset.sellerScope?.label ??
-            sellerRows[0]?.sellerName ??
-            'Vendedor asociado',
+          previousCustomerRows: previousCustomerLifecycleRows,
+          previousCustomerSummary,
+          previousInvoiceLines,
+          previousInvoices,
+          previousPeriod,
+          previousPublishedInvoiceLines,
+          previousPublishedInvoices,
+          previousQuotes,
+          previousSalesOrders: filterOrdersByDateAndState(filtered.orders, previousPeriod, 'confirmed'),
+          previousRefundInvoices,
+          previousConvertedQuotes,
+          sellerName: dataset.scopeApplied === 'own'
+            ? dataset.sellerScope?.label ?? sellerRows[0]?.sellerName ?? 'Vendedor asociado'
+            : resolveReportScopeLabel(filters.sellerIds, filters.sellerId, dataset.availableFilters.sellers, 'Todos los vendedores'),
           config: sanitizedConfig,
+          comparisonContext: dataset.scopeApplied === 'all'
+            ? 'Mismo rango del año anterior'
+            : describeAgentComparisonContext(currentPeriod, previousPeriod),
           quoteInvoiceIndex,
         })
       : null;
+
+  const medianProductMarginPct = median(productRows.map((item) => item.marginPct ?? 0));
 
   return {
     generatedAt: dataset.fetchedAt,
@@ -928,6 +967,7 @@ export function buildCommercialDashboard(
     invoicing,
     sales,
     trend,
+    dailyInvoiceDifference,
     pareto: {
       customers: paretoCustomers,
       products: paretoProducts,
@@ -959,7 +999,7 @@ export function buildCommercialDashboard(
       negativeMargin: productRows.filter((row) => (row.marginPct ?? 0) < 0).slice(0, 12),
       withoutSales: productRows.filter((row) => row.revenue === 0).slice(0, 12),
       highRevenueLowMargin: productRows
-        .filter((row) => row.revenue > 0 && (row.marginPct ?? 0) < median(productRows.map((item) => item.marginPct ?? 0)))
+        .filter((row) => row.revenue > 0 && (row.marginPct ?? 0) < medianProductMarginPct)
         .sort((a, b) => b.revenue - a.revenue)
         .slice(0, 12),
       matrix: countProductQuadrants(productRows),
@@ -982,6 +1022,25 @@ export function buildCommercialDashboard(
     dataQualityAlerts: dataset.dataQualityAlerts,
     details,
   };
+}
+
+function resolveReportScopeLabel(
+  selectedIds: number[] | undefined,
+  selectedId: number | null,
+  options: Array<{ id: string | number; label: string }>,
+  fallback: string,
+): string {
+  const ids = selectedIds?.length ? selectedIds : selectedId ? [selectedId] : [];
+  if (!ids.length) return fallback;
+  if (fallback === 'Todos los vendedores' && options.length > 1 && options.length === ids.length &&
+    options.every((option) => ids.includes(Number(option.id)))) return fallback;
+  if (ids.length > 3) {
+    return fallback === 'Todas las compañías'
+      ? `${ids.length} compañías seleccionadas`
+      : `${ids.length} vendedores seleccionados`;
+  }
+  const labels = ids.map((id) => options.find((option) => Number(option.id) === id)?.label ?? `#${id}`);
+  return labels.join(', ');
 }
 
 function buildYearToDateRange(referenceEnd: Date): PeriodRange {
@@ -1051,6 +1110,7 @@ function formatYearToDateLabel(range: PeriodRange) {
 
 function buildAgentPerformanceProfile({
   companyName,
+  comparisonContext,
   config,
   currentConvertedQuotes,
   currentCustomerRows,
@@ -1078,6 +1138,7 @@ function buildAgentPerformanceProfile({
   sellerName,
 }: {
   companyName: string;
+  comparisonContext: string;
   config: ReportsConfig;
   currentConvertedQuotes: OdooOrderRecord[];
   currentCustomerRows: ClientLifecycleRow[];
@@ -1430,7 +1491,7 @@ function buildAgentPerformanceProfile({
     companyName,
     currentPeriodLabel: formatYearToDateLabel(currentPeriod),
     previousYearPeriodLabel: formatYearToDateLabel(previousPeriod),
-    comparisonContext: describeAgentComparisonContext(currentPeriod),
+    comparisonContext,
     summary: buildAgentYearSection('resumen', summaryMetrics, clientRows, 'cliente'),
     conversion: buildAgentYearSection(
       'conversión',
@@ -1630,29 +1691,10 @@ function topDimensionShare(
     .reduce((total, row) => total + row[shareKey], 0);
 }
 
-function describeAgentComparisonContext(range: PeriodRange) {
-  const durationDays = Math.round((range.end.getTime() - range.start.getTime()) / 86400000) + 1;
-  if (durationDays === 1) return 'Mismo día del año anterior';
-  const isFullMonth =
-    range.start.getUTCDate() === 1 &&
-    range.end.getUTCDate() ===
-      new Date(Date.UTC(range.end.getUTCFullYear(), range.end.getUTCMonth() + 1, 0)).getUTCDate() &&
-    range.start.getUTCMonth() === range.end.getUTCMonth();
-  if (isFullMonth) return 'Mismo mes del año anterior';
-  const isFullQuarter =
-    range.start.getUTCDate() === 1 &&
-    range.start.getUTCMonth() % 3 === 0 &&
-    range.end.getUTCMonth() === range.start.getUTCMonth() + 2 &&
-    range.end.getUTCDate() ===
-      new Date(Date.UTC(range.end.getUTCFullYear(), range.end.getUTCMonth() + 1, 0)).getUTCDate();
-  if (isFullQuarter) return 'Mismo trimestre del año anterior';
-  const isFullYear =
-    range.start.getUTCMonth() === 0 &&
-    range.start.getUTCDate() === 1 &&
-    range.end.getUTCMonth() === 11 &&
-    range.end.getUTCDate() === 31;
-  if (isFullYear) return 'Mismo año calendario anterior';
-  return 'Mismo rango de fechas del año anterior';
+function describeAgentComparisonContext(range: PeriodRange, previousRange: PeriodRange) {
+  void range;
+  void previousRange;
+  return 'Mismo rango del año anterior';
 }
 
 function buildSellerGoalProgress({
@@ -1875,11 +1917,7 @@ function formatMonthKey(value: Date) {
 }
 
 function formatMonthLabel(value: Date) {
-  return new Intl.DateTimeFormat('es-MX', {
-    month: 'short',
-    year: '2-digit',
-    timeZone: 'UTC',
-  }).format(value);
+  return reportMonthFormatter.format(value);
 }
 
 function findSellerGoal(
@@ -2739,7 +2777,8 @@ function buildConversionByProduct(
   referenceDate: Date,
   quoteInvoiceIndex: Map<string, Date>,
 ) {
-  const quoteIds = new Set(quotes.map((quote) => quote.id));
+  const quoteById = new Map(quotes.map((quote) => [quote.id, quote]));
+  const quoteIds = new Set(quoteById.keys());
   const confirmedOrderIds = new Set(confirmedOrders.map((order) => order.id));
   const groupedLines = lines.filter((line) => quoteIds.has(line.orderId));
   const confirmedLines = lines.filter((line) => confirmedOrderIds.has(line.orderId));
@@ -2771,7 +2810,7 @@ function buildConversionByProduct(
       totalConversionDays: 0,
       conversionDaysCount: 0,
     };
-    const quote = quotes.find((item) => item.id === line.orderId);
+    const quote = quoteById.get(line.orderId);
     if (!quote) return;
     bucket.quotes += 1;
     if (isQuoteConvertedByInvoice(quote, referenceDate, quoteInvoiceIndex)) {
@@ -2828,19 +2867,79 @@ function buildConversionByProduct(
     .slice(0, 12);
 }
 
+function buildDailyInvoiceDifferencePoints(
+  currentLines: OdooInvoiceLineRecord[],
+  previousLines: OdooInvoiceLineRecord[],
+  currentRange: PeriodRange,
+  previousRange: PeriodRange,
+): DailyInvoiceDifferencePoint[] {
+  const dayMs = 86_400_000;
+  const startOfDay = (date: Date) => Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  const currentStart = startOfDay(currentRange.start);
+  const previousStart = startOfDay(previousRange.start);
+  const currentDays = Math.round((startOfDay(currentRange.end) - currentStart) / dayMs) + 1;
+  const previousDays = Math.round((startOfDay(previousRange.end) - previousStart) / dayMs) + 1;
+  const currentAmounts = Array<number>(currentDays).fill(0);
+  const previousAmounts = Array<number>(currentDays).fill(0);
+  const previousDates: Array<{ first: Date; last: Date } | null> = Array(currentDays).fill(null);
+
+  currentLines.forEach((line) => {
+    const date = parseRecordDate(line.invoiceDate);
+    if (!date) return;
+    const index = Math.round((startOfDay(date) - currentStart) / dayMs);
+    if (index >= 0 && index < currentDays) currentAmounts[index] += line.untaxedAmount;
+  });
+
+  previousLines.forEach((line) => {
+    const date = parseRecordDate(line.invoiceDate);
+    if (!date) return;
+    const previousIndex = Math.round((startOfDay(date) - previousStart) / dayMs);
+    if (previousIndex < 0 || previousIndex >= previousDays) return;
+    // Align relative days; unlike date interpolation, each prior invoice is counted exactly once.
+    const index = Math.min(currentDays - 1, Math.floor((previousIndex + 0.5) * currentDays / previousDays));
+    previousAmounts[index] += line.untaxedAmount;
+  });
+
+  for (let previousIndex = 0; previousIndex < previousDays; previousIndex += 1) {
+    const index = Math.min(currentDays - 1, Math.floor((previousIndex + 0.5) * currentDays / previousDays));
+    const date = new Date(previousStart + previousIndex * dayMs);
+    const mapped = previousDates[index];
+    previousDates[index] = mapped ? { first: mapped.first, last: date } : { first: date, last: date };
+  }
+
+  return currentAmounts.map((invoicedAmount, index) => {
+    const date = new Date(currentStart + index * dayMs);
+    const previous = previousDates[index];
+    const previousLabel = previous
+      ? previous.first.getTime() === previous.last.getTime()
+        ? buildGroupedKey(previous.first, 'day').label
+        : `${buildGroupedKey(previous.first, 'day').label} - ${buildGroupedKey(previous.last, 'day').label}`
+      : 'Sin día equivalente';
+    return {
+      bucketKey: date.toISOString().slice(0, 10),
+      label: buildGroupedKey(date, 'day').label,
+      invoicedAmount,
+      previousInvoicedAmount: previousAmounts[index],
+      previousLabel,
+    };
+  });
+}
+
 function buildTrendPoints({
   config,
   grouping,
   invoiceLines,
   invoices,
-  previousYearInvoiceLines,
+  previousInvoiceLines,
+  previousRange,
   range,
 }: {
   config: ReportsConfig;
   grouping: ReportGrouping;
   invoiceLines: OdooInvoiceLineRecord[];
   invoices: OdooInvoiceRecord[];
-  previousYearInvoiceLines: OdooInvoiceLineRecord[];
+  previousInvoiceLines: OdooInvoiceLineRecord[];
+  previousRange: PeriodRange;
   range: PeriodRange;
 }) {
   const buckets = new Map<
@@ -2901,20 +3000,16 @@ function buildTrendPoints({
     buckets.set(key, bucket);
   });
 
-  previousYearInvoiceLines.forEach((line) => {
+  previousInvoiceLines.forEach((line) => {
     const date = parseRecordDate(line.invoiceDate);
     if (!date) return;
-    const shiftedDate = new Date(
-      Date.UTC(
-        date.getUTCFullYear() + 1,
-        date.getUTCMonth(),
-        date.getUTCDate(),
-        date.getUTCHours(),
-        date.getUTCMinutes(),
-        date.getUTCSeconds(),
-        date.getUTCMilliseconds(),
-      ),
+    const previousDuration = Math.max(previousRange.end.getTime() - previousRange.start.getTime(), 1);
+    const currentDuration = Math.max(range.end.getTime() - range.start.getTime(), 1);
+    const relativePosition = Math.min(
+      1,
+      Math.max(0, (date.getTime() - previousRange.start.getTime()) / previousDuration),
     );
+    const shiftedDate = new Date(range.start.getTime() + relativePosition * currentDuration);
     if (!isDateInRange(shiftedDate, range)) return;
     const { key, label } = buildGroupedKey(shiftedDate, grouping);
     const bucket = buckets.get(key) ?? {
@@ -3700,23 +3795,14 @@ function buildGroupedKey(date: Date, grouping: ReportGrouping) {
   if (grouping === 'day') {
     return {
       key: date.toISOString().slice(0, 10),
-      label: new Intl.DateTimeFormat('es-MX', {
-        day: '2-digit',
-        month: 'short',
-        year: '2-digit',
-        timeZone: 'UTC',
-      }).format(date),
+      label: reportDayFormatter.format(date),
     };
   }
 
   if (grouping === 'month') {
     return {
       key: `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`,
-      label: new Intl.DateTimeFormat('es-MX', {
-        month: 'short',
-        year: '2-digit',
-        timeZone: 'UTC',
-      }).format(date),
+      label: reportMonthFormatter.format(date),
     };
   }
 
@@ -3937,8 +4023,10 @@ function getRfmSegment({
 
 function quantileScores(values: number[], invert: boolean) {
   const sorted = [...values].sort((left, right) => left - right);
+  const firstIndex = new Map<number, number>();
+  sorted.forEach((value, index) => { if (!firstIndex.has(value)) firstIndex.set(value, index); });
   return values.map((value) => {
-    const percentile = ratio(sorted.findIndex((item) => item >= value), Math.max(sorted.length - 1, 1));
+    const percentile = ratio(Number.isNaN(value) ? -1 : firstIndex.get(value) ?? -1, Math.max(sorted.length - 1, 1));
     const rawScore = Math.min(5, Math.max(1, Math.ceil(percentile * 5)));
     return invert ? 6 - rawScore : rawScore;
   });
@@ -3957,8 +4045,8 @@ function compareMetric(current: number, previous: number): MetricComparison {
 }
 
 function calculatePctChange(current: number, previous: number) {
-  if (previous === 0) return current === 0 ? 0 : 100;
-  return ((current - previous) / previous) * 100;
+  if (previous === 0) return current === 0 ? 0 : null;
+  return ((current - previous) / Math.abs(previous)) * 100;
 }
 
 function classifyTrend(differencePct: number | null): MetricTrend {
@@ -4454,6 +4542,10 @@ function isDateInRange(date: Date, range: PeriodRange) {
 }
 
 const reportTimeZone = 'America/Mexico_City';
+const reportDateKeyCache = new Map<string, string>();
+const reportTimeZoneFormatter = new Intl.DateTimeFormat('en-US', { timeZone: reportTimeZone, year: 'numeric', month: '2-digit', day: '2-digit' });
+const reportMonthFormatter = new Intl.DateTimeFormat('es-MX', { month: 'short', year: '2-digit', timeZone: 'UTC' });
+const reportDayFormatter = new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: 'short', year: '2-digit', timeZone: 'UTC' });
 
 function isOdooDateValueInRange(value: string | null | undefined, range: PeriodRange) {
   const dateKey = getOdooDateKey(value);
@@ -4465,12 +4557,16 @@ function getOdooDateKey(value: string | null | undefined) {
   const raw = `${value ?? ''}`.trim();
   if (!raw) return null;
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const cached = reportDateKeyCache.get(raw);
+  if (cached) return cached;
 
   const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
   const hasTimeZone = /(?:Z|[+-]\d{2}:?\d{2})$/.test(normalized);
   const date = new Date(hasTimeZone ? normalized : `${normalized}Z`);
   if (Number.isNaN(date.getTime())) return null;
-  return formatDateKeyInReportTimeZone(date);
+  const result = formatDateKeyInReportTimeZone(date);
+  if (reportDateKeyCache.size < 50_000) reportDateKeyCache.set(raw, result);
+  return result;
 }
 
 function getUtcDateKey(date: Date) {
@@ -4478,12 +4574,7 @@ function getUtcDateKey(date: Date) {
 }
 
 function formatDateKeyInReportTimeZone(date: Date) {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: reportTimeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date);
+  const parts = reportTimeZoneFormatter.formatToParts(date);
   const values = new Map(parts.map((part) => [part.type, part.value]));
   return `${values.get('year')}-${values.get('month')}-${values.get('day')}`;
 }

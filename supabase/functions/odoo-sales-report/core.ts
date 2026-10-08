@@ -10,6 +10,9 @@ import {
   selectExactActiveOdooUsers,
 } from './salesperson-scope.ts';
 
+const sellerCatalogCache = new Map<string, { expiresAt: number; options: Array<{ id: number; label: string; companyId: number }> }>();
+const companyCatalogCache = new Map<string, { expiresAt: number; options: Array<{ id: number; label: string }> }>();
+
 export const defaultReportsConfig = {
   clientRecentDays: 30,
   clientActiveDays: 45,
@@ -40,6 +43,34 @@ const PAGE_SIZE = 400;
 const CHUNK_SIZE = 200;
 const MIN_COMPARISON_LOOKBACK_DAYS = 395;
 const MAX_LOOKBACK_DAYS = 420;
+
+async function fetchCompanyCatalog({ apiKey, database, fallbackOptions, odooUrl, uid }) {
+  const cacheKey = `${database}:${odooUrl}`;
+  const cached = companyCatalogCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.options;
+  try {
+    const companies = await searchReadAll({
+      apiKey,
+      database,
+      domain: [],
+      fields: ['id', 'name'],
+      model: 'res.company',
+      odooUrl,
+      order: 'name asc, id asc',
+      uid,
+    });
+    const options = companies
+      .map((company) => ({ id: Number(company.id), label: `${company.name ?? ''}`.trim() }))
+      .filter((company) => Number.isFinite(company.id) && company.label);
+    if (options.length) {
+      companyCatalogCache.set(cacheKey, { expiresAt: Date.now() + 10 * 60_000, options });
+      return options;
+    }
+  } catch (error) {
+    console.warn('[odoo-sales-report] Company catalog lookup unavailable; using companies in range.', error);
+  }
+  return fallbackOptions;
+}
 
 export async function resolveOdooSalespersonIdentity(options) {
   const normalizedEmail = normalizeOdooEmail(options.email);
@@ -97,6 +128,80 @@ export async function resolveOdooSalespersonIdentity(options) {
   };
 }
 
+async function fetchCompanySellerCatalog({ apiKey, database, fallbackOptions, odooUrl, uid }) {
+  const cacheKey = `${database}:${odooUrl}`;
+  const cached = sellerCatalogCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.options;
+
+  const fallbackById = new Map(fallbackOptions.map((option) => [Number(option.id), option.label]));
+  let salesGroupIds = [];
+  try {
+    const groups = await searchReadAll({
+      apiKey,
+      database,
+      domain: [
+        ['model', '=', 'res.groups'],
+        ['module', '=', 'sales_team'],
+        ['name', 'in', ['group_sale_salesman', 'group_sale_salesman_all_leads', 'group_sale_manager']],
+      ],
+      fields: ['name', 'res_id'],
+      model: 'ir.model.data',
+      odooUrl,
+      uid,
+    });
+    salesGroupIds = [...new Set(groups.map((row) => Number(row.res_id)).filter(Number.isFinite))];
+  } catch (error) {
+    console.warn('[odoo-sales-report] Sales group lookup unavailable; using observed seller users.', error);
+  }
+
+  let userRows = [];
+  try {
+    const domain = [
+      ['active', '=', true],
+      ['share', '=', false],
+      ['company_id', '!=', false],
+      ...(salesGroupIds.length
+        ? [['groups_id', 'in', salesGroupIds]]
+        : fallbackById.size ? [['id', 'in', [...fallbackById.keys()]]] : [['id', '=', 0]]),
+    ];
+    userRows = await searchReadAll({
+      apiKey,
+      database,
+      domain,
+      fields: ['id', 'name', 'company_id'],
+      model: 'res.users',
+      odooUrl,
+      order: 'name asc, id asc',
+      uid,
+    });
+    if (!userRows.length && salesGroupIds.length && fallbackById.size) {
+      userRows = await searchReadAll({
+        apiKey,
+        database,
+        domain: [['active', '=', true], ['id', 'in', [...fallbackById.keys()]]],
+        fields: ['id', 'name', 'company_id'],
+        model: 'res.users',
+        odooUrl,
+        uid,
+      });
+    }
+  } catch (error) {
+    console.warn('[odoo-sales-report] Seller company lookup unavailable.', error);
+  }
+
+  const options = userRows.map((row) => {
+    const id = Number(row.id);
+    const companyId = many2oneId(row.company_id);
+    const label = `${row.name ?? fallbackById.get(id) ?? ''}`.trim();
+    return Number.isFinite(id) && companyId && label ? { id, label, companyId } : null;
+  }).filter(Boolean).sort((left, right) => left.label.localeCompare(right.label, 'es-MX'));
+
+  if (options.length) {
+    sellerCatalogCache.set(cacheKey, { expiresAt: Date.now() + 10 * 60_000, options });
+  }
+  return options;
+}
+
 export async function fetchCommercialDataset(options) {
   let odooUrl = trimSlash(options.odooUrl);
   const apiKey = `${options.apiKey ?? ''}`.trim();
@@ -122,9 +227,11 @@ export async function fetchCommercialDataset(options) {
   odooUrl = connection.odooUrl;
   const warnings = [];
   const dataQualityAlerts = [];
-  const historyDays = options.loadMode === 'fast'
-    ? calculateFastHistoryDays(filters)
-    : calculateHistoryDays(filters);
+  const historyDays = options.loadMode === 'partition'
+    ? 0
+    : options.loadMode === 'fast'
+      ? calculateFastHistoryDays(filters)
+      : calculateHistoryDays(filters);
   const startDate = minusDays(filters.startDate, historyDays);
   const endDate = filters.endDate;
 
@@ -164,6 +271,10 @@ export async function fetchCommercialDataset(options) {
   const leadTeamField = pick(leadMeta, ['team_id']);
   const leadCompanyField = pick(leadMeta, ['company_id']);
   const leadExpectedRevenueField = pick(leadMeta, ['expected_revenue', 'planned_revenue']);
+  const leadSourceField = pick(leadMeta, ['source_id']);
+  const leadMediumField = pick(leadMeta, ['medium_id']);
+  const leadAssignmentField = pick(leadMeta, ['date_open']);
+  const leadLostReasonField = pick(leadMeta, ['lost_reason_id']);
 
   const ownOdooUsers =
     filters.visibilityScope === 'own'
@@ -337,6 +448,44 @@ export async function fetchCommercialDataset(options) {
       })
     : [];
 
+  const invoiceAnalysisMargin = options.reportContext !== 'marketing' && includeSales &&
+    (filters.visibilityScope === 'own' || options.loadMode !== 'fast')
+    ? await fetchAgentInvoiceAnalysisMargin({
+        apiKey,
+        database,
+        filters,
+        invoiceIds: postedInvoicesRaw
+          .filter((row) => `${row.invoice_date ?? ''}` >= filters.startDate && `${row.invoice_date ?? ''}` <= filters.endDate &&
+            (!filters.currencyCode || currencyLabel(row.currency_id) === filters.currencyCode))
+          .map((row) => Number(row.id)),
+        odooUrl,
+        ownUserIds,
+        uid,
+        warnings,
+      })
+    : null;
+  const previousInvoiceAnalysisMargin = options.reportContext !== 'marketing' && includeSales &&
+    filters.visibilityScope === 'all' && options.loadMode === 'full'
+    ? await fetchAgentInvoiceAnalysisMargin({
+        apiKey,
+        database,
+        filters: {
+          ...filters,
+          startDate: shiftDateOneYearBack(filters.startDate),
+          endDate: shiftDateOneYearBack(filters.endDate),
+        },
+        invoiceIds: postedInvoicesRaw
+          .filter((row) => `${row.invoice_date ?? ''}` >= shiftDateOneYearBack(filters.startDate) &&
+            `${row.invoice_date ?? ''}` <= shiftDateOneYearBack(filters.endDate) &&
+            (!filters.currencyCode || currencyLabel(row.currency_id) === filters.currencyCode))
+          .map((row) => Number(row.id)),
+        odooUrl,
+        ownUserIds,
+        uid,
+        warnings,
+      })
+    : null;
+
   const productIds = uniqueNumbers([
     ...many2oneIds(orderLinesRaw, 'product_id'),
     ...many2oneIds(invoiceLinesRaw, 'product_id'),
@@ -374,6 +523,11 @@ export async function fetchCommercialDataset(options) {
           leadSellerField,
           leadTeamField,
           ownUserIds,
+          marketing: options.reportContext === 'marketing',
+          invoiceCustomerIds: uniqueNumbers(invoicesRaw
+            .filter((row) => `${row.invoice_date ?? ''}` >= filters.startDate && `${row.invoice_date ?? ''}` <= filters.endDate)
+            .map((row) => many2oneId(row.partner_id))),
+          leadAssignmentField,
         }),
         fields: uniq([
           'id',
@@ -384,18 +538,23 @@ export async function fetchCommercialDataset(options) {
           'write_date',
           'date_deadline',
           'date_closed',
+          leadAssignmentField,
+          leadLostReasonField,
           'partner_id',
           leadSellerField,
           leadTeamField,
           leadCompanyField,
           'stage_id',
           leadExpectedRevenueField,
+          leadSourceField,
+          leadMediumField,
           'probability',
           'priority',
           'email_from',
           'phone',
         ]),
         model: 'crm.lead',
+        context: options.reportContext === 'marketing' ? { active_test: false } : undefined,
         odooUrl,
         order: 'write_date desc, id desc',
         pageSize: 300,
@@ -406,6 +565,23 @@ export async function fetchCommercialDataset(options) {
         return [];
       })
     : [];
+
+  const marketingStageIds = options.reportContext === 'marketing'
+    ? uniqueNumbers(crmLeadsRaw.map((row) => many2oneId(row.stage_id)))
+    : [];
+  const marketingStages = marketingStageIds.length
+    ? await searchReadAll({
+        apiKey,
+        database,
+        domain: [['id', 'in', marketingStageIds]],
+        fields: ['id', 'is_won'],
+        model: 'crm.stage',
+        odooUrl,
+        pageSize: 100,
+        uid,
+      }).catch(() => null)
+    : [];
+  const wonStageIds = new Set((marketingStages ?? []).filter((stage) => stage.is_won === true).map((stage) => Number(stage.id)));
 
   const orders = ordersRaw.map((row) => ({
     id: Number(row.id),
@@ -527,12 +703,17 @@ export async function fetchCommercialDataset(options) {
   const crmLeads = crmLeadsRaw.map((row) => ({
     id: Number(row.id),
     name: readText(row.name) ?? `Oportunidad ${row.id}`,
+    sourceName: leadSourceField ? many2oneLabel(row[leadSourceField]) : null,
+    mediumName: leadMediumField ? many2oneLabel(row[leadMediumField]) : null,
     type: readText(row.type) ?? 'opportunity',
     active: row.active !== false,
     createDate: iso(row.create_date),
     writeDate: iso(row.write_date),
     deadlineDate: iso(row.date_deadline),
     closedDate: iso(row.date_closed),
+    assignmentDate: leadAssignmentField ? iso(row[leadAssignmentField]) : null,
+    lostReasonId: leadLostReasonField ? many2oneId(row[leadLostReasonField]) : null,
+    lostReasonName: leadLostReasonField ? many2oneLabel(row[leadLostReasonField]) : null,
     customerId: many2oneId(row.partner_id),
     customerName: many2oneLabel(row.partner_id),
     sellerId: many2oneId(row[leadSellerField]),
@@ -543,6 +724,8 @@ export async function fetchCommercialDataset(options) {
     companyName: many2oneLabel(row[leadCompanyField]),
     stageId: many2oneId(row.stage_id),
     stageName: many2oneLabel(row.stage_id),
+    stageIsWon: options.reportContext === 'marketing' && marketingStages
+      ? wonStageIds.has(many2oneId(row.stage_id)) : null,
     expectedRevenue: leadExpectedRevenueField ? num(row[leadExpectedRevenueField]) : 0,
     probability: num(row.probability),
     priority: readText(row.priority),
@@ -933,9 +1116,21 @@ export async function fetchCommercialDataset(options) {
       return companyId && companyName ? { companyId, companyName } : null;
     })
     .filter(Boolean);
+  const availableCompanyOptions = filters.visibilityScope === 'all'
+    ? await fetchCompanyCatalog({ apiKey, database, fallbackOptions: buildOptions(allCompanies, 'companyId', 'companyName'), odooUrl, uid })
+    : buildOptions(allCompanies, 'companyId', 'companyName', scopedCompanyOptions);
   const companyScope = scopedCompanyOptions.length === 1
     ? { id: scopedCompanyOptions[0].companyId, label: scopedCompanyOptions[0].companyName }
     : null;
+  const salesSellerOptions = filters.visibilityScope === 'all'
+    ? await fetchCompanySellerCatalog({
+        apiKey,
+        database,
+        fallbackOptions: buildOptions([...orders, ...invoices], 'sellerId', 'sellerName'),
+        odooUrl,
+        uid,
+      })
+    : buildOptions(salesRecords, 'sellerId', 'sellerName', scopedSellerOptions);
 
   return {
     database,
@@ -952,13 +1147,13 @@ export async function fetchCommercialDataset(options) {
     dataQualityAlerts,
     configDefaults: defaultReportsConfig,
     availableFilters: {
-      companies: buildOptions(allCompanies, 'companyId', 'companyName', scopedCompanyOptions),
+      companies: availableCompanyOptions,
       sellers: includePurchases
         ? buildOptions(salesRecords, 'sellerId', 'sellerName', [
             ...buildOptions([...periodPurchaseOrders, ...periodVendorBills], 'buyerId', 'buyerName'),
             ...scopedSellerOptions,
           ])
-        : buildOptions(salesRecords, 'sellerId', 'sellerName', scopedSellerOptions),
+        : salesSellerOptions.length ? salesSellerOptions : buildOptions(salesRecords, 'sellerId', 'sellerName', scopedSellerOptions),
       teams: buildOptions(salesRecords, 'teamId', 'teamName'),
       customers: buildOptions(salesRecords, 'customerId', 'customerName'),
       products: includePurchases
@@ -976,6 +1171,8 @@ export async function fetchCommercialDataset(options) {
     orderLines,
     invoices,
     invoiceLines,
+    invoiceAnalysisMargin,
+    previousInvoiceAnalysisMargin,
     customerFirstPurchases,
     customerContacts,
     crmLeads,
@@ -1045,20 +1242,204 @@ function buildInvoiceDomain({ filters, ownUserIds, invoiceSellerField, invoiceTe
   return domain;
 }
 
-function buildCrmLeadDomain({
+export function summarizeAgentMarginGroups(rows, hasMarginPercent) {
+  const categories = rows.map((row) => {
+    const margin = num(row.price_margin);
+    const untaxed = num(row.price_subtotal);
+    const fromOdoo = hasMarginPercent ? numOrNull(row.margin_percent) : null;
+    return {
+      category: many2oneLabel(row.product_categ_id) ?? 'Sin categoría',
+      margin,
+      untaxed,
+      marginPct: fromOdoo ?? (untaxed ? margin / untaxed * 100 : null),
+    };
+  }).sort((a, b) => b.margin - a.margin || a.category.localeCompare(b.category, 'es-MX'));
+  const margin = categories.reduce((sum, row) => sum + row.margin, 0);
+  const untaxed = categories.reduce((sum, row) => sum + row.untaxed, 0);
+  return {
+    available: true,
+    categories,
+    margin,
+    untaxed,
+    marginPct: untaxed ? margin / untaxed * 100 : null,
+    rowCount: rows.reduce((sum, row) => sum + num(row.__count ?? row.product_categ_id_count ?? 0), 0),
+  };
+}
+
+export function buildAgentInvoiceAnalysisDomain(filters, invoiceIds, ownUserIds) {
+  const domain = [
+    ['move_id', 'in', invoiceIds],
+    ['move_type', 'in', ['out_invoice', 'out_refund']],
+    ['state', '=', 'posted'],
+    ['invoice_date', '>=', filters.startDate],
+    ['invoice_date', '<=', filters.endDate],
+  ];
+  const sellerIds = activeSellerIds(filters, ownUserIds);
+  if (sellerIds.length) domain.push(['invoice_user_id', 'in', sellerIds]);
+  addCompany(domain, filters);
+  if (filters.teamId) domain.push(['team_id', '=', filters.teamId]);
+  if (filters.customerId) domain.push(['partner_id', '=', filters.customerId]);
+  if (filters.productId) domain.push(['product_id', '=', filters.productId]);
+  if (filters.categoryId) domain.push(['product_categ_id', '=', filters.categoryId]);
+  return domain;
+}
+
+async function fetchAgentInvoiceAnalysisMargin({ apiKey, database, filters, invoiceIds, odooUrl, ownUserIds, uid, warnings }) {
+  const empty = summarizeAgentMarginGroups([], false);
+  if (!invoiceIds.length || filters.stateScope === 'quotation' || filters.stateScope === 'cancelled') return empty;
+  try {
+    const meta = await fieldsGet({ apiKey, database, model: 'account.invoice.report', odooUrl, uid });
+    if (!meta.price_margin || !meta.price_subtotal || !meta.product_categ_id) {
+      throw new Error('Faltan campos de margen o categoría en account.invoice.report.');
+    }
+    if (filters.teamId && !meta.team_id) {
+      throw new Error('El Análisis de facturas no admite filtrar por equipo en esta instancia.');
+    }
+    const domain = buildAgentInvoiceAnalysisDomain(filters, invoiceIds, ownUserIds);
+    let hasMarginPercent = Boolean(meta.margin_percent);
+    const readGroups = (includePercent) => executeReadKw({
+      apiKey,
+      args: [
+        domain,
+        ['product_categ_id', 'price_margin:sum', 'price_subtotal:sum', ...(includePercent ? ['margin_percent:avg'] : [])],
+        ['product_categ_id'],
+      ],
+      database,
+      kwargs: { lazy: false },
+      method: 'read_group',
+      model: 'account.invoice.report',
+      odooUrl,
+      uid,
+    });
+    let rows;
+    try {
+      rows = await readGroups(hasMarginPercent);
+    } catch (error) {
+      if (!hasMarginPercent) throw error;
+      hasMarginPercent = false;
+      rows = await readGroups(false);
+      warnings.push('Odoo no permitió agrupar margin_percent; el porcentaje se calculó con el margen y total sin impuestos del Análisis de facturas.');
+    }
+    return summarizeAgentMarginGroups(rows, hasMarginPercent);
+  } catch (error) {
+    console.warn('[odoo-sales-report] account.invoice.report margin unavailable', error);
+    warnings.push('No se pudo consultar el margen desde Contabilidad > Análisis de facturas de Odoo.');
+    return { ...empty, available: false };
+  }
+}
+
+export async function fetchInvoiceDailyMetrics({ apiKey, database, filters, odooUrl, ownUserIds = [], uid, warnings = [] }) {
+  try {
+    const meta = await fieldsGet({ apiKey, database, model: 'account.invoice.report', odooUrl, uid });
+    if (!meta.invoice_date || !meta.price_subtotal || !meta.company_id) {
+      throw new Error('Faltan campos base en account.invoice.report para generar métricas diarias.');
+    }
+    const sellerField = meta.invoice_user_id ? 'invoice_user_id' : meta.user_id ? 'user_id' : null;
+    const marginField = meta.price_margin ? 'price_margin' : null;
+    const currencyField = meta.currency_id ? 'currency_id' : null;
+    const domain = [
+      ['move_type', 'in', ['out_invoice', 'out_refund']],
+      ['state', '=', 'posted'],
+      ['invoice_date', '>=', filters.startDate],
+      ['invoice_date', '<=', filters.endDate],
+    ];
+    addCompany(domain, filters);
+    const sellerIds = sellerField ? activeSellerIds(filters, ownUserIds) : [];
+    if (sellerField && sellerIds.length) domain.push([sellerField, 'in', sellerIds]);
+    if (filters.teamId && meta.team_id) domain.push(['team_id', '=', filters.teamId]);
+    if (filters.customerId) domain.push(['partner_id', '=', filters.customerId]);
+    if (filters.productId) domain.push(['product_id', '=', filters.productId]);
+    if (filters.categoryId && meta.product_categ_id) domain.push(['product_categ_id', '=', filters.categoryId]);
+
+    const groupBy = ['invoice_date:day', 'company_id'];
+    if (sellerField) groupBy.push(sellerField);
+    if (currencyField) groupBy.push(currencyField);
+
+    const rows = await executeReadKw({
+      apiKey,
+      args: [
+        domain,
+        [
+          'invoice_date',
+          'company_id',
+          ...(sellerField ? [sellerField] : []),
+          ...(currencyField ? [currencyField] : []),
+          'price_subtotal:sum',
+          ...(marginField ? [`${marginField}:sum`] : []),
+        ],
+        groupBy,
+      ],
+      database,
+      kwargs: { lazy: false },
+      method: 'read_group',
+      model: 'account.invoice.report',
+      odooUrl,
+      uid,
+    });
+
+    return rows
+      .map((row) => {
+        const metricDate = groupedDateValue(row, 'invoice_date');
+        if (!metricDate) return null;
+        const sellerValue = sellerField ? row[sellerField] : null;
+        const currencyValue = currencyField ? row[currencyField] : null;
+        return {
+          metricDate,
+          companyId: many2oneId(row.company_id),
+          companyName: many2oneLabel(row.company_id),
+          sellerId: many2oneId(sellerValue),
+          sellerName: many2oneLabel(sellerValue),
+          currencyCode: currencyLabel(currencyValue),
+          invoiceCount: num(row.__count ?? row.invoice_date_count ?? 0),
+          untaxedAmount: num(row.price_subtotal),
+          marginAmount: marginField ? num(row[marginField]) : 0,
+        };
+      })
+      .filter(Boolean);
+  } catch (error) {
+    console.warn('[odoo-sales-report] daily account.invoice.report unavailable', error);
+    warnings.push('No se pudo consultar el resumen diario de Contabilidad > Análisis de facturas.');
+    return [];
+  }
+}
+
+export function buildCrmLeadDomain({
   filters,
   leadCompanyField,
   leadSellerField,
   leadTeamField,
   ownUserIds,
+  marketing = false,
+  invoiceCustomerIds = [],
+  leadAssignmentField,
 }) {
-  const domain = [
-    ['type', 'in', ['lead', 'opportunity']],
-    '|',
-    ['create_date', '>=', `${filters.startDate} 00:00:00`],
-    ['write_date', '>=', `${filters.startDate} 00:00:00`],
-    ['write_date', '<=', `${filters.endDate} 23:59:59`],
-  ];
+  const startBuffer = minusDays(filters.startDate, 1);
+  const endBuffer = minusDays(filters.endDate, -1);
+  const domain = marketing && leadAssignmentField
+    ? [
+        ['type', 'in', ['lead', 'opportunity']],
+        '|', '|', '|', '|',
+        '&', ['create_date', '>=', `${startBuffer} 00:00:00`], ['create_date', '<=', `${endBuffer} 23:59:59`],
+        '&', [leadAssignmentField, '>=', `${startBuffer} 00:00:00`], [leadAssignmentField, '<=', `${endBuffer} 23:59:59`],
+        '&', ['date_closed', '>=', `${startBuffer} 00:00:00`], ['date_closed', '<=', `${endBuffer} 23:59:59`],
+        ['partner_id', 'in', invoiceCustomerIds],
+        '&', ['active', '=', true], ['write_date', '<=', `${minusDays(filters.startDate, 60)} 23:59:59`],
+        ['create_date', '<=', `${endBuffer} 23:59:59`],
+      ]
+    : leadAssignmentField
+      ? [
+          ['type', 'in', ['lead', 'opportunity']],
+          '|', '|',
+          '&', ['create_date', '>=', `${filters.startDate} 00:00:00`], ['create_date', '<=', `${filters.endDate} 23:59:59`],
+          '&', ['write_date', '>=', `${filters.startDate} 00:00:00`], ['write_date', '<=', `${filters.endDate} 23:59:59`],
+          '&', [leadAssignmentField, '>=', `${filters.startDate} 00:00:00`], [leadAssignmentField, '<=', `${filters.endDate} 23:59:59`],
+        ]
+      : [
+          ['type', 'in', ['lead', 'opportunity']],
+          '|',
+          '&', ['create_date', '>=', `${filters.startDate} 00:00:00`], ['create_date', '<=', `${filters.endDate} 23:59:59`],
+          '&', ['write_date', '>=', `${filters.startDate} 00:00:00`], ['write_date', '<=', `${filters.endDate} 23:59:59`],
+        ];
 
   if (leadCompanyField) addCompany(domain, filters);
   const sellerIds = leadSellerField ? activeSellerIds(filters, ownUserIds) : [];
@@ -1175,6 +1556,14 @@ function calculateHistoryDays(filters) {
 
 function calculateFastHistoryDays(filters) {
   return Math.min(45, Math.max(7, daysBetween(filters.startDate, filters.endDate)));
+}
+
+export function shiftDateOneYearBack(value) {
+  const date = new Date(`${value}T00:00:00.000Z`);
+  const year = date.getUTCFullYear() - 1;
+  const month = date.getUTCMonth();
+  const day = Math.min(date.getUTCDate(), new Date(Date.UTC(year, month + 1, 0)).getUTCDate());
+  return new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10);
 }
 
 function daysBetween(startDate, endDate) {
@@ -1412,6 +1801,18 @@ function currencyLabel(value) {
   if (!label) return null;
   const upper = label.toUpperCase();
   return upper.length <= 6 ? upper : label;
+}
+
+function groupedDateValue(row, fieldName) {
+  const candidates = [
+    row[`${fieldName}:day`],
+    row[`${fieldName}_day`],
+    row[fieldName],
+  ];
+  const value = candidates.map(readText).find(Boolean);
+  if (!value) return null;
+  const match = value.match(/\d{4}-\d{2}-\d{2}/);
+  return match ? match[0] : null;
 }
 
 function channelValue(row) {
