@@ -122,12 +122,15 @@ import {
   type AgentSummaryContext,
   type ReportDailySalesComparison,
 } from './reportsService';
-import { buildAgentInvoiceMargin, type AgentInvoiceMarginResult } from './agentInvoiceMargin';
+import { buildAgentInvoiceMargin, buildPersistedInvoiceMargin, type AgentInvoiceMarginResult } from './agentInvoiceMargin';
 import { fetchPartitionedCommercialDataset } from './reportsPartitioning';
 import { countAbandonedQuotesPreviousPeriod, countAnalyzableAbandonedQuotes, buildAgentAbandonedQuoteBalance, buildAgentCustomerBalance, leadMatchesReportScope, buildAgentCrmBalance, isAgentLeadAttendedStage, buildAgentLeadAttention, isDeliveryOrderLine, isPlaceholderQuoteProductName, buildAbandonedQuoteAnalysisIndex, calculateAbandonedQuoteAnalysisAmount, groupOrderLinesByOrderId, type AgentAbandonedQuoteBalance, type AgentLeadAttention, type AgentCustomerBalance, type AgentCustomerLifecycleDetail, type AgentCrmLeadDetail, type AgentCrmBalance, type AbandonedQuoteAnalysisLine } from './reportExecutiveModel';
+import { buildCustomerSellerDistribution, buildCrmSellerDistribution } from './reportDetailDistribution';
 import { buildAgentHistoricalComparison, type AgentHistoricalComparisonRow } from './agentHistoricalComparison';
 import { buildAgentCrossSellOpportunities, buildLeadAgeBands, buildRepurchaseAttentionRows, type AgentCrossSellOpportunity, type RepurchaseAttentionRow } from './agentDashboardInsights';
 import { buildAnnualInvoiceComparison, buildCumulativeInvoiceComparison } from './invoiceComparisonTrend';
+import { buildProductAffinity } from './commercialIntelligence';
+import { AffinityMatrix, CommercialIntelligenceSection } from './CommercialIntelligenceSection';
 import {
   buildAgentPerformanceScore,
   buildSalesAgentNotifications,
@@ -149,7 +152,7 @@ import {
 
 type ReportsSection =
   | 'executive'
-  | 'conversion'
+  | 'commercialIntelligence'
   | 'clients'
   | 'products'
   | 'sellers'
@@ -262,7 +265,7 @@ const reportSections: Array<{
   icon: ReactNode;
 }> = [
   { id: 'executive', label: 'Resumen ejecutivo', icon: <LayoutDashboard size={18} /> },
-  { id: 'conversion', label: 'Conversión', icon: <Target size={18} /> },
+  { id: 'commercialIntelligence', label: 'Inteligencia Comercial', icon: <Target size={18} /> },
   { id: 'clients', label: 'Clientes', icon: <Users size={18} /> },
   { id: 'products', label: 'Productos', icon: <Boxes size={18} /> },
   { id: 'sellers', label: 'Vendedores', icon: <Trophy size={18} /> },
@@ -284,7 +287,7 @@ const reportsSidebarSalesNav: Array<{
   detailKey?: DetailKey;
 }> = [
   { id: 'executive', label: 'Resumen', icon: <BarChart3 size={18} /> },
-  { id: 'conversion', label: 'Conversión', icon: <FileText size={18} /> },
+  { id: 'commercialIntelligence', label: 'Inteligencia Comercial', icon: <Target size={18} /> },
   { id: 'clients', label: 'Clientes', icon: <Users size={18} /> },
   { id: 'products', label: 'Productos', icon: <Boxes size={18} /> },
   { id: 'sellers', label: 'Vendedores', icon: <UserRound size={18} /> },
@@ -624,6 +627,7 @@ export function ReportsDashboard({
     queryFn: () => getReportDailySalesComparison(dailySummaryFilters, forceDatasetRefresh.current),
     enabled: preferencesHydrated && canAccessSales && requestedDatasetDomain === 'sales' && activeSection === 'executive',
     staleTime: 30_000,
+    refetchInterval: 10 * 60_000,
     retry: false,
     refetchOnMount: true,
     refetchOnReconnect: false,
@@ -633,7 +637,7 @@ export function ReportsDashboard({
   useEffect(() => {
     const lastSuccessfulSync = dailySalesComparisonQuery.data?.lastSuccessfulSync;
     const syncAgeMs = lastSuccessfulSync ? Date.now() - Date.parse(lastSuccessfulSync) : Number.POSITIVE_INFINITY;
-    const analyticsAreFresh = Number.isFinite(syncAgeMs) && syncAgeMs >= 0 && syncAgeMs < 20 * 60 * 60_000;
+    const analyticsAreFresh = Number.isFinite(syncAgeMs) && syncAgeMs >= 0 && syncAgeMs < 60 * 60_000;
     if (
       analyticsSyncStarted.current ||
       !preferencesHydrated ||
@@ -836,6 +840,17 @@ export function ReportsDashboard({
   const analysisDataset = activeSection === 'purchases' || usePartitionedReport
     ? displayDataset
     : usePreparedExecutive ? displayDataset : notificationDatasetQuery.data ?? displayDataset;
+  const persistedMarginRows = dailySalesComparisonQuery.data?.marginMetrics ?? dailySalesComparisonQuery.data?.monthlyMetrics;
+  const persistedMarginMatchesFilters = visibilityScope === 'all' &&
+    !filters.teamId && !filters.customerId && !filters.productId && !filters.categoryId &&
+    !filters.currencyCode && !filters.channel &&
+    filters.stateScope !== 'quotation' && filters.stateScope !== 'cancelled';
+  const persistedCurrentMargin = useMemo(() => persistedMarginMatchesFilters
+    ? buildPersistedInvoiceMargin(persistedMarginRows, 'current') : null,
+  [persistedMarginMatchesFilters, persistedMarginRows]);
+  const persistedPreviousMargin = useMemo(() => persistedMarginMatchesFilters
+    ? buildPersistedInvoiceMargin(persistedMarginRows, 'previous') : null,
+  [persistedMarginMatchesFilters, persistedMarginRows]);
   const baseSnapshot = useMemo<CommercialDashboardSnapshot | null>(() => {
     if (!analysisDataset) return null;
     return analysisDataset.executiveSummary?.snapshot ?? buildCommercialDashboard(analysisDataset, displayFilters, config);
@@ -849,7 +864,11 @@ export function ReportsDashboard({
   }, [activeSection, displayDataset, displayFilters]);
   const activeSectionMeta = reportSections.find((section) => section.id === activeSection);
   const sellerSectionLabel = visibilityScope === 'own' ? 'Ventas' : 'Vendedores';
-  const lastUpdatedLabel = formatRelativeUpdate(displayDataset?.fetchedAt ?? null);
+  const lastUpdatedLabel = formatRelativeUpdate(
+    visibilityScope === 'all' && activeSection === 'executive'
+      ? dailySalesComparisonQuery.data?.lastSuccessfulSync ?? displayDataset?.fetchedAt ?? null
+      : displayDataset?.fetchedAt ?? null,
+  );
   const showingPreview = Boolean(displayDataset && fullDatasetQuery.isFetching && !fullDatasetQuery.data);
   const isAgentProfile = canAccessSales && activeSection !== 'purchases' &&
     Boolean(snapshot?.agentProfile);
@@ -1247,8 +1266,10 @@ export function ReportsDashboard({
                     companyScope={isCompanyProfile}
                     comparisonReady={!isCompanyProfile || Boolean(analysisDataset?.executiveSummary) || usePartitionedReport || Boolean(notificationDatasetQuery.data) || Boolean(dailySalesComparisonQuery.data?.available)}
                     comparisonError={!analysisDataset?.executiveSummary && isCompanyProfile && !usePartitionedReport && !dailySalesComparisonQuery.data?.available && (notificationDatasetQuery.isError || dailySalesComparisonQuery.isError)}
-                    marginReady={Boolean(analysisDataset?.executiveSummary) || visibilityScope === 'own' || usePartitionedReport || Boolean(notificationDatasetQuery.data)}
-                    marginLoading={!analysisDataset?.executiveSummary && isCompanyProfile && !usePartitionedReport && !notificationDatasetQuery.data && !notificationDatasetQuery.isError}
+                    marginReady={Boolean(persistedCurrentMargin) || Boolean(analysisDataset?.executiveSummary) || visibilityScope === 'own' || usePartitionedReport || Boolean(notificationDatasetQuery.data)}
+                    marginLoading={!persistedCurrentMargin && !analysisDataset?.executiveSummary && isCompanyProfile && !usePartitionedReport && !notificationDatasetQuery.data && !notificationDatasetQuery.isError}
+                    persistedCurrentMargin={persistedCurrentMargin}
+                    persistedPreviousMargin={persistedPreviousMargin}
                     previousQuoteCount={companyPreviousQuoteCount}
                   />
                 ) : (
@@ -1268,17 +1289,8 @@ export function ReportsDashboard({
                 )
               ) : null}
 
-              {activeSection === 'conversion' ? (
-                isAgentProfile && snapshot.agentProfile ? (
-                  <AgentProfileSection
-                    profile={snapshot.agentProfile}
-                    section="conversion"
-                    snapshot={snapshot}
-                    companyScope={isCompanyProfile}
-                  />
-                ) : (
-                  <ConversionSectionV2 snapshot={snapshot} />
-                )
+              {activeSection === 'commercialIntelligence' ? (
+                <CommercialIntelligenceSection dataset={analysisDataset ?? displayDataset} filters={displayFilters} />
               ) : null}
 
               {activeSection === 'clients' ? (
@@ -2478,6 +2490,8 @@ function AgentSummarySection({
   comparisonError,
   marginReady,
   marginLoading,
+  persistedCurrentMargin,
+  persistedPreviousMargin,
   previousQuoteCount,
 }: {
   profile: AgentPerformanceProfile;
@@ -2490,6 +2504,8 @@ function AgentSummarySection({
   comparisonError: boolean;
   marginReady: boolean;
   marginLoading: boolean;
+  persistedCurrentMargin: AgentInvoiceMarginResult | null;
+  persistedPreviousMargin: AgentInvoiceMarginResult | null;
   previousQuoteCount: number | null;
 }) {
   const selectedMetrics = profile.summary.metrics.filter((metric) =>
@@ -2536,6 +2552,10 @@ function AgentSummarySection({
     () => dataset.executiveSummary?.crossSellOpportunities ?? buildAgentCrossSellOpportunities(dataset.invoiceLines, snapshot.filters, dataset.customerContacts),
     [dataset.customerContacts, dataset.invoiceLines, snapshot.filters],
   );
+  const crossSellAffinity = useMemo(
+    () => buildProductAffinity(dataset, snapshot.filters),
+    [dataset, snapshot.filters],
+  );
   const abandonedQuoteBalance = useMemo(
     () => dataset.executiveSummary?.abandonedQuoteBalance ?? buildAgentAbandonedQuoteBalance(
       dataset,
@@ -2562,13 +2582,19 @@ function AgentSummarySection({
   const customerComparisonMode = customerComparisonRows === customerRows ? 'period' : 'historical';
   const productComparisonMode = productComparisonRows === productRows ? 'period' : 'historical';
   const currentMargin = useMemo(
-    () => dataset.executiveSummary?.currentMargin ?? (marginReady
-      ? buildAgentInvoiceMargin(dataset.invoiceLines, snapshot.filters, dataset.invoiceAnalysisMargin)
-      : { ...buildAgentInvoiceMargin([], snapshot.filters), available: false }),
-    [dataset.invoiceAnalysisMargin, dataset.invoiceLines, marginReady, snapshot.filters],
+    () => dataset.executiveSummary?.currentMargin ?? (dataset.invoiceAnalysisMargin?.available
+      ? buildAgentInvoiceMargin([], snapshot.filters, dataset.invoiceAnalysisMargin)
+      : persistedCurrentMargin ?? (marginReady
+        ? buildAgentInvoiceMargin(dataset.invoiceLines, snapshot.filters, dataset.invoiceAnalysisMargin)
+        : { ...buildAgentInvoiceMargin([], snapshot.filters), available: false })),
+    [dataset.executiveSummary, dataset.invoiceAnalysisMargin, dataset.invoiceLines, marginReady, persistedCurrentMargin, snapshot.filters],
   );
   const previousMargin = useMemo(() => {
     if (dataset.executiveSummary) return dataset.executiveSummary.previousMargin;
+    if (dataset.previousInvoiceAnalysisMargin?.available) return buildAgentInvoiceMargin(
+      [], { ...snapshot.filters, ...buildPreviousPeriodRange(snapshot.filters) }, dataset.previousInvoiceAnalysisMargin,
+    );
+    if (persistedPreviousMargin) return persistedPreviousMargin;
     if (!companyScope || !marginReady || !dataset.previousInvoiceAnalysisMargin) return null;
     const previousRange = buildPreviousPeriodRange(snapshot.filters);
     return buildAgentInvoiceMargin(
@@ -2576,7 +2602,7 @@ function AgentSummarySection({
       { ...snapshot.filters, ...previousRange },
       dataset.previousInvoiceAnalysisMargin,
     );
-  }, [companyScope, dataset.previousInvoiceAnalysisMargin, marginReady, snapshot.filters]);
+  }, [companyScope, dataset.executiveSummary, dataset.previousInvoiceAnalysisMargin, marginReady, persistedPreviousMargin, snapshot.filters]);
   const [selectedPanel, setSelectedPanel] = useState<AgentSummaryPanelKey | null>(null);
 
   useEffect(() => {
@@ -2662,10 +2688,10 @@ function AgentSummarySection({
         </AgentSummaryPanel>
         <AgentSummaryPanel
           title="Oportunidades de venta cruzada"
-          description="Detecta familias complementarias no observadas en las facturas del periodo; valida el parque instalado antes de ofertar."
+          description="Revela productos comprados juntos en facturas del periodo; valida la oportunidad en Ver detalle antes de ofertar."
           onOpen={() => setSelectedPanel('crossSell')}
         >
-          <AgentCrossSellChart opportunities={crossSellOpportunities} />
+          <AffinityMatrix analysis={crossSellAffinity} compact />
         </AgentSummaryPanel>
         <AgentSummaryPanel
           title="Margen y % de margen por categoría"
@@ -2703,6 +2729,7 @@ function AgentSummarySection({
       {selectedPanel ? (
         <AgentChartDetailModal
           panel={selectedPanel}
+          companyScope={companyScope}
           customerBalance={customerBalance}
           crmBalance={crmBalance}
           leadAttention={leadAttention}
@@ -2761,6 +2788,7 @@ type AgentSummaryPanelKey = 'trend' | 'customerBalance' | 'customerRisk' | 'cros
 
 function AgentChartDetailModal({
   panel,
+  companyScope,
   customerBalance,
   crmBalance,
   leadAttention,
@@ -2784,6 +2812,7 @@ function AgentChartDetailModal({
   onClose,
 }: {
   panel: AgentSummaryPanelKey;
+  companyScope: boolean;
   customerBalance: AgentCustomerBalance;
   crmBalance: AgentCrmBalance;
   leadAttention: AgentLeadAttention[];
@@ -2835,8 +2864,28 @@ function AgentChartDetailModal({
         </header>
 
         {panel === 'customerBalance' ? (
-          <AgentDetailTable
+          companyScope ? customerBalance.details.length ? <div className="agent-customer-detail-groups">
+            <AgentCustomerSellerDistribution details={customerBalance.details} />
+            {(['Nuevo', 'Reactivado', 'A reactivar', 'Perdido'] as const).map((status) => {
+              const details = customerBalance.details.filter((row) => row.status === status);
+              if (!details.length) return null;
+              return <section key={status} className="agent-customer-detail-group">
+                <h3>{status === 'Nuevo' ? 'Clientes nuevos' : status === 'Reactivado' ? 'Clientes reactivados' : status === 'A reactivar' ? 'Clientes a reactivar' : 'Clientes perdidos'} <span>{formatNumber(details.length)}</span></h3>
+                <AgentDetailTable
+                  headers={['Cliente', 'Vendedor', 'Correo', 'Teléfono', 'Última compra', 'Días', 'Prom. recompra', 'Umbral', 'Valor']}
+                  defaultColumns={['Cliente', 'Vendedor', 'Correo', 'Teléfono', 'Valor']}
+                  rows={details.map((row) => [
+                    row.customer, row.sellerName || 'Sin vendedor asignado',
+                    <AgentContactValue value={row.email} type="email" />,
+                    <AgentContactValue value={row.phone} type="phone" />,
+                    row.lastPurchaseDate, `${row.daysSincePurchase} días`, `${row.averageRepurchaseDays || '-'} días`, `${row.thresholdDays} días`, formatCurrency(row.value),
+                  ])}
+                />
+              </section>;
+            })}
+          </div> : <EmptyState title="Sin clientes en el periodo">No hay movimientos de clientes para detallar con los filtros actuales.</EmptyState> : <AgentDetailTable
             headers={['Cliente', 'Estado', 'Correo', 'Teléfono', 'Última compra', 'Días', 'Prom. recompra', 'Umbral', 'Valor']}
+            defaultColumns={['Cliente', 'Estado', 'Correo', 'Teléfono', 'Valor']}
             rows={customerBalance.details.map((row) => [
               row.customer, row.status,
               row.status === 'Perdido' || row.status === 'A reactivar' ? <AgentContactValue value={row.email} type="email" /> : row.email || '-',
@@ -2888,7 +2937,14 @@ function AgentChartDetailModal({
         {panel === 'crmBalance' ? (
           <>
             <div className="agent-chart-detail-summary"><strong>{formatNumber(crmBalance.attended)} atendidos de {formatNumber(crmBalance.assigned)} asignados</strong><span>{formatPercent(crmBalance.attentionRate)} de cobertura. Se consideran atendidos los estados cotizado, sin cotizar, ganado y perdido.</span></div>
-            <AgentDetailTable headers={['Lead', 'Cliente', 'Etapa', 'Estado de atención', 'Fecha de asignación']} rows={crmBalance.details.map((lead) => [lead.label, lead.customer, lead.stage, lead.attended ? 'Atendido' : 'Pendiente', lead.createdAt])} />
+            {companyScope ? <AgentCrmSellerDistribution details={crmBalance.details} /> : null}
+            <AgentDetailTable
+              headers={companyScope ? ['Lead', 'Vendedor', 'Cliente', 'Etapa', 'Estado de atención', 'Usuario de creación', 'Fecha de asignación'] : ['Lead', 'Cliente', 'Etapa', 'Estado de atención', 'Usuario de creación', 'Fecha de asignación']}
+              defaultColumns={companyScope ? ['Lead', 'Vendedor', 'Etapa', 'Estado de atención', 'Usuario de creación'] : ['Lead', 'Cliente', 'Etapa', 'Estado de atención', 'Usuario de creación']}
+              rows={crmBalance.details.map((lead) => companyScope
+                ? [lead.label, lead.sellerName || 'Sin vendedor asignado', lead.customer, lead.stage, lead.attended ? 'Atendido' : 'Pendiente de atención', lead.creatorName, lead.createdAt]
+                : [lead.label, lead.customer, lead.stage, lead.attended ? 'Atendido' : 'Pendiente de atención', lead.creatorName, lead.createdAt])}
+            />
           </>
         ) : null}
         {panel === 'leadAttention' ? (
@@ -2946,18 +3002,82 @@ function AgentChartDetailModal({
   );
 }
 
-function AgentDetailTable({ headers, rows }: { headers: string[]; rows: ReactNode[][] }) {
+function AgentCustomerSellerDistribution({ details }: { details: AgentCustomerLifecycleDetail[] }) {
+  const distribution = buildCustomerSellerDistribution(details);
+  return <section className="agent-detail-seller-distribution" aria-label="Distribución de clientes por vendedor">
+    <div className="agent-detail-distribution-heading"><div><span>Distribución por vendedor</span><h3>Balance de clientes por agente</h3></div><small>{formatNumber(details.length)} clientes · {formatNumber(distribution.length)} vendedores</small></div>
+    <div className="agent-detail-seller-grid">
+      {distribution.map((seller) => <article className="agent-detail-seller-card" key={seller.name}>
+        <div className="agent-detail-seller-card-head"><strong title={seller.name}>{seller.name}</strong><b>{formatNumber(seller.total)}</b></div>
+        <div className="agent-detail-seller-metrics">
+          <span><b>{formatNumber(seller.newCount)}</b> nuevos</span><span><b>{formatNumber(seller.reactivated)}</b> reactivados</span>
+          <span><b>{formatNumber(seller.toReactivate)}</b> a reactivar</span><span><b>{formatNumber(seller.lost)}</b> perdidos</span>
+        </div>
+      </article>)}
+    </div>
+  </section>;
+}
+
+function AgentCrmSellerDistribution({ details }: { details: AgentCrmLeadDetail[] }) {
+  const distribution = buildCrmSellerDistribution(details);
+  return <section className="agent-detail-seller-distribution" aria-label="Atención de leads por vendedor">
+    <div className="agent-detail-distribution-heading"><div><span>Atención por vendedor</span><h3>Leads asignados y atendidos</h3></div><small>Ordenados por mayor % de atención</small></div>
+    <div className="agent-detail-seller-grid">
+      {distribution.map((seller) => <article className="agent-detail-seller-card" key={seller.key}>
+        <div className="agent-detail-seller-card-head"><strong title={seller.name}>{seller.name}</strong><b>{formatPercent(seller.attentionRate)}</b></div>
+        <div className="agent-detail-seller-progress" role="img" aria-label={`${seller.attended} de ${seller.assigned} leads atendidos`}><span style={{ width: `${seller.attentionRate}%` }} /></div>
+        <div className="agent-detail-seller-metrics"><span><b>{formatNumber(seller.assigned)}</b> asignados</span><span><b>{formatNumber(seller.attended)}</b> atendidos</span><span><b>{formatNumber(seller.unattended)}</b> sin atención</span></div>
+      </article>)}
+    </div>
+  </section>;
+}
+
+function AgentDetailTable({ headers, rows, defaultColumns }: { headers: string[]; rows: ReactNode[][]; defaultColumns?: string[] }) {
   const pageSize = 50;
+  const maxColumns = 5;
   const [page, setPage] = useState(0);
+  const [selectedColumns, setSelectedColumns] = useState<number[]>(() => {
+    const preferred = defaultColumns?.map((header) => headers.indexOf(header)).filter((index) => index >= 0) ?? [];
+    return (preferred.length ? preferred : headers.map((_, index) => index)).slice(0, maxColumns);
+  });
+  const headerKey = headers.join('\u0000');
+  useEffect(() => {
+    const preferred = defaultColumns?.map((header) => headers.indexOf(header)).filter((index) => index >= 0) ?? [];
+    setSelectedColumns((preferred.length ? preferred : headers.map((_, index) => index)).slice(0, maxColumns));
+  }, [headerKey]);
+  const visibleColumns = headers.map((_, index) => index).filter((index) => selectedColumns.includes(index));
   const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
   const visiblePage = Math.min(page, pageCount - 1);
   const visibleRows = rows.slice(visiblePage * pageSize, (visiblePage + 1) * pageSize);
   return rows.length ? (
     <>
+    {headers.length > 1 ? <div className="agent-detail-table-toolbar">
+      <span>{formatNumber(rows.length)} registros</span>
+      <details className="agent-detail-column-picker">
+        <summary><Settings2 size={14} /> Columnas ({visibleColumns.length}/{headers.length})</summary>
+        <div className="agent-detail-column-options">
+          <div className="agent-detail-column-heading"><strong>Columnas visibles</strong><small>Elige hasta {maxColumns} columnas.</small></div>
+          {headers.map((header, index) => {
+            const selected = selectedColumns.includes(index);
+            return <label className={`agent-detail-column-option${selected ? ' is-selected' : ''}`} key={`${header}-${index}`}>
+              <input
+                type="checkbox"
+                checked={selected}
+                disabled={selected ? selectedColumns.length === 1 : selectedColumns.length >= maxColumns}
+                onChange={() => setSelectedColumns((current) => current.includes(index)
+                  ? current.filter((column) => column !== index)
+                  : [...current, index].sort((left, right) => left - right))}
+              />
+              <span>{header}</span>
+            </label>;
+          })}
+        </div>
+      </details>
+    </div> : null}
     <div className="agent-detail-table-wrap">
       <table className="agent-detail-table">
-        <thead><tr>{headers.map((header) => <th key={header}>{header}</th>)}</tr></thead>
-        <tbody>{visibleRows.map((row, rowIndex) => <tr key={`${row[0]}-${visiblePage * pageSize + rowIndex}`}>{row.map((cell, cellIndex) => <td key={`${rowIndex}-${cellIndex}`}>{cell}</td>)}</tr>)}</tbody>
+        <thead><tr>{visibleColumns.map((index) => <th key={index}>{headers[index]}</th>)}</tr></thead>
+        <tbody>{visibleRows.map((row, rowIndex) => <tr key={`${row[0]}-${visiblePage * pageSize + rowIndex}`}>{visibleColumns.map((index) => <td key={`${rowIndex}-${index}`} data-label={headers[index]}>{row[index]}</td>)}</tr>)}</tbody>
       </table>
     </div>
     {rows.length > pageSize ? <div className="agent-detail-pagination"><span>{formatNumber(visiblePage * pageSize + 1)}–{formatNumber(Math.min(rows.length, (visiblePage + 1) * pageSize))} de {formatNumber(rows.length)}</span><button type="button" disabled={visiblePage === 0} onClick={() => setPage((current) => Math.max(0, current - 1))}>Anterior</button><button type="button" disabled={visiblePage + 1 >= pageCount} onClick={() => setPage((current) => Math.min(pageCount - 1, current + 1))}>Siguiente</button></div> : null}
@@ -3268,24 +3388,6 @@ function AgentCustomerRiskChart({ details }: { details: RepurchaseAttentionRow[]
     <small>Ordena primero los casos de 60–90 días; consulta Ver detalle para contactos, retraso exacto e historial de compra.</small>
   </div>;
 }
-
-function AgentCrossSellChart({ opportunities }: { opportunities: AgentCrossSellOpportunity[] }) {
-  const rows = opportunities.slice(0, 6);
-  if (!rows.length) return <EmptyState title="Sin señales de venta cruzada">No hay compras de familias identificables con una brecha complementaria en este periodo.</EmptyState>;
-  const max = Math.max(...rows.map((row) => row.revenue), 1);
-  return <div className="agent-cross-sell-chart">
-    <div className="agent-cross-sell-summary"><strong>{formatNumber(opportunities.length)}</strong><span>clientes para validar</span></div>
-    {rows.map((row) => <div className="agent-cross-sell-row" key={`${row.customer}-${row.purchased}-${row.latestDate}`}>
-      <div><strong title={row.customer}>{row.customer}</strong><span>{row.purchased} · sugerir complemento</span></div>
-      <div className="agent-cross-sell-track"><i style={{ width: `${Math.max(5, row.revenue / max * 100)}%` }} /></div>
-      <b>{formatCurrency(row.revenue)}</b>
-    </div>)}
-    <small>Importe observado en la familia comprada durante el periodo; validar necesidad y compatibilidad antes de ofertar.</small>
-  </div>;
-}
-
-
-
 
 function buildAgentChangeRows(rows: AgentYearDimensionRow[]): AgentChangeRow[] {
   return rows
@@ -7550,6 +7652,7 @@ export function FilterToolbar({
   sellerLabel = 'Vendedores',
   crmOnly = false,
   showAdvancedFilters = true,
+  hideSalesTeam = false,
   onApplyFilters,
   onApplyQuickRange,
   onChange,
@@ -7565,6 +7668,7 @@ export function FilterToolbar({
   sellerLabel?: string;
   crmOnly?: boolean;
   showAdvancedFilters?: boolean;
+  hideSalesTeam?: boolean;
   onApplyFilters: () => void;
   onApplyQuickRange: (key: QuickRangeKey) => void;
   onChange: (filters: ReportFilters) => void;
@@ -7637,7 +7741,7 @@ export function FilterToolbar({
           options={dataset?.availableFilters.categories ?? []}
           emptyLabel="Todas"
         /> : null}
-        {showAdvancedFilters ? <InlineFilterSelect
+        {showAdvancedFilters && !hideSalesTeam ? <InlineFilterSelect
           label="Equipo de ventas"
           value={activeFilters.teamId ?? ''}
           onChange={(value) => onChange({ ...activeFilters, teamId: parseNullableNumber(value) })}
@@ -7720,7 +7824,7 @@ export function FilterToolbar({
               />
             )}
           </Field>
-          {showAdvancedFilters ? <Field label="Equipo">
+          {showAdvancedFilters && !hideSalesTeam ? <Field label="Equipo">
             <select
               value={activeFilters.teamId ?? ''}
               onChange={(event) => onChange({ ...activeFilters, teamId: parseNullableNumber(event.target.value) })}
@@ -10239,7 +10343,7 @@ function parseNullableNumber(value: string) {
 function normalizeReportsSection(value: string | null): ReportsSection | null {
   if (
     value === 'executive' ||
-    value === 'conversion' ||
+    value === 'commercialIntelligence' ||
     value === 'clients' ||
     value === 'products' ||
     value === 'sellers' ||

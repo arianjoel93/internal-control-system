@@ -1,0 +1,693 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/1szvbd",
+    "id": "1szvbd",
+    "slide": 8,
+    "layoutId": "3f176916-bd07-47bf-88f1-a7edc37624ad",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "5e3e6502-836e-497c-b0d2-d680a62652af",
+    "masterLayoutName": "Master",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "+mn-lt"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "3f176916-bd07-47bf-88f1-a7edc37624ad",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "5e3e6502-836e-497c-b0d2-d680a62652af",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "5e3e6502-836e-497c-b0d2-d680a62652af",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/cf69wvix",
+      "id": "1",
+      "bbox": [
+        72,
+        38,
+        520,
+        26
+      ],
+      "geometry": "rect",
+      "text": "CORPORACIÓN TECTRONIC",
+      "textPreview": "CORPORACIÓN TECTRONIC",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5B6068",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "CORPORACIÓN TECTRONIC"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "CORPORACIÓN TECTRONIC",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5B6068",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "CORPORACIÓN TECTRONIC",
+              "fontSize": 13,
+              "color": "#5B6068",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/bex83qhs",
+      "id": "2",
+      "bbox": [
+        72,
+        72,
+        910,
+        58
+      ],
+      "geometry": "rect",
+      "text": "Reportes y Compras convierten Odoo en lectura ejecutiva",
+      "textPreview": "Reportes y Compras convierten Odoo en lectura ejecutiva",
+      "resolvedFontSize": 36,
+      "resolvedTextStyle": {
+        "fontSize": 36,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Reportes y Compras convierten Odoo en lectura ejecutiva"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Reportes y Compras convierten Odoo en lectura ejecutiva",
+          "resolvedTextStyle": {
+            "fontSize": 36,
+            "color": "#101114",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Reportes y Compras convierten Odoo en lectura ejecutiva",
+              "fontSize": 36,
+              "color": "#101114",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/3q54nydw",
+      "id": "3",
+      "bbox": [
+        1124,
+        32,
+        88,
+        56
+      ],
+      "alt": "Logo Corporación Tectronic",
+      "contentType": "image/png",
+      "imageFit": "contain",
+      "asset": {
+        "assetId": "7f704bc1-15b1-4a40-8b5c-c05be416d083",
+        "contentType": "image/png",
+        "byteLength": 29707
+      }
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/lkzq90zu",
+      "id": "4",
+      "bbox": [
+        72,
+        140,
+        1136,
+        0
+      ],
+      "geometry": "line",
+      "lineColor": "#C8CDD5",
+      "lineWidth": 1
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0jq90vi9",
+      "id": "5",
+      "bbox": [
+        72,
+        178,
+        1040,
+        54
+      ],
+      "geometry": "rect",
+      "text": "Centraliza datos de ventas, facturación, cotizaciones, clientes, productos, vendedores y compras para producir una lectura accionable por rol.",
+      "textPreview": "Centraliza datos de ventas, facturación, cotizaciones, clientes, productos, vendedores y compras para producir una lectura accionable por...",
+      "resolvedFontSize": 21,
+      "resolvedTextStyle": {
+        "fontSize": 21,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Centraliza datos de ventas, facturación, cotizaciones, clientes, productos, vendedores y compras para producir una"
+          },
+          {
+            "index": 2,
+            "text": "lectura accionable por rol."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Centraliza datos de ventas, facturación, cotizaciones, clientes, productos, vendedores y compras para producir una lectura accionable por rol.",
+          "resolvedTextStyle": {
+            "fontSize": 21,
+            "color": "#101114",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Centraliza datos de ventas, facturación, cotizaciones, clientes, productos, vendedores y compras para producir una lectura accionable por rol.",
+              "fontSize": 21,
+              "color": "#101114",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "chart",
+      "scope": "slide",
+      "aid": "ch/buh47exk",
+      "id": "6",
+      "bbox": [
+        80,
+        276,
+        640,
+        300
+      ],
+      "chartType": "bar"
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/yh8ry503",
+      "id": "7",
+      "bbox": [
+        770,
+        288,
+        9,
+        9
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#2F80ED",
+      "lineColor": "#2F80ED",
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/98zaxkzq",
+      "id": "8",
+      "bbox": [
+        792,
+        280,
+        368,
+        50
+      ],
+      "geometry": "rect",
+      "text": "Resumen ejecutivo, conversión, clientes, productos, vendedores, Pareto, abandonadas y pronósticos.",
+      "textPreview": "Resumen ejecutivo, conversión, clientes, productos, vendedores, Pareto, abandonadas y pronósticos.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Resumen ejecutivo, conversión, clientes,"
+          },
+          {
+            "index": 2,
+            "text": "productos, vendedores, Pareto, abandonadas y"
+          },
+          {
+            "index": 3,
+            "text": "pronósticos."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Resumen ejecutivo, conversión, clientes, productos, vendedores, Pareto, abandonadas y pronósticos.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101114",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Resumen ejecutivo, conversión, clientes, productos, vendedores, Pareto, abandonadas y pronósticos.",
+              "fontSize": 18,
+              "color": "#101114",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/87q94fy5",
+      "id": "9",
+      "bbox": [
+        770,
+        330,
+        9,
+        9
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#2F80ED",
+      "lineColor": "#2F80ED",
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/e1ovyxgz",
+      "id": "10",
+      "bbox": [
+        792,
+        322,
+        368,
+        50
+      ],
+      "geometry": "rect",
+      "text": "Compras por proveedor, producto, comprador y categoría.",
+      "textPreview": "Compras por proveedor, producto, comprador y categoría.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Compras por proveedor, producto, comprador"
+          },
+          {
+            "index": 2,
+            "text": "y categoría."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Compras por proveedor, producto, comprador y categoría.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101114",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Compras por proveedor, producto, comprador y categoría.",
+              "fontSize": 18,
+              "color": "#101114",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/f2xwr2xk",
+      "id": "11",
+      "bbox": [
+        770,
+        372,
+        9,
+        9
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#2F80ED",
+      "lineColor": "#2F80ED",
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/036d07y5",
+      "id": "12",
+      "bbox": [
+        792,
+        364,
+        368,
+        50
+      ],
+      "geometry": "rect",
+      "text": "Reportes HTML descargables y enlaces compartidos con token.",
+      "textPreview": "Reportes HTML descargables y enlaces compartidos con token.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Reportes HTML descargables y enlaces"
+          },
+          {
+            "index": 2,
+            "text": "compartidos con token."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Reportes HTML descargables y enlaces compartidos con token.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101114",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Reportes HTML descargables y enlaces compartidos con token.",
+              "fontSize": 18,
+              "color": "#101114",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/14fetcfq",
+      "id": "13",
+      "bbox": [
+        770,
+        414,
+        9,
+        9
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#2F80ED",
+      "lineColor": "#2F80ED",
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/m5ov2hgb",
+      "id": "14",
+      "bbox": [
+        792,
+        406,
+        368,
+        50
+      ],
+      "geometry": "rect",
+      "text": "Alertas comerciales para clientes inactivos, baja conversión, concentración y cross-sell.",
+      "textPreview": "Alertas comerciales para clientes inactivos, baja conversión, concentración y cross-sell.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Alertas comerciales para clientes inactivos, baja"
+          },
+          {
+            "index": 2,
+            "text": "conversión, concentración y cross-sell."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Alertas comerciales para clientes inactivos, baja conversión, concentración y cross-sell.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101114",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Alertas comerciales para clientes inactivos, baja conversión, concentración y cross-sell.",
+              "fontSize": 18,
+              "color": "#101114",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/n6hwvmxw",
+      "id": "15",
+      "bbox": [
+        1148,
+        668,
+        60,
+        24
+      ],
+      "geometry": "rect",
+      "text": "08",
+      "textPreview": "08",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5B6068",
+        "alignment": "right",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "08"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "08",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5B6068",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "08",
+              "fontSize": 13,
+              "color": "#5B6068",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

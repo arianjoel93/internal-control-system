@@ -166,6 +166,7 @@ export async function createSupportEventType(payload: {
   support_type: SupportEventType['support_type'];
   description: string;
   sort_order: number;
+  badge_color: string;
 }) {
   const { data, error } = await supabase
     .from('support_event_types')
@@ -176,6 +177,7 @@ export async function createSupportEventType(payload: {
       support_type: payload.support_type,
       description: payload.description.trim() || null,
       sort_order: payload.sort_order,
+      badge_color: payload.badge_color,
       is_active: true,
     })
     .select()
@@ -193,6 +195,7 @@ export async function updateSupportEventType(payload: {
   support_type: SupportEventType['support_type'];
   description: string;
   sort_order: number;
+  badge_color: string;
 }) {
   const { data, error } = await supabase
     .from('support_event_types')
@@ -203,6 +206,7 @@ export async function updateSupportEventType(payload: {
       support_type: payload.support_type,
       description: payload.description.trim() || null,
       sort_order: payload.sort_order,
+      badge_color: payload.badge_color,
     })
     .eq('id', payload.id)
     .select()

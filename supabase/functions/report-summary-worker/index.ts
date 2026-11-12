@@ -67,6 +67,7 @@ async function prepareSource(db,job) {
 }
 
 async function sourceChanged(env,connection,filters,previous,checkedAt) {
+  if ((previous.crmLeads??[]).some(lead=>!Object.hasOwn(lead,'creatorName'))) return true;
   // Check changed/new records AND removals/moves out of the period. Existing
   // IDs keep date/state changes from silently disappearing from the cache.
   const models=[
@@ -97,21 +98,34 @@ async function sourceChanged(env,connection,filters,previous,checkedAt) {
 
 async function prepareSummary(db,job) {
   const p=job.parameters;
-  const mergedKey=await preparedKey({kind:'merged',source:p.source,scope:p.scope,filters:p.filters});
-  const {data:row,error}=await db.from('report_prepared_cache').select('payload_gzip_base64').eq('cache_key',mergedKey).maybeSingle();
-  if(error) throw error;
-  const {error:dependencyError}=await db.from('report_prepared_cache').update({dependencies:[mergedKey]}).eq('cache_key',job.cache_key);
-  if(dependencyError) throw dependencyError;
-  if(!row?.payload_gzip_base64) {
-    const {data:existingJob,error:jobError}=await db.from('report_preparation_jobs').select('status').eq('cache_key',mergedKey).maybeSingle();
+  const partitions=buildReportPartitions(p.filters);
+  const keys=[];
+  let missing=false;
+  for(const partition of partitions) {
+    const filters={...p.filters,grouping:'day',startDate:partition.startDate,endDate:partition.endDate};
+    const key=await preparedKey({kind:'source',source:p.source,scope:p.scope,filters});
+    keys.push(key);
+    const {data:row,error}=await db.from('report_prepared_cache').select('payload_bytes').eq('cache_key',key).maybeSingle();
+    if(error) throw error;
+    if(row?.payload_bytes) continue;
+    const {data:existingJob,error:jobError}=await db.from('report_preparation_jobs').select('status').eq('cache_key',key).maybeSingle();
     if(jobError) throw jobError;
-    if(existingJob?.status==='failed') throw new Error('La unión de tramos no se pudo completar.');
-    const {error:enqueueError}=await db.rpc('enqueue_report_preparation',{p_key:mergedKey,p_kind:'merged',p_scope:p.scope,
-      p_parameters:p,p_priority:10});
+    if(existingJob?.status==='failed') throw new Error(`No se pudo preparar el tramo ${partition.startDate}.`);
+    missing=true;
+    const {error:enqueueError}=await db.rpc('enqueue_report_preparation',{p_key:key,p_kind:'source',p_scope:p.scope,
+      p_parameters:{...p,filters},p_priority:5});
     if(enqueueError) throw enqueueError;
-    await finish(db,job,{p_wait:true}); return;
   }
-  const merged=await decodeReportDataset(row.payload_gzip_base64);
+  const {error:dependencyError}=await db.from('report_prepared_cache').update({dependencies:keys}).eq('cache_key',job.cache_key);
+  if(dependencyError) throw dependencyError;
+  if(missing) { await finish(db,job,{p_wait:true}); return; }
+  const accumulator=createReportPartitionAccumulator();
+  for(let index=0;index<keys.length;index++) {
+    const {data,error}=await db.from('report_prepared_cache').select('payload_gzip_base64').eq('cache_key',keys[index]).single();
+    if(error) throw error;
+    accumulator.add(partitions[index],await decodeReportDataset(data.payload_gzip_base64));
+  }
+  const merged=accumulator.finish();
   merged.viewerRole=p.filters.visibilityScope==='own' ? 'sales_agent' : 'manager';
   merged.filters=p.filters;
   const prepared=prepareExecutiveDataset(merged,p.filters,p.config);

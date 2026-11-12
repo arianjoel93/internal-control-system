@@ -1,0 +1,1119 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/hrjhc0",
+    "id": "hrjhc0",
+    "slide": 6,
+    "layoutId": "3f176916-bd07-47bf-88f1-a7edc37624ad",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "5e3e6502-836e-497c-b0d2-d680a62652af",
+    "masterLayoutName": "Master",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "+mn-lt"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "3f176916-bd07-47bf-88f1-a7edc37624ad",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "5e3e6502-836e-497c-b0d2-d680a62652af",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "5e3e6502-836e-497c-b0d2-d680a62652af",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/36dg76xc",
+      "id": "1",
+      "bbox": [
+        72,
+        38,
+        520,
+        26
+      ],
+      "geometry": "rect",
+      "text": "MÓDULO OPERATIVO",
+      "textPreview": "MÓDULO OPERATIVO",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5B6068",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "MÓDULO OPERATIVO"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "MÓDULO OPERATIVO",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5B6068",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "MÓDULO OPERATIVO",
+              "fontSize": 13,
+              "color": "#5B6068",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/47mhgbex",
+      "id": "2",
+      "bbox": [
+        72,
+        72,
+        910,
+        58
+      ],
+      "geometry": "rect",
+      "text": "Inventario da control de existencias, almacenes y movimientos",
+      "textPreview": "Inventario da control de existencias, almacenes y movimientos",
+      "resolvedFontSize": 36,
+      "resolvedTextStyle": {
+        "fontSize": 36,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Inventario da control de existencias, almacenes y"
+          },
+          {
+            "index": 2,
+            "text": "movimientos"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Inventario da control de existencias, almacenes y movimientos",
+          "resolvedTextStyle": {
+            "fontSize": 36,
+            "color": "#101114",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Inventario da control de existencias, almacenes y movimientos",
+              "fontSize": 36,
+              "color": "#101114",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/0bu1s76h",
+      "id": "3",
+      "bbox": [
+        1124,
+        32,
+        88,
+        56
+      ],
+      "alt": "Logo Corporación Tectronic",
+      "contentType": "image/png",
+      "imageFit": "contain",
+      "asset": {
+        "assetId": "f1853d3e-ef80-4efd-a584-c06c1c879800",
+        "contentType": "image/png",
+        "byteLength": 29707
+      }
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/q94zilw3",
+      "id": "4",
+      "bbox": [
+        72,
+        140,
+        1136,
+        0
+      ],
+      "geometry": "line",
+      "lineColor": "#C8CDD5",
+      "lineWidth": 1
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/rad0b6xo",
+      "id": "5",
+      "bbox": [
+        72,
+        172,
+        360,
+        388
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#C8CDD5",
+      "lineWidth": 1
+    },
+    {
+      "order": 6,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/d8jixsnq",
+      "id": "6",
+      "bbox": [
+        112,
+        202,
+        280,
+        210
+      ],
+      "alt": "Inventario da control de existencias, almacenes y movimientos",
+      "contentType": "image/png",
+      "imageFit": "contain",
+      "asset": {
+        "assetId": "068843bf-72a1-486d-8222-68db2daeff34",
+        "contentType": "image/png",
+        "byteLength": 44647
+      }
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/dcvidgfe",
+      "id": "7",
+      "bbox": [
+        112,
+        424,
+        280,
+        78
+      ],
+      "geometry": "rect",
+      "text": "Menos capturas manuales y menor riesgo de faltantes.",
+      "textPreview": "Menos capturas manuales y menor riesgo de faltantes.",
+      "resolvedFontSize": 22,
+      "resolvedTextStyle": {
+        "fontSize": 22,
+        "typeface": "+mn-lt",
+        "color": "#2F7D73",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Menos capturas manuales y"
+          },
+          {
+            "index": 2,
+            "text": "menor riesgo de faltantes."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Menos capturas manuales y menor riesgo de faltantes.",
+          "resolvedTextStyle": {
+            "fontSize": 22,
+            "color": "#2F7D73",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Menos capturas manuales y menor riesgo de faltantes.",
+              "fontSize": 22,
+              "color": "#2F7D73",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/6d0z6hgz",
+      "id": "8",
+      "bbox": [
+        112,
+        504,
+        280,
+        28
+      ],
+      "geometry": "rect",
+      "text": "Impacto esperado",
+      "textPreview": "Impacto esperado",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "+mn-lt",
+        "color": "#5B6068",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Impacto esperado"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Impacto esperado",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "color": "#5B6068",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Impacto esperado",
+              "fontSize": 15,
+              "color": "#5B6068",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/7etgzmx4",
+      "id": "9",
+      "bbox": [
+        472,
+        176,
+        660,
+        34
+      ],
+      "geometry": "rect",
+      "text": "Centraliza",
+      "textPreview": "Centraliza",
+      "resolvedFontSize": 24,
+      "resolvedTextStyle": {
+        "fontSize": 24,
+        "typeface": "+mn-lt",
+        "color": "#2F7D73",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Centraliza"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Centraliza",
+          "resolvedTextStyle": {
+            "fontSize": 24,
+            "color": "#2F7D73",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Centraliza",
+              "fontSize": 24,
+              "color": "#2F7D73",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/nyhsrepg",
+      "id": "10",
+      "bbox": [
+        472,
+        230,
+        9,
+        9
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#2F7D73",
+      "lineColor": "#2F7D73",
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/mx8ri98v",
+      "id": "11",
+      "bbox": [
+        494,
+        222,
+        638,
+        44
+      ],
+      "geometry": "rect",
+      "text": "Productos con categoría, marca, unidad, mínimos, requeridos, código de barras y condición.",
+      "textPreview": "Productos con categoría, marca, unidad, mínimos, requeridos, código de barras y condición.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Productos con categoría, marca, unidad, mínimos, requeridos, código de barras y"
+          },
+          {
+            "index": 2,
+            "text": "condición."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Productos con categoría, marca, unidad, mínimos, requeridos, código de barras y condición.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101114",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Productos con categoría, marca, unidad, mínimos, requeridos, código de barras y condición.",
+              "fontSize": 18,
+              "color": "#101114",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/90zato7m",
+      "id": "12",
+      "bbox": [
+        472,
+        266,
+        9,
+        9
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#2F7D73",
+      "lineColor": "#2F7D73",
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/8zq9kjq1",
+      "id": "13",
+      "bbox": [
+        494,
+        258,
+        638,
+        44
+      ],
+      "geometry": "rect",
+      "text": "Almacenes activos con ubicación y resumen de stock.",
+      "textPreview": "Almacenes activos con ubicación y resumen de stock.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Almacenes activos con ubicación y resumen de stock."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Almacenes activos con ubicación y resumen de stock.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101114",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Almacenes activos con ubicación y resumen de stock.",
+              "fontSize": 18,
+              "color": "#101114",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/zaxsnepk",
+      "id": "14",
+      "bbox": [
+        472,
+        302,
+        9,
+        9
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#2F7D73",
+      "lineColor": "#2F7D73",
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/y9ore98z",
+      "id": "15",
+      "bbox": [
+        494,
+        294,
+        638,
+        44
+      ],
+      "geometry": "rect",
+      "text": "Movimientos por lote: entrada, salida, ajuste y transferencia.",
+      "textPreview": "Movimientos por lote: entrada, salida, ajuste y transferencia.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Movimientos por lote: entrada, salida, ajuste y transferencia."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Movimientos por lote: entrada, salida, ajuste y transferencia.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101114",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Movimientos por lote: entrada, salida, ajuste y transferencia.",
+              "fontSize": 18,
+              "color": "#101114",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/lwfap47a",
+      "id": "16",
+      "bbox": [
+        472,
+        338,
+        9,
+        9
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#2F7D73",
+      "lineColor": "#2F7D73",
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0b69gzqp",
+      "id": "17",
+      "bbox": [
+        494,
+        330,
+        638,
+        44
+      ],
+      "geometry": "rect",
+      "text": "Importación mediante plantilla CSV para carga masiva.",
+      "textPreview": "Importación mediante plantilla CSV para carga masiva.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Importación mediante plantilla CSV para carga masiva."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Importación mediante plantilla CSV para carga masiva.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101114",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Importación mediante plantilla CSV para carga masiva.",
+              "fontSize": 18,
+              "color": "#101114",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/b6xsjup8",
+      "id": "18",
+      "bbox": [
+        472,
+        458,
+        308,
+        122
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#F7F8FA",
+      "lineColor": "#C8CDD5",
+      "lineWidth": 1
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/q54rap8n",
+      "id": "19",
+      "bbox": [
+        496,
+        480,
+        260,
+        28
+      ],
+      "geometry": "rect",
+      "text": "Optimiza",
+      "textPreview": "Optimiza",
+      "resolvedFontSize": 22,
+      "resolvedTextStyle": {
+        "fontSize": 22,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Optimiza"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Optimiza",
+          "resolvedTextStyle": {
+            "fontSize": 22,
+            "color": "#101114",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Optimiza",
+              "fontSize": 22,
+              "color": "#101114",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 20,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/e14bmpsv",
+      "id": "20",
+      "bbox": [
+        496,
+        516,
+        250,
+        44
+      ],
+      "geometry": "rect",
+      "text": "Control de stock y ubicación por almacén.",
+      "textPreview": "Control de stock y ubicación por almacén.",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "+mn-lt",
+        "color": "#5B6068",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Control de stock y ubicación por"
+          },
+          {
+            "index": 2,
+            "text": "almacén."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Control de stock y ubicación por almacén.",
+          "resolvedTextStyle": {
+            "fontSize": 17,
+            "color": "#5B6068",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Control de stock y ubicación por almacén.",
+              "fontSize": 17,
+              "color": "#5B6068",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 21,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/f2dsvut0",
+      "id": "21",
+      "bbox": [
+        824,
+        458,
+        308,
+        122
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#F7F8FA",
+      "lineColor": "#C8CDD5",
+      "lineWidth": 1
+    },
+    {
+      "order": 22,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/g3mtozal",
+      "id": "22",
+      "bbox": [
+        848,
+        480,
+        260,
+        28
+      ],
+      "geometry": "rect",
+      "text": "Automatiza",
+      "textPreview": "Automatiza",
+      "resolvedFontSize": 22,
+      "resolvedTextStyle": {
+        "fontSize": 22,
+        "typeface": "+mn-lt",
+        "color": "#101114",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Automatiza"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Automatiza",
+          "resolvedTextStyle": {
+            "fontSize": 22,
+            "color": "#101114",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Automatiza",
+              "fontSize": 22,
+              "color": "#101114",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 23,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/14vax4b6",
+      "id": "23",
+      "bbox": [
+        848,
+        516,
+        250,
+        44
+      ],
+      "geometry": "rect",
+      "text": "Lotes de movimientos e importación de productos.",
+      "textPreview": "Lotes de movimientos e importación de productos.",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "+mn-lt",
+        "color": "#5B6068",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Lotes de movimientos e"
+          },
+          {
+            "index": 2,
+            "text": "importación de productos."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Lotes de movimientos e importación de productos.",
+          "resolvedTextStyle": {
+            "fontSize": 17,
+            "color": "#5B6068",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Lotes de movimientos e importación de productos.",
+              "fontSize": 17,
+              "color": "#5B6068",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 24,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/254bq9sr",
+      "id": "24",
+      "bbox": [
+        1148,
+        668,
+        60,
+        24
+      ],
+      "geometry": "rect",
+      "text": "06",
+      "textPreview": "06",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5B6068",
+        "alignment": "right",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "06"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "06",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5B6068",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "06",
+              "fontSize": 13,
+              "color": "#5B6068",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

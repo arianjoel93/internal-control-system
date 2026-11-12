@@ -3,11 +3,14 @@ import {
   type ReactNode,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
+  ArrowDownUp,
   BarChart3,
   CalendarPlus,
+  ChevronDown,
   ClipboardList,
   Edit2,
   Eye,
@@ -47,6 +50,9 @@ import {
   caseStatusFromEventType,
   getCurrentSupportState,
   getLatestSupportEvent,
+  currentSupportBadgeStyle,
+  supportBadgePalette,
+  supportBadgeStyle,
   statusLabel,
 } from "../../lib/tracking";
 import type {
@@ -85,6 +91,7 @@ import {
   supportShippingCarriers,
   type SupportMovementFormValues,
 } from "../support/supportService";
+import { SupportReports } from "../support/SupportReports";
 import { SupportDetails } from "../support/SupportDetails";
 import { SupportForm } from "./SupportForm";
 import { InventoryDashboard } from "./InventoryDashboard";
@@ -121,7 +128,7 @@ import {
   type SupportMailerSettingsDraft,
 } from "./settingsService";
 
-type AdminSection = "register" | "manufacturers" | "events" | "agents";
+type AdminSection = "reports" | "register" | "manufacturers" | "events" | "agents";
 type AdminModule =
   | "home"
   | "supports"
@@ -151,6 +158,7 @@ type ModelDraft = {
 };
 
 type EventDraft = {
+  badge_color: string;
   id?: string;
   name: string;
   code: string;
@@ -190,6 +198,7 @@ const sections: Array<{ id: AdminSection; label: string; icon: ReactNode }> = [
     label: "Registro de soportes",
     icon: <CalendarPlus size={18} />,
   },
+  { id: "reports", label: "Reportes", icon: <BarChart3 size={18} /> },
   { id: "manufacturers", label: "Impresoras", icon: <Printer size={18} /> },
   { id: "events", label: "Estados", icon: <ListChecks size={18} /> },
   { id: "agents", label: "Agentes", icon: <UsersRound size={18} /> },
@@ -251,15 +260,6 @@ function AdminDashboard({ session }: { session: Session }) {
     ? "owner"
     : getPermissionRole(permissionsQuery.data as AdminUserModulePermissions);
   const permissionActive = owner || permissionsQuery.data?.is_active !== false;
-  const supportAgentAccess: ModuleAccess = {
-    supports: { can_access: true, visibility_scope: "all" },
-    inventory: { can_access: false, visibility_scope: "all" },
-    policies: { can_access: false, visibility_scope: "all" },
-    reports: { can_access: false, visibility_scope: "all" },
-    marketing: { can_access: false, visibility_scope: "all" },
-    forms: { can_access: false, visibility_scope: "all" },
-    shipping_quotes: { can_access: false, visibility_scope: "all" },
-  };
   const moduleAccess: ModuleAccess = owner
     ? {
         supports: { can_access: true, visibility_scope: "all" },
@@ -270,8 +270,6 @@ function AdminDashboard({ session }: { session: Session }) {
         forms: { can_access: true, visibility_scope: "all" },
         shipping_quotes: { can_access: true, visibility_scope: "all" },
       }
-    : currentRole === "support_agent"
-      ? supportAgentAccess
     : !permissionActive
       ? {
           supports: { can_access: false, visibility_scope: "all" },
@@ -2104,6 +2102,7 @@ function SupportAdminDashboard({
 }) {
   const [activeSection, setActiveSection] = useState<AdminSection>("register");
   const [supportSearch, setSupportSearch] = useState("");
+  const [initialEventTypeId, setInitialEventTypeId] = useState("");
   const [supportModalOpen, setSupportModalOpen] = useState(false);
   const [manufacturerModal, setManufacturerModal] = useState<
     Manufacturer | "new" | null
@@ -2145,6 +2144,7 @@ function SupportAdminDashboard({
     mutationFn: createSupportCase,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-supports"] });
+      void queryClient.invalidateQueries({ queryKey: ["support-reports"] });
       setSupportModalOpen(false);
     },
   });
@@ -2188,6 +2188,7 @@ function SupportAdminDashboard({
   const addMovementMutation = useMutation({
     mutationFn: addSupportMovement,
     onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({ queryKey: ["support-reports"] });
       queryClient.invalidateQueries({ queryKey: ["admin-supports"] });
       refreshSelectedSupport(variables.support_case_id);
     },
@@ -2238,6 +2239,7 @@ function SupportAdminDashboard({
             support_type: payload.support_type,
             description: payload.description,
             sort_order: payload.sort_order,
+            badge_color: payload.badge_color,
           })
         : createSupportEventType(payload),
     onSuccess: () => {
@@ -2333,9 +2335,23 @@ function SupportAdminDashboard({
             supports={supportsQuery.data ?? []}
             isLoading={supportsQuery.isLoading}
             onAdd={() => setSupportModalOpen(true)}
-            onSelect={setSelectedSupport}
+            eventTypes={eventTypes}
+            onSelect={(support, eventTypeId = "") => {
+              addMovementMutation.reset();
+              setInitialEventTypeId(eventTypeId);
+              setSelectedSupport(support);
+            }}
           />
         ) : null}
+
+        {activeSection === "reports" ? <SupportReports
+            accountId={session.user.id}
+            agentName={
+              (typeof session.user.user_metadata.full_name === "string" && session.user.user_metadata.full_name.trim()) ||
+              session.user.email ||
+              "Agente sin nombre"
+            }
+          /> : null}
 
         {activeSection === "manufacturers" ? (
           <ManufacturersSection
@@ -2368,6 +2384,7 @@ function SupportAdminDashboard({
                 support_type: eventType.support_type,
                 description: eventType.description ?? "",
                 sort_order: eventType.sort_order,
+                badge_color: eventType.badge_color,
               })
             }
             onDelete={requestDeleteEventType}
@@ -2411,12 +2428,15 @@ function SupportAdminDashboard({
       {selectedSupport ? (
         <Modal
           title={`Detalle del soporte ${selectedSupport.folio}`}
-          onClose={() => setSelectedSupport(null)}
+          onClose={() => {
+            if (!addMovementMutation.isPending) setSelectedSupport(null);
+          }}
           size="wide"
         >
           <div className="support-detail-modal">
             <SupportMovementForm
               support={selectedSupport}
+              initialEventTypeId={initialEventTypeId}
               eventTypes={eventTypes}
               isSubmitting={addMovementMutation.isPending}
               error={addMovementMutation.error?.message}
@@ -2446,6 +2466,7 @@ function SupportAdminDashboard({
             />
             <SupportDetails
               cases={[selectedSupport]}
+              eventTypes={eventTypes}
               disableFolioModal
               audience="admin"
               onSupportUpdated={refreshSelectedSupport}
@@ -2632,12 +2653,14 @@ function SupportImageManager({
 
 function SupportMovementForm({
   support,
+  initialEventTypeId,
   eventTypes,
   isSubmitting,
   error,
   onSubmit,
 }: {
   support: SupportCaseWithEvents;
+  initialEventTypeId: string;
   eventTypes: SupportEventType[];
   isSubmitting: boolean;
   error?: string;
@@ -2652,7 +2675,7 @@ function SupportMovementForm({
       ),
     [eventTypes, support.support_type],
   );
-  const [eventTypeId, setEventTypeId] = useState(activeEventTypes[0]?.id ?? "");
+  const [eventTypeId, setEventTypeId] = useState(initialEventTypeId || activeEventTypes[0]?.id || "");
   const [requiresRepair, setRequiresRepair] = useState(false);
   const [repairRequestNote, setRepairRequestNote] = useState("");
   const [repairRequestError, setRepairRequestError] = useState("");
@@ -2734,7 +2757,7 @@ function SupportMovementForm({
     <article className="admin-tracking-panel">
       <div className="tracking-state-card">
         <span>Estado actual</span>
-        <strong>{getCurrentSupportState(support)}</strong>
+        <strong className="support-state-badge" style={currentSupportBadgeStyle(support, eventTypes)}>{getCurrentSupportState(support)}</strong>
         <small>Folio {support.folio}</small>
         {support.repair_approval_status ? (
           <small>
@@ -2753,7 +2776,7 @@ function SupportMovementForm({
         ) : null}
       </div>
       <form className="compact-form tracking-form" onSubmit={submit}>
-        <div className="form-grid">
+        <div className="support-status-selector-row">
           <label className="field">
             <span>Nuevo estado del folio</span>
             <select
@@ -2776,6 +2799,9 @@ function SupportMovementForm({
               ))}
             </select>
           </label>
+          <button type="submit" disabled={isSubmitting || !selectedEventType}>
+            {isSubmitting ? "Guardando movimiento..." : "Actualizar estado"}
+          </button>
         </div>
         {canRequestRepair ? (
           <>
@@ -2878,9 +2904,9 @@ function SupportMovementForm({
           </div>
         ) : null}
         {error ? <p className="form-error">{error}</p> : null}
-        <button type="submit" disabled={isSubmitting || !selectedEventType}>
-          {isSubmitting ? "Guardando movimiento..." : "Actualizar estado"}
-        </button>
+        <div className="support-status-actions">
+          <small>Después de guardar, puedes enviar el estado por correo desde el historial.</small>
+        </div>
       </form>
     </article>
   );
@@ -2916,6 +2942,7 @@ function RegisterSection({
   search,
   setSearch,
   supports,
+  eventTypes,
   isLoading,
   onAdd,
   onSelect,
@@ -2923,10 +2950,63 @@ function RegisterSection({
   search: string;
   setSearch: (value: string) => void;
   supports: SupportCaseWithEvents[];
+  eventTypes: SupportEventType[];
   isLoading: boolean;
   onAdd: () => void;
-  onSelect: (support: SupportCaseWithEvents) => void;
+  onSelect: (support: SupportCaseWithEvents, eventTypeId?: string) => void;
 }) {
+  const menuControlsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function closeOnOutsidePointer(event: PointerEvent) {
+      const menu = menuControlsRef.current?.querySelector<HTMLDetailsElement>("details[open]");
+      if (menu && event.target instanceof Node && !menu.contains(event.target)) {
+        menu.open = false;
+      }
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      const menu = menuControlsRef.current?.querySelector<HTMLDetailsElement>("details[open]");
+      if (event.key === "Escape" && menu) {
+        menu.open = false;
+        if (menu.contains(document.activeElement)) menu.querySelector("summary")?.focus();
+      }
+    }
+
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
+
+  const [supportType, setSupportType] = useState("");
+  const [state, setState] = useState("");
+  const [manufacturer, setManufacturer] = useState("");
+  const [order, setOrder] = useState("recent");
+  const activeFilterCount = [supportType, state, manufacturer].filter(Boolean).length;
+  const records = supports.map((support) => ({
+    support,
+    state: getCurrentSupportState(support),
+    movementDate: new Date(getLatestSupportEvent(support)?.event_date ?? support.created_at).getTime(),
+  }));
+  const states = [...new Set([...records.map((record) => record.state), state].filter(Boolean))].sort();
+  const manufacturers = [...new Set([...supports.map((support) => support.manufacturer), manufacturer].filter(Boolean))].sort();
+  const visibleSupports = records
+    .filter((record) =>
+      (!supportType || record.support.support_type === supportType) &&
+      (!state || record.state === state) &&
+      (!manufacturer || record.support.manufacturer === manufacturer),
+    )
+    .sort((a, b) => {
+      if (order === "folio") return a.support.folio.localeCompare(b.support.folio, "es", { numeric: true });
+      if (order === "customer") return a.support.customer_name.localeCompare(b.support.customer_name, "es");
+      if (order === "oldest") return a.movementDate - b.movementDate;
+      return b.movementDate - a.movementDate;
+    })
+    .map((record) => record.support);
+
   return (
     <section className="admin-section">
       <div className="admin-section-head">
@@ -2949,10 +3029,60 @@ function RegisterSection({
               placeholder="Buscar por folio, cliente, serie o modelo"
             />
           </label>
-          <span>{supports.length} registros</span>
+          <div className="support-register-filters" ref={menuControlsRef}>
+            <details name="support-register-options">
+              <summary title="Filtrar soportes">
+                <SlidersHorizontal size={17} aria-hidden="true" />
+                Filtrar
+                {activeFilterCount > 0 ? <span className="support-filter-count">{activeFilterCount}</span> : null}
+              </summary>
+              <div className="support-register-menu">
+                <h3>Filtrar soportes</h3>
+                <label className="field">
+                  <span>Tipo de soporte</span>
+                  <select value={supportType} onChange={(event) => setSupportType(event.target.value)}>
+                    <option value="">Todos los tipos</option>
+                    <option value="technical">{supportTypeLabel("technical")}</option>
+                    <option value="programming">{supportTypeLabel("programming")}</option>
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Estado actual</span>
+                  <select value={state} onChange={(event) => setState(event.target.value)}>
+                    <option value="">Todos los estados</option>
+                    {states.map((name) => <option key={name}>{name}</option>)}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Fabricante</span>
+                  <select value={manufacturer} onChange={(event) => setManufacturer(event.target.value)}>
+                    <option value="">Todos los fabricantes</option>
+                    {manufacturers.map((name) => <option key={name}>{name}</option>)}
+                  </select>
+                </label>
+              </div>
+            </details>
+            <details name="support-register-options">
+              <summary title="Ordenar soportes">
+                <ArrowDownUp size={17} aria-hidden="true" />
+                Ordenar
+              </summary>
+              <div className="support-register-menu">
+                <h3>Ordenar soportes</h3>
+                <select aria-label="Ordenar soportes" value={order} onChange={(event) => setOrder(event.target.value)}>
+                  <option value="recent">Movimientos recientes</option>
+                  <option value="oldest">Movimientos antiguos</option>
+                  <option value="folio">Folio</option>
+                  <option value="customer">Cliente</option>
+                </select>
+              </div>
+            </details>
+            <span>{visibleSupports.length} registros</span>
+          </div>
         </div>
         <SupportRecordsTable
-          supports={supports}
+          supports={visibleSupports}
+          eventTypes={eventTypes}
           isLoading={isLoading}
           onSelect={onSelect}
         />
@@ -3159,12 +3289,14 @@ function AgentsSection({
 
 function SupportRecordsTable({
   supports,
+  eventTypes,
   isLoading,
   onSelect,
 }: {
   supports: SupportCaseWithEvents[];
+  eventTypes: SupportEventType[];
   isLoading: boolean;
-  onSelect?: (support: SupportCaseWithEvents) => void;
+  onSelect?: (support: SupportCaseWithEvents, eventTypeId?: string) => void;
 }) {
   if (isLoading) {
     return <EmptyState title="Cargando">Consultando registros...</EmptyState>;
@@ -3179,16 +3311,15 @@ function SupportRecordsTable({
   }
 
   return (
-    <div className="table-wrap">
-      <table className="records-table">
+    <div className="table-wrap support-records-table-wrap">
+      <table className="records-table support-records-table">
         <thead>
           <tr>
             <th>Folio</th>
             <th>Cliente</th>
             <th>Tipo</th>
-            <th>Serie</th>
+            <th>Agente</th>
             <th>Fabricante</th>
-            <th>Modelo</th>
             <th>Estado actual</th>
             <th>Último movimiento</th>
           </tr>
@@ -3196,6 +3327,13 @@ function SupportRecordsTable({
         <tbody>
           {supports.map((support) => {
             const latestEvent = getLatestSupportEvent(support);
+            const currentState = getCurrentSupportState(support);
+            const availableStates = eventTypes.filter((type) =>
+              type.is_active &&
+              type.support_type === support.support_type &&
+              type.id !== latestEvent?.support_event_type_id &&
+              type.name !== currentState,
+            );
 
             return (
               <tr
@@ -3212,10 +3350,27 @@ function SupportRecordsTable({
                   </div>
                 </td>
                 <td>{supportTypeLabel(support.support_type)}</td>
-                <td>{support.serial_number}</td>
+                <td>{support.performed_by?.trim() || "Sin agente"}</td>
                 <td>{support.manufacturer}</td>
-                <td>{support.printer_model}</td>
-                <td>{getCurrentSupportState(support)}</td>
+                <td onClick={(event) => event.stopPropagation()}>
+                  <div className="support-state-control">
+                    <select
+                      className="support-state-select"
+                      aria-label={`Estado actual del folio ${support.folio}`}
+                      title={currentState}
+                      style={currentSupportBadgeStyle(support, eventTypes)}
+                      value=""
+                      disabled={!onSelect || availableStates.length === 0}
+                      onChange={(event) => onSelect?.(support, event.target.value)}
+                    >
+                      <option value="" disabled>{currentState}</option>
+                      {availableStates.map((type) => (
+                        <option key={type.id} value={type.id}>{type.name}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="support-state-chevron" size={15} aria-hidden="true" />
+                  </div>
+                </td>
                 <td>
                   {latestEvent
                     ? formatDate(latestEvent.event_date)
@@ -3416,6 +3571,8 @@ function EventTypeModal({
   >(eventType?.support_type ?? "technical");
   const [description, setDescription] = useState(eventType?.description ?? "");
   const [sortOrder, setSortOrder] = useState(eventType?.sort_order ?? 100);
+  const [badgeColor, setBadgeColor] = useState(eventType?.badge_color ?? "slate");
+  const selectedTone = supportBadgePalette.find((tone) => tone.value === badgeColor) ?? supportBadgePalette[0];
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -3428,6 +3585,7 @@ function EventTypeModal({
       support_type: supportType,
       description,
       sort_order: sortOrder,
+      badge_color: badgeColor,
     });
   }
 
@@ -3480,6 +3638,37 @@ function EventTypeModal({
             <option value="programming">Programación</option>
           </select>
         </label>
+        <details className="support-color-picker">
+          <summary>
+            <span>Color de la etiqueta</span>
+            <span className="support-color-option">
+              <span className="support-color-swatch" aria-hidden="true" style={{ backgroundColor: selectedTone.backgroundColor }} />
+              {selectedTone.label}
+            </span>
+          </summary>
+          <fieldset className="support-color-options">
+            <legend>Elegir color</legend>
+            {supportBadgePalette.map((tone) => (
+              <label className="support-color-option" key={tone.value}>
+                <input
+                  type="radio"
+                  name="support-badge-color"
+                  value={tone.value}
+                  checked={badgeColor === tone.value}
+                  onChange={() => setBadgeColor(tone.value)}
+                />
+                <span className="support-color-swatch" aria-hidden="true" style={{ backgroundColor: tone.backgroundColor }} />
+                {tone.label}
+              </label>
+            ))}
+          </fieldset>
+        </details>
+        <div className="support-state-preview">
+          <small>Vista previa</small>
+          <span className="support-state-badge" style={supportBadgeStyle(badgeColor)}>
+            {name.trim() || "Estado actual"}
+          </span>
+        </div>
         <label className="field">
           <span>Orden</span>
           <input

@@ -24,9 +24,9 @@ const supportSchema = z
     customer_phone: z.string(),
     performed_by: z.string().min(2, 'Selecciona el agente que realizó el soporte'),
     manufacturer: z.string().min(2, 'Indica el fabricante'),
-    printer_model: z.string().min(1, 'Indica el modelo'),
+    printer_model: z.string(),
     part_number: z.string(),
-    serial_number: z.string().min(4, 'El número de serie es imprescindible'),
+    serial_number: z.string().trim(),
     sale_date: z.string(),
     warranty_end_date: z.string(),
     programming_business_days: z.string(),
@@ -39,14 +39,6 @@ const supportSchema = z
     tracking_number: z.string(),
   })
   .superRefine((values, ctx) => {
-    if (values.support_type === 'technical' && !values.warranty_end_date) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['warranty_end_date'],
-        message: 'Indica el fin de la garantía',
-      });
-    }
-
     if (values.support_type === 'programming') {
       const businessDays = Number(values.programming_business_days);
       if (!Number.isInteger(businessDays) || businessDays <= 0) {
@@ -324,10 +316,10 @@ export function SupportForm({
         <Field label="Correo" error={errors.customer_email?.message}>
           <input type="email" {...register('customer_email')} placeholder="cliente@empresa.com" />
         </Field>
-        <Field label="Teléfono" error={errors.customer_phone?.message}>
+        <Field label="Teléfono (opcional)" error={errors.customer_phone?.message}>
           <input {...register('customer_phone')} />
         </Field>
-        <Field label="Quién realizó el soporte" error={errors.support_agent_id?.message ?? errors.performed_by?.message}>
+        <Field label="Agente" error={errors.support_agent_id?.message ?? errors.performed_by?.message}>
           <select {...register('support_agent_id')}>
             <option value="">Selecciona agente</option>
             {activeAgents.map((agent) => (
@@ -353,7 +345,7 @@ export function SupportForm({
             ))}
           </select>
         </Field>
-        <Field label="Modelo" error={errors.printer_model?.message}>
+        <Field label="Modelo (opcional)" error={errors.printer_model?.message}>
           <select {...register('printer_model')} disabled={!selectedManufacturer}>
             <option value="">Selecciona modelo</option>
             {availableModels.map((model) => (
@@ -363,15 +355,15 @@ export function SupportForm({
             ))}
           </select>
         </Field>
-        <Field label="Número de serie" error={errors.serial_number?.message}>
+        <Field label="Número de serie (opcional)" error={errors.serial_number?.message}>
           <input {...register('serial_number')} placeholder="RT420ME2110250411" />
         </Field>
         {supportType === 'technical' ? (
           <>
-            <Field label="Fecha de venta" error={errors.sale_date?.message}>
+            <Field label="Fecha de venta (opcional)" error={errors.sale_date?.message}>
               <input type="date" {...register('sale_date')} />
             </Field>
-            <Field label="Fin de garantía" error={errors.warranty_end_date?.message}>
+            <Field label="Fin de garantía (opcional)" error={errors.warranty_end_date?.message}>
               <input type="date" {...register('warranty_end_date')} />
             </Field>
           </>

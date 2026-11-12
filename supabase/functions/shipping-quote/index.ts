@@ -1,7 +1,8 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import * as XLSX from 'npm:xlsx@0.18.5';
-import { FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG, normalizePackaging, validatePackingAssignments, mapPackingToShipment,
+import { normalizeCatalogValues, normalizeLogisticsMetadata, catalogComputedWeights, catalogMetadataEqual, parseCatalogSheets, mergeCatalogCandidate, resolveIndividualLogistics, bracketedProductReference, supportsStandardPresentation, type CatalogImportRow } from '../_shared/shipping-catalog.ts';
+import { FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG, normalizePackaging, preparePackingQuote,
   type PackingRequest, type PackingPlan } from '../_shared/shipping-packing.ts';
 import {
   assertOdooEnvironment,
@@ -146,17 +147,7 @@ type ProductReferenceFields = {
   template: string[];
 };
 
-type ProductDimensionImportRow = {
-  sku: string;
-  product_name: string | null;
-  width_cm: number;
-  length_cm: number;
-  height_cm: number;
-  unit_weight_kg: number | null;
-  volumetric_weight_kg: number | null;
-  billable_weight_kg: number | null;
-  source_row: number;
-};
+type ProductDimensionImportRow = CatalogImportRow;
 
 class ShippingError extends Error {
   status: number;
@@ -334,7 +325,7 @@ Deno.serve(async (req) => {
 
     if (action === 'listProductDimensions') {
       stage = 'LOAD_FEDEX_CONFIG';
-      const result = await listProductDimensions(adminClient);
+      const result = await listProductDimensions(adminClient, body);
       return jsonResponse({ data: result });
     }
 
@@ -350,6 +341,23 @@ Deno.serve(async (req) => {
       if (!access.isAdmin) return jsonResponse({ error: 'Solo administradores pueden actualizar bases de productos.' }, 403);
       const result = await importProductDimensions(adminClient, body, user.id, user.email);
       return jsonResponse({ data: result });
+    }
+
+    if (action === 'deleteProductDimension') {
+      if (!access.isAdmin) return jsonResponse({ error: 'Solo administradores pueden eliminar productos de la base logística.' }, 403);
+      const id = requiredText(body.id, 'Selecciona un producto.');
+      const { data: previous, error: readError } = await adminClient.from('shipping_product_dimensions').select('*').eq('id', id).maybeSingle();
+      if (readError) throw readError;
+      if (!previous) return jsonResponse({ error: 'El producto ya no existe en la base logística.' }, 404);
+      const { error: auditError } = await adminClient.from('shipping_settings_audit').insert({ actor_user_id: user.id,
+        actor_email: user.email ?? null, action: 'shipping.product_dimensions.delete_requested',
+        entity_type: 'shipping_product_dimensions', entity_id: id, previous_value: previous, new_value: null });
+      if (auditError) throw new Error('No se pudo registrar la auditoría. El producto no se ha borrado.');
+      const { data: removed, error } = await adminClient.from('shipping_product_dimensions').delete().eq('id', id).select('id');
+      if (error) throw error;
+      if (!removed?.length) return jsonResponse({ error: 'El producto ya fue eliminado. Actualiza la tabla.' }, 409);
+      await audit(adminClient, { actorId: user.id, actorEmail: user.email, action: 'shipping.product_dimensions.deleted', entityType: 'shipping_product_dimensions', entityId: id, previousValue: previous, newValue: null });
+      return jsonResponse({ data: { deleted: true } });
     }
 
     if (action === 'saveProductDimension') {
@@ -684,12 +692,15 @@ async function savePackageType(
   return data as PackageType;
 }
 
-async function listProductDimensions(adminClient: SupabaseClient) {
-  const { data, error, count } = await adminClient
+async function listProductDimensions(adminClient: SupabaseClient, body: Record<string, unknown>) {
+  const page = Math.max(1, Math.floor(Number(body.page) || 1));
+  const search = String(body.search ?? '').trim().replace(/[%_]/g, '');
+  let query = adminClient
     .from('shipping_product_dimensions')
     .select('*', { count: 'exact' })
-    .order('updated_at', { ascending: false })
-    .limit(12);
+    .order('updated_at', { ascending: false }).order('id');
+  if (search) query = query.ilike('sku', `%${search}%`);
+  const { data, error, count } = await query.range((page - 1) * 12, page * 12 - 1);
   if (error) throw error;
   return { rows: data ?? [], total: count ?? 0 };
 }
@@ -710,6 +721,7 @@ async function previewProductDimensionsImport(adminClient: SupabaseClient, body:
   const existingBySku = new Map(
     ((existingRows ?? []) as Record<string, unknown>[]).map((row) => [readText(row.normalized_sku) ?? normalizeSku(String(row.sku ?? '')), row]),
   );
+  parsed.rows = parsed.rows.map(row => mergeCatalogCandidate(existingBySku.get(normalizeSku(row.sku)), { ...row, logistics_metadata: { ...normalizeLogisticsMetadata(row.logistics_metadata, row), source_file_name: fileName } }));
   let newCount = 0;
   let updateCount = 0;
   let unchangedCount = 0;
@@ -728,6 +740,7 @@ async function previewProductDimensionsImport(adminClient: SupabaseClient, body:
   return {
     fileName,
     rows: parsed.rows,
+    reviewedCount: parsed.reviewedCount,
     conflicts,
     invalidRows: parsed.invalidRows,
     newCount,
@@ -744,7 +757,7 @@ async function importProductDimensions(
 ) {
   const fileName = requiredText(body.fileName, 'Indica el nombre del archivo importado.');
   const replaceExisting = body.replaceExisting === true;
-  const rows = Array.isArray(body.rows)
+  let rows = Array.isArray(body.rows)
     ? body.rows.map(normalizeProductDimensionImportRow).filter((row): row is ProductDimensionImportRow => Boolean(row))
     : [];
   if (!rows.length) throw new Error('No hay productos válidos para importar.');
@@ -758,6 +771,9 @@ async function importProductDimensions(
   const existingBySku = new Map(
     ((existingRows ?? []) as Record<string, unknown>[]).map((row) => [readText(row.normalized_sku) ?? normalizeSku(String(row.sku ?? '')), row]),
   );
+  const keys = rows.map(row => normalizeSku(row.sku));
+  if (new Set(keys).size !== keys.length) throw new Error('No se pueden importar varias presentaciones del mismo SKU en una sola carga.');
+  rows = rows.map(row => mergeCatalogCandidate(existingBySku.get(normalizeSku(row.sku)), row));
   const changedExisting = rows.filter((row) => {
     const existing = existingBySku.get(normalizeSku(row.sku));
     return existing && productDimensionChanged(existing, row);
@@ -777,13 +793,19 @@ async function importProductDimensions(
     height_cm: row.height_cm,
     source_file_name: fileName,
     source_row: row.source_row,
-    uploaded_by: userId,
+    logistics_metadata: { ...normalizeLogisticsMetadata(row.logistics_metadata, row), source_file_name: fileName },
+    uploaded_by: existingBySku.get(normalizeSku(row.sku))?.uploaded_by ?? userId,
     updated_by: userId,
   }));
-  const { error } = await adminClient
+  const { data: savedRows, error } = await adminClient
     .from('shipping_product_dimensions')
-    .upsert(payload, { onConflict: 'normalized_sku' });
+    .upsert(payload, { onConflict: 'normalized_sku' }).select('*');
   if (error) throw error;
+  const savedBySku = new Map<string, Record<string, unknown>>((savedRows ?? []).map((row: Record<string, unknown>) => [normalizeSku(String(row.sku)), row]));
+  if (savedBySku.size !== payload.length || payload.some(row => {
+    const saved = savedBySku.get(normalizeSku(row.sku));
+    return !saved || productDimensionChanged(saved, row);
+  })) throw new Error('La verificación posterior a la carga no coincide con los datos enviados. Revisa la base antes de reintentar.');
 
   const inserted = rows.filter((row) => !existingBySku.has(normalizeSku(row.sku))).length;
   const updated = changedExisting.length;
@@ -809,24 +831,16 @@ async function saveProductDimension(
 ) {
   const id = readText(body.id);
   const sku = requiredText(body.sku, 'Indica el código del producto.');
-  const lengthCm = requiredPositiveNumber(body.length_cm, 'Indica un largo válido.');
-  const widthCm = requiredPositiveNumber(body.width_cm, 'Indica un ancho válido.');
-  const heightCm = requiredPositiveNumber(body.height_cm, 'Indica un alto válido.');
-  const unitWeightKg = body.unit_weight_kg == null || body.unit_weight_kg === '' ? null : nullableNonNegative(body.unit_weight_kg);
-  if (body.unit_weight_kg != null && unitWeightKg === null) throw new ShippingError('Indica un peso físico válido.', { status: 400 });
+  const values = normalizeCatalogValues(body);
   const protectionMargin = body.protection_margin_cm === undefined ? undefined : nullableNonNegative(body.protection_margin_cm);
   if (protectionMargin === null) throw new ShippingError('El margen de protección debe ser cero o mayor.', { status: 400 });
-  const volumetricWeightKg = round((Math.ceil(lengthCm) * Math.ceil(widthCm) * Math.ceil(heightCm)) / FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG, 3);
-  const billableWeightKg = round(Math.max(unitWeightKg ?? 0, volumetricWeightKg), 3);
   const payload = {
     sku,
     product_name: readText(body.product_name),
-    length_cm: lengthCm,
-    width_cm: widthCm,
-    height_cm: heightCm,
-    unit_weight_kg: unitWeightKg,
-    volumetric_weight_kg: volumetricWeightKg,
-    billable_weight_kg: billableWeightKg,
+    ...values,
+    ...catalogComputedWeights(values),
+    logistics_metadata: { ...normalizeLogisticsMetadata(body.logistics_metadata, values),
+      ...(!supportsStandardPresentation(String(body.sku ?? ''), String(body.product_name ?? ''), String((body.logistics_metadata as Record<string,unknown> | null)?.source_sheet ?? '')) ? { standard_presentation: null } : {}) },
     updated_by: userId,
     ...(body.can_rotate === undefined ? {} : { can_rotate: body.can_rotate !== false }),
     ...(body.stackable === undefined ? {} : { stackable: body.stackable !== false }),
@@ -860,34 +874,34 @@ async function createQuote(adminClient: SupabaseClient, body: Record<string, unk
   let diagnosticStage: DiagnosticStage = 'DECRYPT_CREDENTIALS';
   let validatedPlan: PackingPlan | null = null;
   let packages: PreparedPackage[];
-  if (isRecord(body.packingRequest)) {
+  // A supplied plan must validate; never silently replace it with client packages.
+  body.selectedPackingPlan = null;
+  if (body.packingRequest !== undefined && body.packingRequest !== null) {
+    if (!isRecord(body.packingRequest)) {
+      throw new ShippingError('La información del embalaje no es válida.', { status: 400, code: 'INVALID_PACKING' });
+    }
     const request = body.packingRequest as unknown as PackingRequest;
     if (request.version !== 1 || !Array.isArray(request.lines) || request.lines.length > 2000 || request.lines.some(line => !isRecord(line))) {
       throw new ShippingError('La información del embalaje no es válida.', { status: 400, code: 'INVALID_PACKING' });
     }
     try {
-      validatedPlan = validatePackingAssignments(request.lines, await getPackageTypes(adminClient, false), request.assignments, request.strategy);
-      const drafts = mapPackingToShipment(validatedPlan, calculateFinalPaddingVolumetricWeight(settings) * FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG);
-      packages = preparePackages(drafts, 'GROSS_PACKAGE').map((pkg, index) => {
+      const prepared = preparePackingQuote(request, await getPackageTypes(adminClient, false), calculateFinalPaddingVolumetricWeight(settings) * FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG);
+      validatedPlan = prepared.plan;
+      packages = preparePackages(prepared.packages, 'GROSS_PACKAGE').map((pkg, index) => {
         const packed = validatedPlan!.packages[index];
         return { ...pkg, packageTypeId: packed.packagingTypeId, contentWeight: packed.productsWeight, tareWeight: packed.packagingWeight };
       });
-      body.selectedPackingPlan = { ...validatedPlan, lines: request.lines, assignments: request.assignments };
+      body.selectedPackingPlan = prepared.snapshot;
       console.info('[shipping-quote:packing]', { event: 'FEDEX_PACKAGES_CREATED', packages: packages.length, units: validatedPlan.metrics.articleCount });
     } catch (error) {
-      // Keep compatibility with the original quote flow. The browser already
-      // sends a prepared package list; a stale manual assignment must not
-      // prevent FedEx from receiving the same valid packages as before.
-      console.warn('[shipping-quote:packing]', {
-        event: 'PACKING_REQUEST_REJECTED_USING_PREPARED_PACKAGES',
-        reason: error instanceof Error ? error.message : 'Distribución no válida',
+      throw new ShippingError(error instanceof Error ? error.message : 'Distribución no válida', {
+        status: 400, code: 'INVALID_PACKING',
       });
-      packages = applyFinalPackagingAdjustments(preparePackages(body.packages, settings.weight_input_mode), settings);
-      body.selectedPackingPlan = null;
     }
   } else {
     // Compatibility for clients already open while the new frontend is deployed.
-    packages = applyFinalPackagingAdjustments(preparePackages(body.packages, settings.weight_input_mode), settings);
+    // Legacy clients already send their final external dimensions.
+    packages = preparePackages(body.packages, settings.weight_input_mode);
   }
   const destination = normalizeAddress(body.destination, 'destino');
   const origin = {
@@ -1201,19 +1215,20 @@ async function lookupOdooOrder(adminClient: SupabaseClient, body: Record<string,
   const profileMap = new Map(
     ((savedProfiles ?? []) as Record<string, unknown>[]).map((profile) => [Number(profile.odoo_product_id), profile]),
   );
-  const candidateSkus = uniqueTexts(productRows.flatMap((product) => {
+  const candidateSkus = uniqueTexts([...productRows.flatMap((product) => {
     const templateId = many2oneId(product.product_tmpl_id);
     const template = templateId ? templateMap.get(templateId) ?? {} : {};
     return resolveProductReferenceCandidates(product, template, { product: productReferenceFields, template: templateReferenceFields })
       .map((value) => normalizeSku(value));
-  }));
+  }), ...lineRows.flatMap(line => [bracketedProductReference(line.name), bracketedProductReference(many2oneLabel(line.product_id))].filter((s):s is string=>!!s).map(normalizeSku)),
+  ...[...profileMap.values()].map(p=>readText(p.sku)).filter((s):s is string=>!!s).map(normalizeSku)]);
   const { data: savedDimensions, error: dimensionError } = candidateSkus.length
     ? await adminClient
         .from('shipping_product_dimensions')
         .select('*')
         .in('normalized_sku', candidateSkus)
     : { data: [], error: null };
-  if (dimensionError) console.error('[shipping-quote:dimensions]', sanitizeError(dimensionError));
+  if (dimensionError) throw new Error('No se pudo consultar la base de medidas. Intenta buscar la orden de nuevo.');
   const dimensionMap = new Map(
     ((savedDimensions ?? []) as Record<string, unknown>[]).map((dimension) => [readText(dimension.normalized_sku) ?? normalizeSku(String(dimension.sku ?? '')), dimension]),
   );
@@ -1258,7 +1273,8 @@ async function lookupOdooOrder(adminClient: SupabaseClient, body: Record<string,
     const template = templateId ? templateMap.get(templateId) ?? {} : {};
     const profile = profileMap.get(productId) ?? {};
     const productName = many2oneLabel(line.product_id) ?? readText(product.name) ?? readText(template.name) ?? readText(line.name) ?? 'Producto sin nombre';
-    const skuCandidates = resolveProductReferenceCandidates(product, template, { product: productReferenceFields, template: templateReferenceFields });
+    const skuCandidates = uniqueTexts([...resolveProductReferenceCandidates(product, template, { product: productReferenceFields, template: templateReferenceFields }),
+      readText(profile.sku), bracketedProductReference(line.name), bracketedProductReference(many2oneLabel(line.product_id))].filter((s):s is string=>!!s));
     const matchedSku = skuCandidates.find((candidate) => dimensionMap.has(normalizeSku(candidate))) ?? null;
     const sku = matchedSku ?? readText(product.default_code) ?? readText(template.default_code) ?? readText(product.barcode) ?? readText(profile.sku);
     const dimension = matchedSku ? dimensionMap.get(normalizeSku(matchedSku)) ?? {} : {};
@@ -1274,10 +1290,14 @@ async function lookupOdooOrder(adminClient: SupabaseClient, body: Record<string,
         ? 'No entra en envío: el producto no tiene marcada la opción Se puede vender.'
         : null;
     const isEligibleForShipping = !exclusionReason;
-    const lengthCm = firstNumber(dimension.length_cm) ?? firstNumberFromFields(product, productLogisticsFields.length) ?? firstNumberFromFields(template, templateLogisticsFields.length) ?? firstNumber(profile.length_cm);
-    const widthCm = firstNumber(dimension.width_cm) ?? firstNumberFromFields(product, productLogisticsFields.width) ?? firstNumberFromFields(template, templateLogisticsFields.width) ?? firstNumber(profile.width_cm);
-    const heightCm = firstNumber(dimension.height_cm) ?? firstNumberFromFields(product, productLogisticsFields.height) ?? firstNumberFromFields(template, templateLogisticsFields.height) ?? firstNumber(profile.height_cm);
-    const physicalWeightKg = dimension.unit_weight_kg != null ? Number(dimension.unit_weight_kg) : firstNumber(product.weight, template.weight, profile.unit_weight_kg);
+    const resolved = resolveIndividualLogistics(dimension, {
+      length_cm: firstNumberFromFields(product, productLogisticsFields.length) ?? firstNumberFromFields(template, templateLogisticsFields.length) ?? firstNumber(profile.length_cm),
+      width_cm: firstNumberFromFields(product, productLogisticsFields.width) ?? firstNumberFromFields(template, templateLogisticsFields.width) ?? firstNumber(profile.width_cm),
+      height_cm: firstNumberFromFields(product, productLogisticsFields.height) ?? firstNumberFromFields(template, templateLogisticsFields.height) ?? firstNumber(profile.height_cm),
+      unit_weight_kg: firstNumber(product.weight, template.weight, profile.unit_weight_kg),
+    });
+    const lengthCm = resolved.length_cm, widthCm = resolved.width_cm, heightCm = resolved.height_cm;
+    const physicalWeightKg = resolved.unit_weight_kg;
     const configuredVolumetricWeightKg = firstNumber(dimension.volumetric_weight_kg);
     const resolvedVolumetricWeightKg = volumeWeightKg ?? configuredVolumetricWeightKg;
     const weightKg = physicalWeightKg;
@@ -1312,6 +1332,7 @@ async function lookupOdooOrder(adminClient: SupabaseClient, body: Record<string,
       exclusionReason,
       logisticsSource,
       physicalProductId: readText(dimension.id),
+      logisticsMetadata: matchedDimension ? normalizeLogisticsMetadata(dimension.logistics_metadata, normalizeCatalogValues(dimension)) : null,
       canRotate: dimension.can_rotate !== false,
       canStack: dimension.stackable !== false,
       shipAlone: dimension.requires_individual_package === true,
@@ -2703,7 +2724,7 @@ function buildFedexRatePayload({
           // FedEx calculates the billable/dimensional weight from the real
           // package weight plus the external dimensions. Sending our already
           // calculated billable weight would apply dimensional billing twice.
-          value: round(item.actualWeight, 2),
+          value: Math.ceil(item.actualWeight * 1000) / 1000,
         },
         dimensions: {
           length: Math.max(1, Math.ceil(item.packageType.external_length ?? item.packageType.length ?? 0)),
@@ -3002,23 +3023,6 @@ function summarizePreparedPackages(packages: PreparedPackage[]) {
     tareWeight: round(packages.reduce((total, item) => total + item.tareWeight, 0), 3),
     billableWeight: round(packages.reduce((total, item) => total + item.billableWeight, 0), 3),
   };
-}
-
-function applyFinalPackagingAdjustments(packages: PreparedPackage[], settings: CarrierSettings) {
-  const extraVolumetricWeight = calculateFinalPaddingVolumetricWeight(settings);
-  if (!extraVolumetricWeight || !packages.length) return packages;
-  const perPackageExtra = round(extraVolumetricWeight / packages.length, 3);
-  let assigned = 0;
-  return packages.map((item, index) => {
-    const extra = index === packages.length - 1
-      ? round(extraVolumetricWeight - assigned, 3)
-      : perPackageExtra;
-    assigned = round(assigned + extra, 3);
-    return {
-      ...item,
-      billableWeight: round(item.billableWeight + extra, 3),
-    };
-  });
 }
 
 function calculateFinalPaddingVolumetricWeight(settings: CarrierSettings) {
@@ -3737,12 +3741,6 @@ function nullableNonNegative(value: unknown) {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
-function requiredPositiveNumber(value: unknown, message: string) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) throw new Error(message);
-  return parsed;
-}
-
 function readEnum<T extends string>(value: unknown, allowed: readonly T[], fallback: T) {
   const text = readText(value)?.toUpperCase();
   return allowed.includes(text as T) ? text as T : fallback;
@@ -3770,86 +3768,25 @@ function firstNumber(...values: unknown[]) {
 
 function parseProductDimensionsWorkbook(fileBase64: string) {
   const workbook = XLSX.read(decodeBase64(fileBase64), { type: 'array' });
-  const sheetName = workbook.SheetNames.find((name) => workbook.Sheets[name]) ?? workbook.SheetNames[0];
-  if (!sheetName) throw new Error('El archivo Excel no contiene hojas para importar.');
-  const sheet = workbook.Sheets[sheetName];
-  const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: null, raw: true });
-  const rows: ProductDimensionImportRow[] = [];
-  const invalidRows: Array<{ row: number; reason: string }> = [];
-  const bySku = new Map<string, ProductDimensionImportRow>();
-
-  rawRows.forEach((raw, index) => {
-    const sourceRow = index + 2;
-    const normalized = normalizeWorkbookRow(raw);
-    const sku = readText(normalized.equipo ?? normalized.sku ?? normalized.codigo ?? normalized.codigo_interno);
-    const width = firstNumber(normalized.ancho, normalized.width, normalized.width_cm);
-    const length = firstNumber(normalized.largo, normalized.length, normalized.length_cm);
-    const height = firstNumber(normalized.alto, normalized.height, normalized.height_cm);
-    const realWeight = firstNumber(normalized.peso_real, normalized.peso, normalized.weight, normalized.weight_kg);
-    const volumetricWeight = firstNumber(normalized.peso_volumetrico, normalized.peso_volumetrico_kg, normalized.volumetric_weight);
-    const roundedWeight = firstNumber(normalized.redondeo, normalized.peso_redondeado);
-    const billableWeight = roundedWeight ?? maxPositive(realWeight, volumetricWeight);
-    const productName = readText(normalized.descripcion ?? normalized.description ?? normalized.nombre ?? normalized.producto);
-
-    if (!sku) {
-      invalidRows.push({ row: sourceRow, reason: 'Falta Equipo/SKU.' });
-      return;
-    }
-    if (!width || !length || !height) {
-      invalidRows.push({ row: sourceRow, reason: 'Faltan dimensiones válidas.' });
-      return;
-    }
-    if (!billableWeight && !realWeight && !volumetricWeight) {
-      invalidRows.push({ row: sourceRow, reason: 'Falta peso real o peso volumétrico.' });
-      return;
-    }
-
-    const row: ProductDimensionImportRow = {
-      sku: sku.toUpperCase(),
-      product_name: productName,
-      width_cm: round(width, 2),
-      length_cm: round(length, 2),
-      height_cm: round(height, 2),
-      unit_weight_kg: realWeight ? round(realWeight, 3) : null,
-      volumetric_weight_kg: volumetricWeight ? round(volumetricWeight, 3) : null,
-      billable_weight_kg: billableWeight ? round(billableWeight, 3) : null,
-      source_row: sourceRow,
-    };
-    bySku.set(normalizeSku(row.sku), row);
+  const sheets = workbook.SheetNames.map(name => {
+    const matrix = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[name], { header: 1, defval: null, raw: true, blankrows: true });
+    const headers = matrix[0] ?? [];
+    return { name, rows: matrix.slice(1).map((cells, index) => ({ row: index + 2,
+      values: Object.fromEntries(headers.map((header, column) => [String(header ?? `column_${column}`), cells[column] ?? null])) })) };
   });
-
-  rows.push(...bySku.values());
-  if (!rows.length) {
-    throw new Error('No se encontraron productos válidos en el Excel. Verifica columnas Equipo, Ancho, Largo, Alto y Peso.');
-  }
-  return { rows, invalidRows };
-}
-
-function normalizeWorkbookRow(raw: Record<string, unknown>) {
-  return Object.fromEntries(
-    Object.entries(raw).map(([key, value]) => [normalizeIdentifier(key), value]),
-  ) as Record<string, unknown>;
+  const parsed = parseCatalogSheets(sheets);
+  if (!parsed.rows.length && !parsed.invalidRows.length) throw new Error('El Excel no contiene productos con código.');
+  return parsed;
 }
 
 function normalizeProductDimensionImportRow(value: unknown): ProductDimensionImportRow | null {
   if (!isRecord(value)) return null;
   const sku = readText(value.sku);
-  const width = firstNumber(value.width_cm);
-  const length = firstNumber(value.length_cm);
-  const height = firstNumber(value.height_cm);
-  const billableWeight = firstNumber(value.billable_weight_kg, value.unit_weight_kg, value.volumetric_weight_kg);
-  if (!sku || !width || !length || !height || !billableWeight) return null;
-  return {
-    sku: sku.toUpperCase(),
-    product_name: readText(value.product_name),
-    width_cm: round(width, 2),
-    length_cm: round(length, 2),
-    height_cm: round(height, 2),
-    unit_weight_kg: firstNumber(value.unit_weight_kg) ? round(firstNumber(value.unit_weight_kg) as number, 3) : null,
-    volumetric_weight_kg: firstNumber(value.volumetric_weight_kg) ? round(firstNumber(value.volumetric_weight_kg) as number, 3) : null,
-    billable_weight_kg: round(billableWeight, 3),
+  if (!sku) throw new Error('Cada producto importado necesita un código.');
+  const values = normalizeCatalogValues(value);
+  return { sku: sku.toUpperCase(), product_name: readText(value.product_name), ...values, ...catalogComputedWeights(values),
     source_row: Math.max(1, Number(value.source_row) || 1),
-  };
+    logistics_metadata: normalizeLogisticsMetadata(value.logistics_metadata, values) };
 }
 
 function productDimensionChanged(existing: Record<string, unknown>, incoming: ProductDimensionImportRow) {
@@ -3859,7 +3796,8 @@ function productDimensionChanged(existing: Record<string, unknown>, incoming: Pr
     compareNumber(existing.height_cm, incoming.height_cm, 2) ||
     compareNumber(existing.unit_weight_kg, incoming.unit_weight_kg, 3) ||
     compareNumber(existing.volumetric_weight_kg, incoming.volumetric_weight_kg, 3) ||
-    compareNumber(existing.billable_weight_kg, incoming.billable_weight_kg, 3);
+    compareNumber(existing.billable_weight_kg, incoming.billable_weight_kg, 3) ||
+    !catalogMetadataEqual(existing.logistics_metadata, incoming.logistics_metadata);
 }
 
 function compareNumber(left: unknown, right: unknown, decimals: number) {
@@ -3867,11 +3805,6 @@ function compareNumber(left: unknown, right: unknown, decimals: number) {
   const rightNumber = firstNumber(right);
   if (!leftNumber && !rightNumber) return false;
   return round(leftNumber ?? 0, decimals) !== round(rightNumber ?? 0, decimals);
-}
-
-function maxPositive(...values: Array<number | null>) {
-  const positives = values.filter((value): value is number => Number.isFinite(value ?? NaN) && (value ?? 0) > 0);
-  return positives.length ? Math.max(...positives) : null;
 }
 
 function normalizeSku(value: string) {

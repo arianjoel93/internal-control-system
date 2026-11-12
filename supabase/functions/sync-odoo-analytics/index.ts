@@ -20,6 +20,8 @@ const MODEL_NAME = 'account.invoice.report.aggregates';
 const DAILY_CATEGORY_MODEL_NAME = 'account.invoice.report.daily.category';
 const DAILY_HISTORY_DAYS = 400;
 const MONTHLY_REFRESH_MONTHS = 25;
+const HOURLY_FRESH_MS = 50 * 60_000;
+const CHANGE_OVERLAP_MS = 5 * 60_000;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -65,6 +67,8 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({})) as Record<string, unknown>;
     const forceFull = body.forceFull === true;
     const scheduled = isScheduledCall;
+    const incremental = !forceFull && body.refreshMode === 'incremental';
+    const freshnessWindowMs = incremental ? HOURLY_FRESH_MS : 20 * 60 * 60_000;
     const today = new Date().toISOString().slice(0, 10);
     const requestedDailyStart = addDays(today, -DAILY_HISTORY_DAYS);
     if (!forceFull && !scheduled) {
@@ -83,7 +87,7 @@ Deno.serve(async (req) => {
       const categoryCoverageFresh = latestState?.source_database
         ? await isDailyCategoryCoverageFresh(adminClient, latestState.source_database, requestedDailyStart, today)
         : false;
-      if (latestState?.synced_start_date && categoryCoverageFresh && Date.now() - lastSuccessMs < 20 * 60 * 60_000) {
+      if (latestState?.synced_start_date && categoryCoverageFresh && Date.now() - lastSuccessMs < freshnessWindowMs) {
         return jsonResponse({ status: 'fresh', processed: 0, hasMore: false });
       }
     }
@@ -131,8 +135,8 @@ Deno.serve(async (req) => {
       requestedDailyStart,
       today,
     );
-    if (!forceFull && !scheduled && categoryCoverageFresh && syncState?.synced_start_date &&
-      Date.now() - lastSuccessMs < 20 * 60 * 60_000) {
+    if (!forceFull && (!scheduled || incremental) && categoryCoverageFresh && syncState?.synced_start_date &&
+      Date.now() - lastSuccessMs < freshnessWindowMs) {
       await finishSync(adminClient, sourceDatabase, lockOwner, true, null, null, 0);
       lockAcquired = false;
       return jsonResponse({ status: 'fresh', processed: 0, hasMore: false });
@@ -166,6 +170,44 @@ Deno.serve(async (req) => {
     const currencyField = meta.currency_id ? 'currency_id' : null;
     const categoryField = meta.product_categ_id ? 'product_categ_id' : null;
     const marginField = meta.price_margin ? 'price_margin' : null;
+    if (incremental && !isBootstrap) {
+      stage = 'odoo.changed-months';
+      const changed = await findChangedInvoiceMonths(odoo, connection, syncState.last_successful_sync, today);
+      const months = [...new Set([todayMonth, ...changed.months])].sort();
+      let processed = 0;
+      for (const month of months) {
+        const end = minDate(lastDayOfMonth(month), today);
+        stage = `odoo.refresh-month:${month}`;
+        const [monthlyTotals, monthlyCategories, dailyMetrics, dailyCategoryMetrics] = await Promise.all([
+          readGroupedMetrics({ apiKey: odoo.apiKey, connection, meta, dateStart: month, dateEnd: end,
+            dateGroup: 'month', sellerField, currencyField, marginField }),
+          categoryField ? readGroupedMetrics({ apiKey: odoo.apiKey, connection, meta, dateStart: month, dateEnd: end,
+            dateGroup: 'month', sellerField, currencyField, marginField, categoryField }) : Promise.resolve([]),
+          readGroupedMetrics({ apiKey: odoo.apiKey, connection, meta, dateStart: month, dateEnd: end,
+            dateGroup: 'day', sellerField, currencyField, marginField }),
+          categoryField ? readGroupedMetrics({ apiKey: odoo.apiKey, connection, meta, dateStart: month, dateEnd: end,
+            dateGroup: 'day', sellerField, currencyField, marginField, categoryField }) : Promise.resolve([]),
+        ]);
+        stage = `supabase.refresh-month:${month}`;
+        await replaceMonthlyMetrics(adminClient, sourceDatabase, month, month, monthlyTotals);
+        await replaceMonthlyCategoryMetrics(adminClient, sourceDatabase, month, month, monthlyCategories);
+        await replaceDailyMetrics(adminClient, sourceDatabase, month, end, dailyMetrics);
+        await replaceDailyCategoryMetrics(adminClient, sourceDatabase, month, end, dailyCategoryMetrics);
+        processed += monthlyTotals.length + monthlyCategories.length + dailyMetrics.length + dailyCategoryMetrics.length;
+      }
+      stage = 'sync.finish';
+      await finishSync(adminClient, sourceDatabase, lockOwner, true, null, today, processed);
+      lockAcquired = false;
+      const { data: categoryState, error: categoryStateError } = await adminClient
+        .from('report_odoo_sync_state').select('synced_start_date')
+        .eq('source_database', sourceDatabase).eq('sync_key', SYNC_KEY)
+        .eq('model_name', DAILY_CATEGORY_MODEL_NAME).maybeSingle();
+      if (categoryStateError) throw categoryStateError;
+      await persistDailyCategorySyncState(adminClient, sourceDatabase,
+        categoryState?.synced_start_date ?? todayMonth, today, processed);
+      return jsonResponse({ status: 'ok', mode: 'incremental', processed, refreshedMonths: months,
+        changeDetection: changed.method, hasMore: false });
+    }
     const monthlyTotals = await readGroupedMetrics({
       apiKey: odoo.apiKey, connection, meta, dateStart: rangeStart, dateEnd: today,
       dateGroup: 'month', sellerField, currencyField, marginField,
@@ -230,6 +272,51 @@ Deno.serve(async (req) => {
     }, 500);
   }
 });
+
+async function findChangedInvoiceMonths(
+  odoo: OdooEnvironment,
+  connection: { database: string; odooUrl: string; uid: number },
+  lastSuccessfulSync: string | null,
+  today: string,
+) {
+  if (!lastSuccessfulSync || !Number.isFinite(Date.parse(lastSuccessfulSync))) {
+    return { months: [] as string[], method: 'current-month-fallback' };
+  }
+  const since = new Date(Date.parse(lastSuccessfulSync) - CHANGE_OVERLAP_MS)
+    .toISOString().slice(0, 19).replace('T', ' ');
+  const sources = [
+    { model: 'account.move', dateField: 'invoice_date',
+      domain: [['move_type', 'in', ['out_invoice', 'out_refund']], ['write_date', '>=', since]] },
+    { model: 'account.move.line', dateField: 'date',
+      domain: [['write_date', '>=', since]] },
+  ];
+  const months: string[] = [];
+  let successfulSources = 0;
+  for (const source of sources) {
+    try {
+      const rows = await executeReadKw({
+        apiKey: odoo.apiKey,
+        args: [source.domain, [source.dateField, 'id:count'], [`${source.dateField}:month`]],
+        database: connection.database,
+        kwargs: { lazy: false },
+        method: 'read_group',
+        model: source.model,
+        odooUrl: connection.odooUrl,
+        uid: connection.uid,
+      }) as Record<string, unknown>[];
+      months.push(...rows.map((row) => groupedDateValue(row, source.dateField))
+        .filter((value): value is string => Boolean(value && value <= today))
+        .map(firstDayOfMonth));
+      successfulSources += 1;
+    } catch (error) {
+      console.warn(`[sync-odoo-analytics] ${source.model} change detection unavailable`, error);
+    }
+  }
+  // If neither cursor is available, refresh the current month; the nightly
+  // reconciliation still repairs older corrections.
+  return { months, method: successfulSources === 2 ? 'write_date' :
+    successfulSources === 1 ? 'partial-write_date' : 'current-month-fallback' };
+}
 
 async function readGroupedMetrics(input: {
   apiKey: string;
@@ -592,6 +679,11 @@ function addDays(value: string, amount: number) {
   return date.toISOString().slice(0, 10);
 }
 function maxDate(left: string, right: string) { return left > right ? left : right; }
+function minDate(left: string, right: string) { return left < right ? left : right; }
+function lastDayOfMonth(value: string) {
+  const [year, month] = value.split('-').map(Number);
+  return new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+}
 
 function jsonResponse(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {

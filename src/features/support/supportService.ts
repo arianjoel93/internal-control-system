@@ -6,7 +6,7 @@ import { getCurrentUserModuleAccess } from '../admin/settingsService';
 
 const caseSelect = `
   *,
-  support_events (*, support_event_types (name, description)),
+  support_events (*, support_event_types (name, description, badge_color)),
   support_images (*)
 `;
 
@@ -34,7 +34,7 @@ const publicCaseSelect = `
   issue_summary,
   created_at,
   updated_at,
-  support_events (*, support_event_types (name, description)),
+  support_events (*, support_event_types (name, description, badge_color)),
   support_images (*)
 `;
 
@@ -691,4 +691,30 @@ function normalizeFolioPart(value: string) {
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-zA-Z0-9-]+/g, '')
     .toUpperCase();
+}
+
+export async function getMySupportReportCases() {
+  const access = await getCurrentUserModuleAccess('supports');
+  if (!access.can_access || !access.user_id) return [];
+
+  const pageSize = 250;
+  const rows: Array<
+    Pick<SupportCase, 'id' | 'created_at' | 'support_type'> & {
+      support_events: Array<Pick<SupportEvent, 'event_type' | 'event_date'>>;
+    }
+  > = [];
+
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from('support_cases')
+      .select('id, created_at, support_type, support_events(event_type, event_date)')
+      .eq('created_by', access.user_id)
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+
+    if (error) throw error;
+    rows.push(...data);
+    if (data.length < pageSize) return rows;
+  }
 }

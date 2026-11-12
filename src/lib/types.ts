@@ -51,6 +51,7 @@ export type SupportEvent = {
   tracking_number: string | null;
   created_at: string;
   support_event_types?: {
+    badge_color?: string;
     name: string;
     description: string | null;
   } | null;
@@ -119,6 +120,7 @@ export type SupportEventType = {
   id: string;
   name: string;
   code: string;
+  badge_color: string;
   event_type: SupportEvent['event_type'];
   support_type: SupportCase['support_type'];
   description: string | null;
@@ -645,9 +647,10 @@ export type ShippingProductDimension = {
   unit_weight_kg: number | null;
   volumetric_weight_kg: number | null;
   billable_weight_kg: number | null;
-  width_cm: number;
-  length_cm: number;
-  height_cm: number;
+  width_cm: number | null;
+  length_cm: number | null;
+  height_cm: number | null;
+  logistics_metadata?: import('../../supabase/functions/_shared/shipping-catalog').LogisticsMetadata | null;
   source_file_name: string | null;
   source_row: number | null;
   uploaded_by: string | null;
@@ -861,7 +864,8 @@ export type Database = {
       };
       support_event_types: {
         Row: SupportEventType;
-        Insert: Omit<SupportEventType, 'id' | 'created_at' | 'updated_at'> & {
+        Insert: Omit<SupportEventType, 'id' | 'created_at' | 'updated_at' | 'badge_color'> & {
+          badge_color?: string;
           id?: string;
           created_at?: string;
           updated_at?: string;

@@ -1,0 +1,10 @@
+node_modules
+dist
+release
+supabase/.temp/
+.env
+.env.local
+.DS_Store
+*.local
+*.log
+dev-server.err

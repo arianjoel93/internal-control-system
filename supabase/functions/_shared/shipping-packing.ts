@@ -3,6 +3,7 @@ export type PackingStrategy = 'BALANCED' | 'MIN_PACKAGES' | 'COMPACT' | 'CONSERV
 export const FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG = 5000;
 export const PACKING_EPSILON = 0.001;
 export type PackingOptimizationOptions = {
+  preserveOwnPackages?: boolean;
   volumetricDivisor?: number;
   exactUnitLimit?: number;
   maxSearchNodes?: number;
@@ -14,12 +15,20 @@ export type ProductRules = {
   canCombine?: boolean; packingGroup?: string | null; protectionMarginCm?: number;
 };
 export type PackingLine = ProductRules & {
+  logisticsMetadata?: import('./shipping-catalog').LogisticsMetadata | null;
   lineId: number; productId: number; sku: string | null; productName: string; quantity: number;
   lengthCm: number | null; widthCm: number | null; heightCm: number | null; weightKg: number | null;
+  // quantity always remains in the commercial Odoo unit.
+  uom?: string | null; description?: string;
 };
 export type PhysicalUnit = ProductRules & {
+  logisticsMetadata?: import('./shipping-catalog').LogisticsMetadata | null;
   id: string; lineId: number; productId: number; sku: string | null; productName: string;
   unitIndex: number; originalQuantity: number; weightKg: number; dimensions: Dimensions;
+  commercialQuantity?: number; commercialUom?: string | null;
+  physicalUnit?: 'ROLLO' | 'CAJA' | 'PIEZA'; commercialUnitsPerPhysicalUnit?: number;
+  prepacked?: boolean;
+  presentationQuantity?: number;
 };
 export type PackagingRow = {
   id: string; name: string; internal_code: string; is_active: boolean; sort_order: number;
@@ -44,7 +53,7 @@ export type PackingPackage = {
 };
 export type UnpackedItem = { unit: PhysicalUnit; reason: string; code: 'OVERSIZE' | 'UNASSIGNED'; evaluatedPackaging?: Array<{ id: string; name: string; reason: string }> };
 export type PackingAssignment = { id: string; packagingTypeId: string | null; unitIds: string[]; ownPackageConfirmed?: boolean };
-export type PackingRequest = { version: 1; strategy: PackingStrategy; lines: PackingLine[]; assignments: PackingAssignment[] };
+export type PackingRequest = { version: 1; strategy: PackingStrategy; lines: PackingLine[]; assignments: PackingAssignment[]; disabledHeightCuts?: string[] };
 export type PackingPlan = {
   version: 1; strategy: PackingStrategy; packages: PackingPackage[]; unpackedItems: UnpackedItem[];
   warnings: string[]; errors: string[]; missingLines: Array<{ lineId: number; name: string; quantity: number; reason: string }>;
@@ -67,6 +76,56 @@ const nonNegative = (v: unknown): v is number => typeof v === 'number' && Number
 const round = (v: number) => Math.round(v * 1000) / 1000;
 const resolveVolumetricDivisor = (value?: number) => Number.isFinite(value) && Number(value) > 0 ? Number(value) : FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG;
 
+export type ShippingQuantity = {
+  physicalQuantity: number | null; physicalUnit: 'ROLLO' | 'CAJA' | 'PIEZA';
+  commercialUnitsPerPhysicalUnit: number; prepacked: boolean; error: string | null;
+};
+
+export function resolveShippingQuantity(line: Pick<PackingLine, 'quantity' | 'sku' | 'productName' | 'description' | 'uom' | 'logisticsMetadata'>): ShippingQuantity {
+  const sku = (line.sku ?? '').trim().toUpperCase();
+  const text = `${line.productName} ${line.description ?? ''}`.toUpperCase();
+  const uom = (line.uom ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z]/g, '');
+  const thousands = /^(MILLAR|MILLARES|MILLARESDEETIQUETAS|MIL|THOUSAND|THOUSANDS)$/.test(uom);
+  const pieces = /^(UNIDAD|UNIDADES|UNIT|UNITS|PIEZA|PIEZAS|PZA|PZAS|UD|UDS)$/.test(uom);
+  const rolls = /^(ROLLO|ROLLOS|ROLL|ROLLS)$/.test(uom);
+  const boxes = /^(CAJA|CAJAS|BOX|BOXES)$/.test(uom);
+  const thermalBox = (/^\d{6}PT\d{2}/.test(sku) || /PAPEL\s+TICKET/.test(text)) && /CAJA\s*\/\s*\d+\s*ROLLOS?\b/.test(text);
+  const label = /^\d{6}(?:TD|TT|BM|BB|BD|PL|NY|TV|SG|DG|BT)\d{2}/.test(sku);
+  const equipment = /^equipos$/i.test(line.logisticsMetadata?.source_sheet?.trim() ?? '') || /^(?:IMPRESORA|BASCULA|ESCANER|SCANNER|LECTOR)\b/.test(text);
+  const result: ShippingQuantity = { physicalQuantity: null, physicalUnit: thermalBox ? 'CAJA' : label || rolls || thousands || (pieces && line.logisticsMetadata?.physical_unit === 'ROLLO') ? 'ROLLO' : 'PIEZA', commercialUnitsPerPhysicalUnit: 1, prepacked: thermalBox || boxes || equipment || line.logisticsMetadata?.original_package === true, error: null };
+  const fail = (error: string) => ({ ...result, error });
+  if (!positive(line.quantity)) return fail('La cantidad comercial debe ser mayor a cero.');
+  if (thermalBox && !boxes && !pieces) return fail('Confirma la unidad de Odoo: este térmico se despacha por caja cerrada.');
+  if (thousands || (label && pieces)) {
+    const suffix = sku.match(/(\d+)K(\d*)$/);
+    const shortRoll = sku.match(/LG(\d+)$/);
+    const fromSku = suffix ? Number(`${suffix[1]}.${suffix[2] || '0'}`) : shortRoll ? Number(shortRoll[1]) / 1000 : null;
+    const descriptions = [...text.matchAll(/\bR\s*(\d+(?:[.,]\d+)?)\s*K\b|\bR\s*(\d+[.,]\d+)(?![\d.,])/g)].map(match => Number((match[1] ?? match[2]).replace(',', '.')));
+    const capacities = [fromSku, ...descriptions].filter((value): value is number => value !== null && value > 0);
+    if (!capacities.length || /CONTINUO|\bMTS\b/.test(text)) return fail('Falta confirmar la capacidad de etiquetas por rollo; no se puede convertir esta unidad automáticamente.');
+    if (Math.max(...capacities) - Math.min(...capacities) > 1e-7) return fail('La capacidad por rollo del código y la descripción no coincide. Revisa el producto antes de cotizar.');
+    // A label sold as individual units means labels, not automatically rolls.
+    if (!thousands) return fail('Confirma la unidad de venta de esta etiqueta: usa millares o rollos explícitos antes de cotizar.');
+    result.commercialUnitsPerPhysicalUnit = capacities[0];
+  } else if (label && !rolls && !boxes) {
+    return fail('Falta confirmar la unidad comercial de la etiqueta (millares o rollos).');
+  } else if (uom && !pieces && !rolls && !boxes) {
+    return fail(`La unidad ${line.uom} necesita una conversión logística configurada.`);
+  }
+  if (boxes) result.physicalUnit = 'CAJA';
+  const quantity = line.quantity / result.commercialUnitsPerPhysicalUnit;
+  const integer = Math.round(quantity);
+  if (!Number.isSafeInteger(integer) || integer < 1 || Math.abs(quantity - integer) > 1e-7) {
+    return fail(`La cantidad equivale a ${Number(quantity.toFixed(6))} ${result.physicalUnit === 'ROLLO' ? 'rollos' : result.physicalUnit === 'CAJA' ? 'cajas' : 'piezas'}. Solo se despachan unidades completas; usa múltiplos de ${result.commercialUnitsPerPhysicalUnit} ${line.uom || 'unidades'}.`);
+  }
+  return { ...result, physicalQuantity: integer };
+}
+
+export function packagingDisplayName(row: Pick<PackagingRow,'name'|'length'|'width'|'height'|'external_length'|'external_width'|'external_height'|'dimension_unit'>) {
+  const dimensions=[row.external_length??row.length,row.external_width??row.width,row.external_height??row.height];
+  return dimensions.every(v=>Number(v)>0) ? `${row.name} · ${dimensions.map(Number).join(' × ')} ${row.dimension_unit.toLowerCase()}` : row.name;
+}
+
 export function normalizePackaging(row: PackagingRow): PackingBox | null {
   const dimensionFactor = row.dimension_unit === 'IN' ? 2.54 : 1;
   const weightFactor = row.weight_unit === 'LB' ? 0.45359237 : 1;
@@ -78,27 +137,80 @@ export function normalizePackaging(row: PackagingRow): PackingBox | null {
     || Number(row.empty_weight) >= Number(row.max_weight) || !positive(fill) || fill > 100
     || external.length < internal.length || external.width < internal.width || external.height < internal.height) return null;
   for (const key of ['length', 'width', 'height'] as const) { internal[key] *= dimensionFactor; external[key] *= dimensionFactor; }
-  return { id: row.id, name: row.name, internal, external, tareKg: Number(row.empty_weight) * weightFactor,
+  return { id: row.id, name: packagingDisplayName(row), internal, external, tareKg: Number(row.empty_weight) * weightFactor,
     maxWeightKg: Number(row.max_weight) * weightFactor, maxUtilization: fill, cost: Math.max(0, Number(row.box_cost) || 0), priority: row.sort_order || 0 };
+}
+
+export function sumProductVolumetricWeight(lines: PackingLine[]) {
+  let total = 0, missingLines = 0;
+  for (const line of lines) {
+    const quantity = resolveShippingQuantity(line);
+    const presentation = quantity.physicalUnit === 'CAJA' && line.logisticsMetadata?.physical_unit === 'ROLLO'
+      ? line.logisticsMetadata.standard_presentation : null;
+    const dimensions = presentation ? [presentation.length_cm,presentation.width_cm,presentation.height_cm]
+      : [line.lengthCm,line.widthCm,line.heightCm];
+    if (quantity.error || !quantity.physicalQuantity || dimensions.some(d=>!positive(d)) ||
+      (quantity.physicalUnit==='CAJA' && line.logisticsMetadata?.physical_unit==='ROLLO' && !presentation)) { missingLines++;continue; }
+    // Match the catalog's centimetre rounding. No outer-carton or protection volume.
+    total += dimensions.reduce<number>((v,d)=>v*Math.ceil(d!),1) / FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG * quantity.physicalQuantity;
+  }
+  return { weightKg: missingLines || !lines.length ? null : round(total), missingLines };
 }
 
 export function normalizePackingLines(lines: PackingLine[], log?: PackingLog) {
   const units: PhysicalUnit[] = [];
   const missingLines: PackingPlan['missingLines'] = [];
   const seen = new Set<number>();
-  const requestedCount = lines.reduce((sum, line) => sum + (positive(line.quantity) ? line.quantity : 0), 0);
+  const conversions = lines.map(resolveShippingQuantity);
+  const requestedCount = conversions.reduce((sum, conversion) => sum + (conversion.physicalQuantity ?? 0), 0);
   if (requestedCount > MAX_PHYSICAL_UNITS) throw new Error(`La orden supera ${MAX_PHYSICAL_UNITS} unidades físicas; divide el envío para validar el acomodo.`);
-  for (const line of lines) {
-    const missing = [!positive(line.lengthCm) && 'largo', !positive(line.widthCm) && 'ancho', !positive(line.heightCm) && 'alto',
-      !nonNegative(line.weightKg) && 'peso físico', (!Number.isInteger(line.quantity) || line.quantity <= 0) && 'cantidad entera',
+  for (const [lineIndex, line] of lines.entries()) {
+    const conversion = conversions[lineIndex];
+    const quantity = conversion.physicalQuantity ?? 0;
+    if (conversion.error) {
+      missingLines.push({ lineId: line.lineId, name: line.productName, quantity: 0, reason: conversion.error });
+      continue;
+    }
+    // A label sold as a whole box uses the presentation's exterior and gross mass,
+    // never the per-roll measurements stored in the same catalog record.
+    const closedLabel = conversion.physicalUnit === 'CAJA' && line.logisticsMetadata?.physical_unit === 'ROLLO';
+    const closedPresentation = closedLabel ? line.logisticsMetadata?.standard_presentation : null;
+    if (closedLabel && !closedPresentation) {
+      missingLines.push({ lineId: line.lineId, name: line.productName, quantity, reason: 'Faltan medidas y peso bruto de la caja completa de etiquetas.' });
+      continue;
+    }
+    const physical = closedPresentation ? { lengthCm: closedPresentation.length_cm, widthCm: closedPresentation.width_cm,
+      heightCm: closedPresentation.height_cm, weightKg: closedPresentation.gross_weight_kg } : line;
+    const missing = [!positive(physical.lengthCm) && 'largo', !positive(physical.widthCm) && 'ancho', !positive(physical.heightCm) && 'alto',
+      !nonNegative(physical.weightKg) && 'peso físico',
       (line.protectionMarginCm != null && !nonNegative(line.protectionMarginCm)) && 'margen de protección',
       (!Number.isSafeInteger(line.lineId) || !Number.isSafeInteger(line.productId) || seen.has(line.lineId)) && 'referencia de línea única'].filter(Boolean);
     seen.add(line.lineId);
-    if (missing.length) { missingLines.push({ lineId: line.lineId, name: line.productName, quantity: Number.isInteger(line.quantity) && line.quantity > 0 ? line.quantity : 0, reason: `Datos físicos incompletos: ${missing.join(', ')}.` }); continue; }
-    for (let i = 1; i <= line.quantity; i++) {
+    if (missing.length) { missingLines.push({ lineId: line.lineId, name: line.productName, quantity, reason: `Datos físicos incompletos: ${missing.join(', ')}.` }); continue; }
+    const presentation = line.logisticsMetadata?.standard_presentation;
+    if (presentation && (!Number.isSafeInteger(presentation.units_per_box) || presentation.units_per_box < 2 ||
+      ![presentation.length_cm, presentation.width_cm, presentation.height_cm, presentation.gross_weight_kg].every(positive))) {
+      missingLines.push({ lineId: line.lineId, name: line.productName, quantity, reason: 'Presentación estándar incompleta o inválida.' });
+      continue;
+    }
+    // Never interpret the capacity of a roll (2K5, etc.) as rolls per box.
+    const fullBoxes = presentation && conversion.physicalUnit === 'ROLLO' && !conversion.prepacked
+      ? Math.floor(quantity / presentation.units_per_box) : 0;
+    for (let b = 0; b < fullBoxes; b++) {
+      units.push({ ...line, id: `${line.lineId}:${line.productId}:box:${b + 1}`, unitIndex: b + 1,
+        originalQuantity: quantity, productName: `${line.productName} — caja cerrada de ${presentation!.units_per_box} rollos`,
+        dimensions: { length: presentation!.length_cm, width: presentation!.width_cm, height: presentation!.height_cm },
+        weightKg: presentation!.gross_weight_kg, prepacked: true, presentationQuantity: presentation!.units_per_box,
+        physicalUnit: 'CAJA', commercialQuantity: line.quantity, commercialUom: line.uom,
+        commercialUnitsPerPhysicalUnit: conversion.commercialUnitsPerPhysicalUnit * presentation!.units_per_box });
+    }
+    for (let i = fullBoxes * (presentation?.units_per_box ?? 0) + 1; i <= quantity; i++) {
       units.push({ id: `${line.lineId}:${line.productId}:${i}`, lineId: line.lineId, productId: line.productId, sku: line.sku,
-        productName: line.productName, unitIndex: i, originalQuantity: line.quantity, weightKg: Number(line.weightKg),
-        dimensions: { length: Number(line.lengthCm), width: Number(line.widthCm), height: Number(line.heightCm) },
+        productName: line.productName, unitIndex: i, originalQuantity: quantity, weightKg: Number(physical.weightKg),
+        commercialQuantity: line.quantity, commercialUom: line.uom ?? null, physicalUnit: conversion.physicalUnit,
+        commercialUnitsPerPhysicalUnit: conversion.commercialUnitsPerPhysicalUnit, prepacked: conversion.prepacked,
+        logisticsMetadata: line.logisticsMetadata,
+        dimensions: { length: Number(physical.lengthCm), width: Number(physical.widthCm), height: Number(physical.heightCm) },
         canRotate: line.canRotate !== false, canStack: line.canStack !== false, fragile: line.fragile === true,
         shipAlone: line.shipAlone === true, canCombine: line.canCombine !== false,
         packingGroup: line.packingGroup || null, protectionMarginCm: line.protectionMarginCm ?? 0 });
@@ -139,6 +251,7 @@ function supported(pkg: OpenBox, item: PhysicalUnit, position: Position, d: Dime
   return area+EPS >= d.length*d.width;
 }
 function findPlacementCandidates(pkg: OpenBox, unit: PhysicalUnit, strategy: PackingStrategy): Placement[] {
+  if (strategy === 'CONSERVATIVE' && pkg.placements.length && (unit.fragile || pkg.placements.some(p=>p.unit.fragile))) return [];
   if (pkg.placements.length && (unit.shipAlone || unit.canCombine === false || pkg.placements.some(p => p.unit.shipAlone || p.unit.canCombine === false))) return [];
   if (unit.packingGroup && pkg.placements.some(p => p.unit.packingGroup && p.unit.packingGroup !== unit.packingGroup)) return [];
   if (pkg.weight+unit.weightKg+pkg.box.tareKg > pkg.box.maxWeightKg+EPS) return [];
@@ -176,13 +289,27 @@ function place(pkg: OpenBox, p: Placement) {
   pkg.spaces = unique.filter((s,i)=>!unique.some((other,j)=>i!==j&&contains(other,s)))
     .sort((a,b)=>a.z-b.z || volume(a)-volume(b) || a.y-b.y || a.x-b.x).slice(0,160);
 }
+function standaloneEquipment(pkg: OpenBox) {
+  const unit = pkg.placements.length === 1 ? pkg.placements[0].unit : undefined;
+  return unit?.prepacked && unit.physicalUnit === 'PIEZA' ? unit : undefined;
+}
 function packed(pkg: OpenBox, id: string, own = false, volumetricDivisor = FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG): PackingPackage {
+  const equipment = !own ? standaloneEquipment(pkg) : undefined;
+  if (equipment) {
+    const ownBox = openBox({ id, name: 'Caja propia del equipo', internal: equipment.dimensions, external: equipment.dimensions,
+      tareKg: 0, maxWeightKg: Math.max(equipment.weightKg,.001), maxUtilization: 100, cost: 0, priority: 0 });
+    place(ownBox,{ unit:equipment,position:{x:0,y:0,z:0},orientation:equipment.dimensions });
+    const result=packed(ownBox,id,true,volumetricDivisor);
+    result.explanation='Este paquete contiene un solo equipo embalado. Se utilizan las dimensiones exteriores y el peso bruto de su caja propia, sin caja ni tara adicionales.';
+    return result;
+  }
   const utilization = pkg.used/volume(pkg.box.internal)*100;
   const actualWeight = round(pkg.weight+pkg.box.tareKg);
   const volumetricWeight = round(volume(pkg.box.external)/volumetricDivisor);
   const billableWeight = round(Math.max(actualWeight, volumetricWeight));
   const availableVolume = round(volume(pkg.box.internal)*pkg.box.maxUtilization/100);
   const warnings = [];
+  if (pkg.placements.some(p => p.unit.presentationQuantity)) warnings.push('La presentación se conserva cerrada. Su peso bruto ya incluye su cartón; solo se suma la tara de una caja exterior, si se utiliza. Validar en almacén.');
   if (utilization >= pkg.box.maxUtilization*0.92) warnings.push('Esta caja está cerca del límite de ocupación configurado.');
   if (pkg.placements.some(p=>p.unit.fragile)) warnings.push('Contenido frágil: ocupación limitada al 80 % y sin carga encima.');
   if (own) warnings.push('Envío individual sin caja de catálogo confirmado por el usuario.');
@@ -202,7 +329,7 @@ function finish(strategy: PackingStrategy, units: PhysicalUnit[], packages: Pack
   const warnings = [...new Set(packages.flatMap(p=>p.warnings))];
   return { version:1,strategy,packages,missingLines,unpackedItems,errors,warnings,
     status:errors.length?'INVALID_PACKING':missingLines.length?'PENDING_DATA':unpackedItems.length?'PARTIALLY_PACKED':packages.length?'READY_FOR_QUOTE':'INVALID_PACKING',
-    metrics:{articleCount:units.length+missingLines.reduce((sum,line)=>sum+line.quantity,0),packageCount:packages.length,netWeight:round(units.reduce((s,u)=>s+u.weightKg,0)),
+    metrics:{articleCount:units.reduce((sum,u)=>sum+(u.presentationQuantity ?? 1),0)+missingLines.reduce((sum,line)=>sum+line.quantity,0),packageCount:packages.length,netWeight:round(units.reduce((s,u)=>s+u.weightKg,0)),
       grossWeight:round(packages.reduce((s,p)=>s+p.totalWeight,0)), productVolume:round(units.reduce((s,u)=>s+volume(u.dimensions),0)),packagingVolume:round(packagingVolume),
       averageUtilization:totalAvailableVolume?round(totalUsedVolume/totalAvailableVolume*100):0,missingProducts:missingLines.length,unpackedCount:unpackedItems.length,
       volumetricWeight:round(volumetricWeight),billableWeight:round(billableWeight),totalUsedVolume:round(totalUsedVolume),totalAvailableVolume:round(totalAvailableVolume),wastedVolume:round(wastedVolume)} };
@@ -210,28 +337,34 @@ function finish(strategy: PackingStrategy, units: PhysicalUnit[], packages: Pack
 
 function generateHeuristicPlan(units: PhysicalUnit[], boxes: PackingBox[], missingLines: PackingPlan['missingLines'], strategy: PackingStrategy, log: PackingLog | undefined, volumetricDivisor: number): PackingPlan {
   const opened:OpenBox[]=[]; const unpacked:UnpackedItem[]=[]; const sorted=ordered(units);
+  const assigned = new Set<string>();
   for(let index=0;index<sorted.length;index++) {
     const unit=sorted[index];
+    if (assigned.has(unit.id)) continue;
     const existing=opened.map(pkg=>({pkg,placement:findPlacement(pkg,unit,strategy)})).filter(x=>x.placement)
       .sort((a,b)=>(volume(a.pkg.box.internal)-a.pkg.used)-(volume(b.pkg.box.internal)-b.pkg.used));
-    if(existing[0]?.placement) {place(existing[0].pkg,existing[0].placement);log?.('ITEM_PACKED',{unitId:unit.id,boxId:existing[0].pkg.box.id});continue;}
+    if(existing[0]?.placement) {place(existing[0].pkg,existing[0].placement);assigned.add(unit.id);log?.('ITEM_PACKED',{unitId:unit.id,boxId:existing[0].pkg.box.id});continue;}
     const options=boxes.flatMap(box=>{
       const pkg=openBox(box); const p=findPlacement(pkg,unit,strategy);
       if(!p){log?.('ITEM_REJECTED_FROM_PACKAGE',{unitId:unit.id,boxId:box.id});return [];}
       place(pkg,p);
-      // Bounded deterministic look-ahead rewards boxes that absorb the next units.
-      if(strategy!=='COMPACT') for(const next of sorted.slice(index+1,index+65)){const q=findPlacement(pkg,next,strategy);if(q)place(pkg,q);}
+      // Evaluate the entire remaining order, then commit this filled carton.
+      // A 64-unit horizon mispriced high-capacity cartons on large roll orders.
+      for(const next of sorted.slice(index+1)){
+        if(assigned.has(next.id))continue;
+        const q=findPlacement(pkg,next,strategy);if(q)place(pkg,q);
+      }
       const count=pkg.placements.length; const waste=1-pkg.used/volume(box.internal);
       const capacityWaste=(box.maxWeightKg-pkg.weight-box.tareKg)/box.maxWeightKg;
       // FedEx bills the greater of actual and dimensional weight. Keep this
       // signal after the package-count estimate so the default strategy does
       // not open extra boxes just to shave a small amount of volume.
       const billableWeight=Math.max(pkg.weight+box.tareKg,volume(box.external)/volumetricDivisor);
-      const remainingCount=sorted.length-index;
+      const remainingCount=sorted.length-assigned.size;
       const estimatedPackages=Math.ceil(remainingCount/Math.max(count,1));
       const score=strategy==='MIN_PACKAGES'?0:strategy==='COMPACT'?volume(box.external)+box.cost*10:
         volume(box.external)/count+(waste+capacityWaste)*100+box.cost*10+5000/count;
-      return [{box,score,count,billableWeight,estimatedPackages,packageVolume:volume(box.external),boxCost:Math.max(0,box.cost)}];
+      return [{box,pkg,score,count,billableWeight,estimatedPackages,packageVolume:volume(box.external),boxCost:Math.max(0,box.cost)}];
     }).sort((a,b)=>{
       if(strategy==='MIN_PACKAGES') return a.estimatedPackages-b.estimatedPackages
         || (Math.abs(a.billableWeight-b.billableWeight)>PACKING_EPSILON ? a.billableWeight-b.billableWeight : 0)
@@ -240,14 +373,28 @@ function generateHeuristicPlan(units: PhysicalUnit[], boxes: PackingBox[], missi
       return a.score-b.score||a.billableWeight-b.billableWeight||a.boxCost-b.boxCost||a.box.priority-b.box.priority||a.box.id.localeCompare(b.box.id);
     });
     if(!options.length){unpacked.push(describeUnpackableUnit(unit,boxes));continue;}
-    const pkg=openBox(options[0].box);
+    const pkg=options[0].pkg;
     pkg.explanation = strategy === 'COMPACT'
       ? `Se eligió ${pkg.box.name} por su menor volumen externo entre los embalajes compatibles, considerando el costo de la caja.`
       : `Se compararon ${options.length} embalajes compatibles. ${pkg.box.name} obtuvo la mejor puntuación de ${strategy === 'MIN_PACKAGES' ? 'consolidación, peso facturable y costo de embalaje' : 'equilibrio entre volumen por unidad, ocupación, capacidad de peso y costo'}. La revisión de los siguientes artículos estimó espacio para ${options[0].count} unidades. No incluye una comparación de tarifas FedEx.`;
-    place(pkg,findPlacement(pkg,unit,strategy)!);opened.push(pkg);
+    for(const placement of pkg.placements)assigned.add(placement.unit.id);
+    opened.push(pkg);
     log?.('PACKAGE_OPENED',{boxId:pkg.box.id});
   }
-  const packages=opened.map((p,i)=>{log?.('PACKAGE_COMPLETED',{boxId:p.box.id,units:p.placements.length});return packed(p,`box-${i+1}`,false,volumetricDivisor);});
+  // Once filled, right-size the carton without splitting its contents. Cutting
+  // is evaluated later, only after consolidation and physical validation.
+  const packages=opened.map((original,i)=>{
+    let p=original;
+    for(const box of boxes){
+      if(volume(box.external)>=volume(p.box.external)-EPS)continue;
+      const probe=openBox(box);
+      for(const item of ordered(original.placements.map(item=>item.unit))){
+        const placement=findPlacement(probe,item,strategy);if(!placement)break;place(probe,placement);
+      }
+      if(probe.placements.length===original.placements.length){probe.explanation='Caja ajustada al contenido después de llenar y consolidar el paquete.';p=probe;}
+    }
+    log?.('PACKAGE_COMPLETED',{boxId:p.box.id,units:p.placements.length});return packed(p,`box-${i+1}`,false,volumetricDivisor);
+  });
   const result=finish(strategy,units,packages,missingLines,unpacked,[]);
   log?.('PACKING_COMPLETED',{packages:packages.length,unpacked:unpacked.length});return result;
 }
@@ -279,11 +426,15 @@ function packingPlanStableKey(plan: PackingPlan) {
 }
 
 export function comparePackingPlans(left: PackingPlan, right: PackingPlan) {
+  const pair = (key: 'packageCount'|'billableWeight'|'volumetricWeight'|'wastedVolume'): [number,number] => [left.metrics[key],right.metrics[key]];
   const comparisons: Array<[number, number]> = [
-    [left.metrics.volumetricWeight, right.metrics.volumetricWeight],
-    [left.metrics.packageCount, right.metrics.packageCount],
-    [left.metrics.wastedVolume, right.metrics.wastedVolume],
-    [left.metrics.billableWeight, right.metrics.billableWeight],
+    [left.errors.length,right.errors.length], [left.missingLines.length,right.missingLines.length],
+    [left.unpackedItems.length,right.unpackedItems.length],
+    ...(left.strategy === 'MIN_PACKAGES' || left.strategy === 'CONSERVATIVE' ? [pair('packageCount'),pair('billableWeight'),pair('volumetricWeight')]
+      : left.strategy === 'COMPACT' ? [pair('volumetricWeight'),pair('packageCount'),pair('billableWeight')]
+        : [[left.metrics.billableWeight+2*left.metrics.packageCount+.1*left.metrics.volumetricWeight,
+          right.metrics.billableWeight+2*right.metrics.packageCount+.1*right.metrics.volumetricWeight] as [number,number],pair('packageCount'),pair('volumetricWeight')]),
+    pair('wastedVolume'),
   ];
   for (const [leftValue, rightValue] of comparisons) {
     if (Math.abs(leftValue - rightValue) > PACKING_EPSILON) return leftValue < rightValue ? -1 : 1;
@@ -318,8 +469,9 @@ function generateExactPlan(units: PhysicalUnit[], boxes: PackingBox[], missingLi
       truncated = true;
       return;
     }
-    const currentVolumetricWeight = packages.reduce((sum, pkg) => sum + volume(pkg.box.external) / volumetricDivisor, 0);
-    if (best && (currentVolumetricWeight > best.metrics.volumetricWeight + PACKING_EPSILON
+    const currentVolumetricWeight = packages.reduce((sum, pkg) => sum + volume(standaloneEquipment(pkg)?.dimensions ?? pkg.box.external) / volumetricDivisor, 0);
+    if (best && strategy === 'MIN_PACKAGES' && packages.length > best.metrics.packageCount) return;
+    if (best && strategy === 'COMPACT' && (currentVolumetricWeight > best.metrics.volumetricWeight + PACKING_EPSILON
       || Math.abs(currentVolumetricWeight - best.metrics.volumetricWeight) <= PACKING_EPSILON
         && packages.length > best.metrics.packageCount)) return;
 
@@ -370,7 +522,7 @@ function generateExactPlan(units: PhysicalUnit[], boxes: PackingBox[], missingLi
     nextStates.sort((left, right) => {
       const leftWeight = left.reduce((sum, pkg) => sum + volume(pkg.box.external) / volumetricDivisor, 0);
       const rightWeight = right.reduce((sum, pkg) => sum + volume(pkg.box.external) / volumetricDivisor, 0);
-      return leftWeight - rightWeight || left.length - right.length
+      return (strategy === 'MIN_PACKAGES' ? left.length - right.length || leftWeight - rightWeight : leftWeight - rightWeight || left.length - right.length)
         || left.map(openBoxStateKey).join('|').localeCompare(right.map(openBoxStateKey).join('|'));
     });
     for (const next of nextStates) search(index + 1, next);
@@ -386,23 +538,82 @@ function generateExactPlan(units: PhysicalUnit[], boxes: PackingBox[], missingLi
 export function generatePackingPlan(lines: PackingLine[], rows: PackagingRow[], strategy: PackingStrategy = 'MIN_PACKAGES', log?: PackingLog, options: PackingOptimizationOptions = {}): PackingPlan {
   if (!STRATEGIES.includes(strategy)) throw new Error('Estrategia de embalaje no válida.');
   log?.('PACKING_STARTED', { lines: lines.length, strategy });
-  const { units, missingLines } = normalizePackingLines(lines, log);
+  const normalized = normalizePackingLines(lines, log);
+  const { missingLines } = normalized;
+  const units = normalized.units.filter(unit => !unit.prepacked);
+  const closedPackages = normalized.units.filter(unit => unit.prepacked).map(unit => {
+    const box: PackingBox = { id: `closed-${unit.id}`, name: unit.presentationQuantity ? 'Presentación cerrada del proveedor' : 'Caja con dimensiones propias', internal: unit.dimensions,
+      external: unit.dimensions, tareKg: 0, maxWeightKg: Math.max(unit.weightKg, 0.001), maxUtilization: 100, cost: 0, priority: 0 };
+    const pkg = openBox(box);
+    place(pkg, { unit, position: { x: 0, y: 0, z: 0 }, orientation: unit.dimensions });
+    return packed(pkg, box.id, true, resolveVolumetricDivisor(options.volumetricDivisor));
+  });
   const boxes = rows.filter((row) => row.is_active).map(normalizePackaging).filter((box): box is PackingBox => !!box)
     .sort((left, right) => volume(left.external) - volume(right.external) || left.priority - right.priority || left.id.localeCompare(right.id));
   const volumetricDivisor = resolveVolumetricDivisor(options.volumetricDivisor);
   const heuristic = generateHeuristicPlan(units, boxes, missingLines, strategy, log, volumetricDivisor);
   let best = heuristic;
 
-  if (strategy === 'MIN_PACKAGES' && units.length <= (options.exactUnitLimit ?? DEFAULT_EXACT_UNIT_LIMIT) && boxes.length) {
+  if ((strategy === 'MIN_PACKAGES' || strategy === 'COMPACT') && units.length <= (options.exactUnitLimit ?? DEFAULT_EXACT_UNIT_LIMIT) && boxes.length) {
     const exact = generateExactPlan(units, boxes, missingLines, strategy, volumetricDivisor, options.maxSearchNodes ?? DEFAULT_MAX_SEARCH_NODES, log);
     if (exact && comparePackingPlans(exact, best) < 0) best = exact;
   }
   log?.('PACKING_COMPLETED', { packages: best.packages.length, unpacked: best.unpackedItems.length });
-  return best;
+  let result = closedPackages.length ? finish(strategy, normalized.units, [...closedPackages, ...best.packages], missingLines, best.unpackedItems, best.errors) : best;
+  // Own packaging is an available standalone option, not an isolation constraint.
+  // Evaluate every unit as a rigid block inside catalog cartons as well.
+  const all = normalized.units;
+  if (closedPackages.length && boxes.length && !options.preserveOwnPackages) {
+    const combined = generateHeuristicPlan(all, boxes, missingLines, strategy, log, volumetricDivisor);
+    const fallback = combined.unpackedItems.filter(item=>item.unit.prepacked);
+    const fallbackIds = new Set(fallback.map(item=>item.unit.id));
+    const candidate = finish(strategy, all, [...combined.packages,...closedPackages.filter(p=>p.items.some(i=>fallbackIds.has(i.unit.id)))],
+      missingLines,combined.unpackedItems.filter(item=>!fallbackIds.has(item.unit.id)),combined.errors);
+    if(comparePackingPlans(candidate,result)<0)result=candidate;
+    if ((strategy==='MIN_PACKAGES'||strategy==='COMPACT') && all.length <= (options.exactUnitLimit ?? DEFAULT_EXACT_UNIT_LIMIT)) {
+      const exact=generateExactPlan(all,boxes,missingLines,strategy,volumetricDivisor,options.maxSearchNodes??DEFAULT_MAX_SEARCH_NODES,log);
+      if(exact&&comparePackingPlans(exact,result)<0)result=exact;
+    }
+  }
+  // Explicit one-carton trials also cover orders beyond the bounded exact search.
+  for(const box of options.preserveOwnPackages && closedPackages.length ? [] : boxes){
+    const probe=openBox(box);
+    for(const unit of ordered(all)){const placement=findPlacement(probe,unit,strategy);if(!placement)break;place(probe,placement);}
+    if(probe.placements.length===all.length&&all.length){
+      const candidate=finish(strategy,all,[packed(probe,`single-${box.id}`)],missingLines,[],[]);
+      if(comparePackingPlans(candidate,result)<0)result=candidate;
+    }
+  }
+  return result;
 }
 
 export function assignmentsFromPlan(plan: PackingPlan): PackingAssignment[] {
   return plan.packages.map(p=>({id:p.id,packagingTypeId:p.packagingTypeId,unitIds:p.items.map(i=>i.unit.id),ownPackageConfirmed:p.packagingTypeId===null}));
+}
+
+// A closed presentation is a rigid block: its gross mass already includes its carton.
+export function buildPresentationAlternatives(lines: PackingLine[], rows: PackagingRow[], strategy: PackingStrategy = 'MIN_PACKAGES') {
+  const { units, missingLines } = normalizePackingLines(lines);
+  if (!units.some(unit => unit.presentationQuantity)) return null;
+  const separate = generatePackingPlan(lines, rows, strategy, undefined, { preserveOwnPackages: true });
+  const candidates: PackingPlan[] = [];
+  if (!missingLines.length && !units.some(unit => unit.prepacked && !unit.presentationQuantity)) {
+    for (const row of rows.filter(row => row.is_active)) {
+      const box = normalizePackaging(row);
+      if (!box) continue;
+      const pkg = openBox(box);
+      for (const unit of ordered(units)) {
+        const placement = findPlacement(pkg, unit, strategy);
+        if (!placement) break;
+        place(pkg, placement);
+      }
+      if (pkg.placements.length === units.length) {
+        candidates.push(finish(strategy, units, [packed(pkg, `outer-${box.id}`)], [], [], []));
+      }
+    }
+  }
+  candidates.sort(comparePackingPlans);
+  return { separate, outer: candidates[0] ?? null };
 }
 
 export function validatePackingAssignments(lines: PackingLine[], rows: PackagingRow[], assignments: PackingAssignment[], strategy: PackingStrategy, options: PackingOptimizationOptions = {}): PackingPlan {
@@ -419,6 +630,10 @@ export function validatePackingAssignments(lines: PackingLine[], rows: Packaging
     if(!a || typeof a.id!=='string'||!Array.isArray(a.unitIds)||a.unitIds.length>MAX_PHYSICAL_UNITS)throw new Error('Paquete no válido.');
     if(packageIds.has(a.id))errors.push('Hay identificadores de paquete duplicados.');packageIds.add(a.id);
     const requested= a.unitIds.map(id=>byId.get(id)).filter((u):u is PhysicalUnit=>!!u);
+    if (requested.some(unit => unit.prepacked) && !a.packagingTypeId && (requested.length !== 1 || !a.ownPackageConfirmed)) {
+      errors.push('Los productos en empaque original deben mantenerse cerrados en paquetes individuales.');
+      continue;
+    }
     for(const id of a.unitIds){
       if(!byId.has(id))errors.push(`Unidad desconocida: ${id}.`);
       else if(referenced.has(id))errors.push(`Unidad duplicada: ${id}.`);
@@ -439,7 +654,13 @@ export function validatePackingAssignments(lines: PackingLine[], rows: Packaging
   // behave like a controlled re-optimization instead of a hard assignment.
   for(const context of contexts){
     const preferred=ordered(units.filter(u=>context.preferredUnitIds.has(u.id)&&!seen.has(u.id)));
-    const remaining=ordered(units.filter(u=>!context.preferredUnitIds.has(u.id)&&!seen.has(u.id)));
+    if (context.own && preferred.length === 1) {
+      const unit = preferred[0];
+      place(context.pkg, { unit, position: { x: 0, y: 0, z: 0 }, orientation: context.box.internal });
+      seen.add(unit.id);
+      continue;
+    }
+    const remaining=ordered(units.filter(u=>!u.prepacked&&!context.preferredUnitIds.has(u.id)&&!seen.has(u.id)));
     for(const u of [...preferred,...remaining]){
       if(seen.has(u.id))continue;
       const placement=findPlacement(context.pkg,u,strategy);
@@ -460,7 +681,7 @@ export function validatePackingAssignments(lines: PackingLine[], rows: Packaging
   // instead of silently replacing the user's choice.
   const shouldAutoComplete=assignments.length>0&&seen.size>0;
   while(shouldAutoComplete&&units.some(u=>!seen.has(u.id))){
-    const nextUnit=ordered(units.filter(u=>!seen.has(u.id)))[0];
+    const nextUnit=ordered(units.filter(u=>!u.prepacked&&!seen.has(u.id)))[0];
     if(!nextUnit)break;
     const candidate=availableBoxes.map(box=>{
       const probe=openBox(box);return {box,placement:findPlacement(probe,nextUnit,strategy)};
@@ -469,7 +690,7 @@ export function validatePackingAssignments(lines: PackingLine[], rows: Packaging
     const context:PackingContext={id:`auto-${autoBoxIndex++}-${candidate.box.id}`,box:candidate.box,pkg:openBox(candidate.box),preferredUnitIds:new Set([nextUnit.id]),errors:[],own:false};
     contexts.push(context);
     place(context.pkg,candidate.placement);seen.add(nextUnit.id);
-    for(const unit of ordered(units.filter(u=>!seen.has(u.id)))){
+    for(const unit of ordered(units.filter(u=>!u.prepacked&&!seen.has(u.id)))){
       const placement=findPlacement(context.pkg,unit,strategy);
       if(placement){place(context.pkg,placement);seen.add(unit.id);}
     }
@@ -499,7 +720,55 @@ export function validatePackingAssignments(lines: PackingLine[], rows: Packaging
   return finish(strategy,units,packages,missingLines,unpacked,errors);
 }
 
+// Advisory only. Eligibility of the cardboard and final closure must be confirmed by warehouse.
+export function suggestHeightReduction(pkg: PackingPackage, headroomCm = 2) {
+  if (!pkg.packagingTypeId || pkg.status !== 'PACKED' || !pkg.items.length || !Number.isFinite(headroomCm) || headroomCm < 0) return null;
+  const top = Math.max(...pkg.items.map(item=>item.position.z+item.orientation.height));
+  const internalHeight = Math.ceil(top+headroomCm);
+  const thickness = pkg.externalDimensions.height-pkg.internalDimensions.height;
+  const externalHeight = Math.ceil(internalHeight+Math.max(0,thickness));
+  const removableCm = pkg.externalDimensions.height-externalHeight;
+  if (!Number.isFinite(top) || top < 0 || internalHeight>=pkg.internalDimensions.height || removableCm<3) return null;
+  return { internalHeight, externalHeight, removableCm,
+    volumetricSavingKg: Math.round(Math.ceil(pkg.externalDimensions.length)*Math.ceil(pkg.externalDimensions.width)*
+      (Math.ceil(pkg.externalDimensions.height)-externalHeight)/5000*1000)/1000 };
+}
+
+export function applyHeightCuts(plan: PackingPlan, disabled: string[] = []): PackingPlan {
+  const packages = plan.packages.map(pkg => {
+    const cut = disabled.includes(pkg.id) ? null : suggestHeightReduction(pkg);
+    if (!cut) return pkg;
+    const externalDimensions = {...pkg.externalDimensions, height:cut.externalHeight};
+    const internalDimensions = {...pkg.internalDimensions, height:cut.internalHeight};
+    const volumetricWeight=round(volume(externalDimensions)/5000);
+    const availableVolume=volume(internalDimensions);
+    return {...pkg,externalDimensions,internalDimensions,volumetricWeight,
+      billableWeight:round(Math.max(pkg.totalWeight,volumetricWeight)),availableVolume,
+      utilizationPercentage:round(pkg.usedVolume/availableVolume*100),
+      explanation:pkg.explanation+' Recorte superior aplicado: '+cut.removableCm+' cm.',
+      warnings:[...pkg.warnings,'Recorte previsto: validar cierre y medidas finales en almacén.']};
+  });
+  const sum=(f:(p:PackingPackage)=>number)=>round(packages.reduce((n,p)=>n+f(p),0));
+  const available=sum(p=>p.availableVolume);
+  return {...plan,packages,warnings:[...new Set(packages.flatMap(p=>p.warnings))],metrics:{...plan.metrics,
+    volumetricWeight:sum(p=>p.volumetricWeight),billableWeight:sum(p=>p.billableWeight),
+    packagingVolume:sum(p=>volume(p.externalDimensions)),totalAvailableVolume:available,
+    averageUtilization:available?round(plan.metrics.totalUsedVolume/available*100):0,
+    wastedVolume:round(Math.max(0,available-plan.metrics.totalUsedVolume))}};
+}
+
 // FedEx receives one entry per physical package, with gross mass and external dimensions.
+export function preparePackingQuote(request: PackingRequest, rows: PackagingRow[], extraProtectionVolumeCm3=0) {
+  const originalPlan = validatePackingAssignments(request.lines, rows, request.assignments, request.strategy);
+  const plan = applyHeightCuts(originalPlan, request.disabledHeightCuts);
+  const packages = mapPackingToShipment(plan, extraProtectionVolumeCm3);
+  return {
+    plan,
+    packages,
+    snapshot: { ...plan, originalPackages: originalPlan.packages, disabledHeightCuts: request.disabledHeightCuts ?? [], lines: request.lines, assignments: assignmentsFromPlan(plan) },
+  };
+}
+
 export function mapPackingToShipment(plan: PackingPlan, extraProtectionVolumeCm3=0) {
   if(plan.status!=='READY_FOR_QUOTE')throw new Error('Completa y valida la distribución antes de cotizar.');
   if(!nonNegative(extraProtectionVolumeCm3))throw new Error('Volumen de protección no válido.');

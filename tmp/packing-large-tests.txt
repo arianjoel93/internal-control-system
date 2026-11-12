@@ -1,0 +1,58 @@
+TAP version 13
+# Subtest: pedido grande llena la máster antes de abrir otra y recorta solo el sobrante
+ok 1 - pedido grande llena la máster antes de abrir otra y recorta solo el sobrante
+  ---
+  duration_ms: 115.6659
+  type: 'test'
+  ...
+# Subtest: volumétrico de productos suma unidades físicas, sin volumen de la caja exterior
+ok 2 - volumétrico de productos suma unidades físicas, sin volumen de la caja exterior
+  ---
+  duration_ms: 1.4489
+  type: 'test'
+  ...
+# Subtest: menos paquetes consolida equipo cerrado y rollos; compacto conserva dos si reducen volumen
+ok 3 - menos paquetes consolida equipo cerrado y rollos; compacto conserva dos si reducen volumen
+  ---
+  duration_ms: 88.5425
+  type: 'test'
+  ...
+# Subtest: un solo paquete no ignora límites de peso ni aislamiento obligatorio
+ok 4 - un solo paquete no ignora límites de peso ni aislamiento obligatorio
+  ---
+  duration_ms: 38.461
+  type: 'test'
+  ...
+# Subtest: conservador separa frágiles mientras menos paquetes puede compartir el suelo
+ok 5 - conservador separa frágiles mientras menos paquetes puede compartir el suelo
+  ---
+  duration_ms: 1.1749
+  type: 'test'
+  ...
+# Subtest: más de doce unidades también prueban consolidación en una caja
+ok 6 - más de doce unidades también prueban consolidación en una caja
+  ---
+  duration_ms: 1.6984
+  type: 'test'
+  ...
+# Subtest: equipo solo dentro de un envío de dos paquetes conserva caja propia en todas las estrategias
+ok 7 - equipo solo dentro de un envío de dos paquetes conserva caja propia en todas las estrategias
+  ---
+  duration_ms: 24.7535
+  type: 'test'
+  ...
+# Subtest: validación elimina caja exterior innecesaria del equipo solo, pero la conserva en paquete mixto
+ok 8 - validación elimina caja exterior innecesaria del equipo solo, pero la conserva en paquete mixto
+  ---
+  duration_ms: 1.0767
+  type: 'test'
+  ...
+1..8
+# tests 8
+# suites 0
+# pass 8
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 622.6227

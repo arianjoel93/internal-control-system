@@ -74,6 +74,7 @@ export type AgentCustomerBalance = {
 
 export type AgentCustomerLifecycleDetail = {
   customer: string;
+  sellerName: string;
   status: 'Nuevo' | 'Reactivado' | 'A reactivar' | 'Perdido';
   email: string | null;
   phone: string | null;
@@ -113,6 +114,7 @@ export function buildAgentCustomerBalance(
       contactByName.get(normalizeText(customer.customerName.split(',')[0] ?? ''));
     return [{
       customer: customer.customerName,
+      sellerName: customer.sellerName || 'Sin vendedor asignado',
       status,
       email: contact?.email ?? null,
       phone: contact?.mobile ?? contact?.phone ?? null,
@@ -149,7 +151,7 @@ export function buildAgentCustomerBalance(
   };
 }
 
-export type AgentCrmLeadDetail = { label: string; customer: string; stage: string; attended: boolean; createdAt: string };
+export type AgentCrmLeadDetail = { label: string; customer: string; stage: string; attended: boolean; createdAt: string; creatorName: string; sellerId: number | null; sellerName: string };
 
 export type AgentCrmBalance = { assigned: number; attended: number; attentionRate: number; note: string; details: AgentCrmLeadDetail[] };
 
@@ -179,9 +181,12 @@ export function buildAgentCrmBalance(dataset: OdooCommercialDataset, filters: Re
   const details = leads.map((lead) => ({
     label: lead.name || `Lead ${lead.id}`,
     customer: lead.customerName ?? 'Sin cliente',
-    stage: lead.stageName ?? 'Sin etapa',
+    stage: formatCrmStageName(lead.stageName),
     attended: isAgentLeadAttendedStage(lead.stageName),
     createdAt: (lead.assignmentDate ?? lead.createDate)?.slice(0, 10) ?? '-',
+    creatorName: lead.creatorName?.trim() || 'No disponible',
+    sellerId: lead.sellerId,
+    sellerName: lead.sellerName?.trim() || 'Sin vendedor asignado',
   }));
   const attended = details.filter((lead) => lead.attended).length;
   const assigned = leads.length;
@@ -192,6 +197,28 @@ export function buildAgentCrmBalance(dataset: OdooCommercialDataset, filters: Re
     note: assigned ? `${formatNumber(assigned - attended)} pendientes de atención` : 'No hay leads asignados en el periodo',
     details,
   };
+}
+
+export function formatCrmStageName(stageName: string | null | undefined): string {
+  const label = stageName?.trim();
+  if (!label) return 'Sin etapa';
+  const normalized = normalizeText(label);
+  const translations: Record<string, string> = {
+    new: 'Nuevo',
+    qualified: 'Calificado',
+    proposition: 'Propuesta',
+    proposal: 'Propuesta',
+    quotation: 'Cotizado',
+    quoted: 'Cotizado',
+    unquoted: 'Sin cotizar',
+    won: 'Ganado',
+    lost: 'Perdido',
+    pending: 'Pendiente',
+    contacted: 'Contactado',
+    'in progress': 'En seguimiento',
+    negotiation: 'Negociación',
+  };
+  return translations[normalized] ?? label;
 }
 
 export function isAgentLeadAttendedStage(stageName: string | null | undefined) {

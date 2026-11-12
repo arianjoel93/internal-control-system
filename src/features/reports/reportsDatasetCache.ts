@@ -41,7 +41,8 @@ export function readStoredCommercialDataset(
     const parsed = JSON.parse(raw) as CachedReportsDatasetState;
     if (!Array.isArray(parsed.entries)) return null;
     const key = buildReportsDatasetCacheKey(filters, requestedDomain, userId);
-    return parsed.entries.find((entry) => entry.key === key)?.data ?? null;
+    const dataset = parsed.entries.find((entry) => entry.key === key)?.data ?? null;
+    return requestedDomain === 'sales' && dataset && hasMissingCrmCreatorMetadata(dataset) ? null : dataset;
   } catch {
     return null;
   }
@@ -122,10 +123,15 @@ export function readStoredCommercialDatasetMode(
     if (!Array.isArray(parsed.entries)) return null;
     const key = buildReportsDatasetCacheKey(filters, requestedDomain, userId);
     const entry = parsed.entries.find((candidate) => candidate.key === key);
+    if (requestedDomain === 'sales' && entry && hasMissingCrmCreatorMetadata(entry.data)) return null;
     return entry?.loadMode === 'fast' ? 'fast' : entry ? 'full' : null;
   } catch {
     return null;
   }
+}
+
+export function hasMissingCrmCreatorMetadata(dataset: OdooCommercialDataset): boolean {
+  return dataset.crmLeads.some((lead) => !Number.isInteger(lead.creatorId) || !lead.creatorName?.trim());
 }
 
 function buildReportsDatasetCacheKey(

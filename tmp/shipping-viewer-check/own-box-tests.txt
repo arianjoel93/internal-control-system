@@ -1,0 +1,88 @@
+TAP version 13
+# Subtest: 35 rollos conservan cantidad y presentaciones completas
+ok 1 - 35 rollos conservan cantidad y presentaciones completas
+  ---
+  duration_ms: 4.0253
+  type: 'test'
+  ...
+# Subtest: 36 rollos conservan cantidad y presentaciones completas
+ok 2 - 36 rollos conservan cantidad y presentaciones completas
+  ---
+  duration_ms: 0.8046
+  type: 'test'
+  ...
+# Subtest: 37 rollos conservan cantidad y presentaciones completas
+ok 3 - 37 rollos conservan cantidad y presentaciones completas
+  ---
+  duration_ms: 0.2615
+  type: 'test'
+  ...
+# Subtest: 40 rollos conservan cantidad y presentaciones completas
+ok 4 - 40 rollos conservan cantidad y presentaciones completas
+  ---
+  duration_ms: 0.2274
+  type: 'test'
+  ...
+# Subtest: 72 rollos conservan cantidad y presentaciones completas
+ok 5 - 72 rollos conservan cantidad y presentaciones completas
+  ---
+  duration_ms: 0.2291
+  type: 'test'
+  ...
+# Subtest: 40 rollos: 36 cerrados más cuatro, comparan dos paquetes con una caja exterior sin duplicar tara
+ok 6 - 40 rollos: 36 cerrados más cuatro, comparan dos paquetes con una caja exterior sin duplicar tara
+  ---
+  duration_ms: 27.6937
+  type: 'test'
+  ...
+# Subtest: no propone caja exterior cuando excede geometría, peso o está desactivada
+ok 7 - no propone caja exterior cuando excede geometría, peso o está desactivada
+  ---
+  duration_ms: 5.9734
+  type: 'test'
+  ...
+# Subtest: presentaciones de 36 y 72 se validan en servidor y los rollos fraccionarios permanecen bloqueados
+ok 8 - presentaciones de 36 y 72 se validan en servidor y los rollos fraccionarios permanecen bloqueados
+  ---
+  duration_ms: 1.8856
+  type: 'test'
+  ...
+# Subtest: sin presentación no infiere 36 del SKU, y una caja comercial no vuelve a agruparse
+ok 9 - sin presentación no infiere 36 del SKU, y una caja comercial no vuelve a agruparse
+  ---
+  duration_ms: 0.8924
+  type: 'test'
+  ...
+# Subtest: rechaza presentaciones incompletas y conserva la configuración ante reimportación
+ok 10 - rechaza presentaciones incompletas y conserva la configuración ante reimportación
+  ---
+  duration_ms: 3.2729
+  type: 'test'
+  ...
+# Subtest: ribbon vendido por piezas usa su unidad física de rollo documentada en catálogo
+ok 11 - ribbon vendido por piezas usa su unidad física de rollo documentada en catálogo
+  ---
+  duration_ms: 0.4341
+  type: 'test'
+  ...
+# Subtest: trece rollos sueltos conservan trece colocaciones visibles, sin agruparlos
+ok 12 - trece rollos sueltos conservan trece colocaciones visibles, sin agruparlos
+  ---
+  duration_ms: 3.2642
+  type: 'test'
+  ...
+# Subtest: equipo individual y caja comercial de etiquetas usan dimensiones propias sin tara adicional
+ok 13 - equipo individual y caja comercial de etiquetas usan dimensiones propias sin tara adicional
+  ---
+  duration_ms: 0.6541
+  type: 'test'
+  ...
+1..13
+# tests 13
+# suites 0
+# pass 13
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 337.3333

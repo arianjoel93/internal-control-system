@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { OdooInvoiceLineRecord, ReportFilters } from '../odooSalesCore.ts';
-import { buildAgentInvoiceMargin } from '../agentInvoiceMargin.ts';
+import { buildAgentInvoiceMargin, buildPersistedInvoiceMargin } from '../agentInvoiceMargin.ts';
 
 const filters = { startDate: '2026-09-01', endDate: '2026-09-30', stateScope: 'all' } as ReportFilters;
 const line = (id: number, overrides: Partial<OdooInvoiceLineRecord>): OdooInvoiceLineRecord => ({
@@ -78,4 +78,26 @@ test('usa directamente los agregados de account.invoice.report aunque la línea 
   assert.equal(result.margin, 45.5);
   assert.equal(result.categories[0].marginPct, 45.5);
   assert.equal(result.rowCount, 2);
+});
+
+test('el margen persistido por categoría aparece sin esperar las facturas completas', () => {
+  const result = buildPersistedInvoiceMargin([
+    { period: 'current', grain: 'total', category_name: '', invoice_count: 3, untaxed_amount: 1000, margin_amount: 170 },
+    { period: 'current', grain: 'category', category_name: 'Servicios', invoice_count: 1, untaxed_amount: 100, margin_amount: 80 },
+    { period: 'current', grain: 'category', category_name: 'Equipos', invoice_count: 2, untaxed_amount: 900, margin_amount: 90 },
+    { period: 'previous', grain: 'category', category_name: 'Servicios', invoice_count: 1, untaxed_amount: 500, margin_amount: 10 },
+  ], 'current');
+  assert.equal(result?.available, true);
+  assert.equal(result?.marginPct, 17);
+  assert.deepEqual(result?.categories.map((row) => [row.category, row.marginPct]), [
+    ['Equipos', 10], ['Servicios', 80],
+  ]);
+});
+
+test('rechaza un agregado de categorías incompleto y conserva la consulta de respaldo', () => {
+  const result = buildPersistedInvoiceMargin([
+    { period: 'current', grain: 'total', category_name: '', invoice_count: 2, untaxed_amount: 1000, margin_amount: 170 },
+    { period: 'current', grain: 'category', category_name: 'Servicios', invoice_count: 1, untaxed_amount: 100, margin_amount: 80 },
+  ], 'current');
+  assert.equal(result, null);
 });

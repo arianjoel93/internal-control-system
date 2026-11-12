@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type { Session } from '@supabase/supabase-js';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -11,6 +12,9 @@ import {
   Eye,
   FileSpreadsheet,
   PackagePlus,
+  Pencil,
+  Trash2,
+  Plus,
   RefreshCw,
   Save,
   Search,
@@ -36,6 +40,7 @@ import {
   previewShippingProductDimensionsImport,
   saveShippingCarrierConfig,
   saveShippingProductDimension,
+  deleteShippingProductDimension,
   testShippingCarrierConnection,
   type ShippingCarrierConfigDraft,
   type ShippingOrderLookupResult,
@@ -47,12 +52,14 @@ import {
   preparePackages,
   summarizePackages,
 } from './shippingQuoteMath';
-import { mapPackingToShipment,
+import { applyHeightCuts, mapPackingToShipment,
   type PackingStrategy, type PackingAssignment } from '../../../supabase/functions/_shared/shipping-packing';
 import { FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG } from './packingConstants';
 import { ShippingProductInputs, ShippingPackingWorkspace, PhysicalRulesFields } from './ShippingPackingWorkspace';
 import { ShippingPackagingSettings } from './ShippingPackagingSettings';
 import { buildPackingPreview, packingInputKey } from './packingPreview';
+import { catalogStatus, normalizeLogisticsMetadata, type LogisticsMetadata } from '../../../supabase/functions/_shared/shipping-catalog';
+import { ShippingLogisticsFields } from './ShippingLogisticsFields';
 
 type ShippingSection = 'new' | 'history' | 'settings';
 type TemporaryLogisticsOverride = Partial<ShippingOrderLine> & {
@@ -66,10 +73,11 @@ type ProductDimensionDraft = ShippingPhysicalRules & {
   id: string;
   sku: string;
   product_name: string | null;
-  width_cm: number;
-  length_cm: number;
-  height_cm: number;
+  width_cm: number | null;
+  length_cm: number | null;
+  height_cm: number | null;
   unit_weight_kg: number | null;
+  logistics_metadata?: LogisticsMetadata | null;
 };
 
 type ShippingQuotesDashboardProps = {
@@ -223,6 +231,7 @@ function NewShippingQuoteSection({
   onQuoted: () => void;
 }) {
   const [destination, setDestination] = useState(defaultDestination);
+  const [quoteStep, setQuoteStep] = useState<'products' | 'packing' | 'rates'>('products');
   const [orderNumber, setOrderNumber] = useState('');
   const [orderResult, setOrderResult] = useState<ShippingOrderLookupResult | null>(null);
   const [lineOverrides, setLineOverrides] = useState<Record<number, TemporaryLogisticsOverride>>({});
@@ -246,20 +255,26 @@ function NewShippingQuoteSection({
   const excludedOrderLines = effectiveOrderLines.filter((line) => !line.isEligibleForShipping);
   const orderLinesWithMissingData = shippableOrderLines.filter((line) => line.missingFields.length);
   const packingKey = packingInputKey(shippableOrderLines, packageTypes, packingStrategy);
+  const [heightCutEdits,setHeightCutEdits] = useState<{key:string; disabled:string[]}|null>(null);
+  const disabledHeightCuts = heightCutEdits?.key===packingKey ? heightCutEdits.disabled : [];
   const manualAssignments = packingEdits?.key === packingKey ? packingEdits.assignments : undefined;
   const packing = useMemo(() => buildPackingPreview(shippableOrderLines, packageTypes, packingStrategy, manualAssignments),
     [shippableOrderLines, packageTypes, packingStrategy, manualAssignments]);
-  const packages = packing.plan?.status === 'READY_FOR_QUOTE'
-    ? mapPackingToShipment(packing.plan, finalPackagingAdjustment.extraVolumetricWeightKg * FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG) : [];
+  const quotePlan = packing.plan ? applyHeightCuts(packing.plan,disabledHeightCuts) : null;
+  const packages = quotePlan?.status === 'READY_FOR_QUOTE'
+    ? mapPackingToShipment(quotePlan!, finalPackagingAdjustment.extraVolumetricWeightKg * FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG) : [];
   const prepared = preparePackages({ drafts: packages, packageTypes: [], weightInputMode: 'GROSS_PACKAGE' });
-  const summary = { ...summarizePackages(prepared.packages), baseVolumetricWeight: packing.plan?.packages.reduce((sum,p) => sum + p.externalDimensions.length*p.externalDimensions.width*p.externalDimensions.height/FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG,0) ?? 0 };
+  const summary = { ...summarizePackages(prepared.packages), baseVolumetricWeight: quotePlan?.packages.reduce((sum,p) => sum + p.externalDimensions.length*p.externalDimensions.width*p.externalDimensions.height/FEDEX_VOLUMETRIC_DIVISOR_CM3_PER_KG,0) ?? 0 };
   const currentInputKey = JSON.stringify([
     packingKey,
     packing.assignments,
+    disabledHeightCuts,
     destination,
     config?.updated_at,
   ]);
   const displayedQuote = quotedInputKey === currentInputKey ? quote : null;
+  const quoteRequestRef = useRef<string | null>(null);
+  const lastAutoQuoteRef = useRef<string | null>(null);
   const lookupOrderMutation = useMutation({
     mutationFn: lookupOdooShippingOrder,
     onSuccess: (result) => {
@@ -296,6 +311,13 @@ function NewShippingQuoteSection({
         },
         requestedShipDate: null,
         packages,
+        packingRequest: {
+          version: 1,
+          strategy: packingStrategy,
+          lines: shippableOrderLines,
+          assignments: packing.assignments,
+          disabledHeightCuts,
+        },
         odooOrderId: orderResult?.order.id ?? null,
         odooOrderName: orderResult?.order.name ?? null,
       });
@@ -305,7 +327,15 @@ function NewShippingQuoteSection({
       setQuotedInputKey(inputKey);
       onQuoted();
     },
+    onSettled: () => { quoteRequestRef.current = null; },
   });
+  function continueToRates() {
+    setQuoteStep('rates');
+    if (packing.plan?.status !== 'READY_FOR_QUOTE' || prepared.errors.length || !packages.length || displayedQuote || quoteRequestRef.current || lastAutoQuoteRef.current === currentInputKey) return;
+    lastAutoQuoteRef.current = currentInputKey;
+    quoteRequestRef.current = currentInputKey;
+    quoteMutation.mutate(currentInputKey);
+  }
   if (!config?.is_active) {
     return (
       <article className="panel shipping-setup-warning">
@@ -324,8 +354,23 @@ function NewShippingQuoteSection({
   }
 
   return (
-    <div className="shipping-quote-grid">
-      <article className="panel shipping-quote-form-panel">
+    <div className={`shipping-quote-grid shipping-wizard-grid is-${quoteStep}`}>
+      <header className="shipping-wizard-header"><div><span className="shipping-wizard-eyebrow">NUEVA COTIZACIÓN</span><h2>Prepara tu envío</h2><p>{orderResult ? `${orderResult.order.name} · ${shippableOrderLines.length} producto(s) para envío` : 'Selecciona los productos, revisa el embalaje y consulta las tarifas.'}</p></div><span className="shipping-wizard-badge">{displayedQuote ? 'Cotización disponible' : 'En preparación'}</span></header>
+      <nav className="shipping-wizard-tabs" role="tablist" aria-label="Pasos de nueva cotización">{([
+        ['products','1. Productos'], ['packing','2. Embalaje'], ['rates','3. Tarifas'],
+      ] as const).map(([step,label]) => <button key={step} type="button" role="tab" id={`shipping-step-${step}`} aria-controls={`shipping-step-panel-${step}`} aria-selected={quoteStep===step} tabIndex={quoteStep===step?0:-1}
+        disabled={step!=='products'&&!orderResult} onClick={()=>step==='rates'?continueToRates():setQuoteStep(step)} onKeyDown={event=>{
+          if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+          event.preventDefault();
+          const buttons=Array.from(event.currentTarget.parentElement!.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'));
+          const index=buttons.indexOf(event.currentTarget);
+          const next=event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(event.key==='ArrowRight'?1:-1)+buttons.length)%buttons.length;
+          buttons[next]?.focus();buttons[next]?.click();
+        }}>{label}</button>)}</nav>
+      <div className="shipping-wizard-actions shipping-wizard-top-actions">
+        {quoteStep==='products'?<button type="button" disabled={!orderResult} onClick={()=>setQuoteStep('packing')}>Continuar a embalaje →</button>:quoteStep==='packing'?<><button type="button" className="secondary-button" onClick={()=>setQuoteStep('products')}>← Volver a productos</button><button type="button" disabled={packing.plan?.status!=='READY_FOR_QUOTE'||quoteMutation.isPending} onClick={continueToRates}>{quoteMutation.isPending?'Consultando tarifas...':'Continuar y cotizar →'}</button></>:<button type="button" className="secondary-button" onClick={()=>setQuoteStep('packing')}>← Revisar embalaje</button>}
+      </div>
+      <article className="panel shipping-quote-form-panel" hidden={quoteStep==='packing'}>
         <div className="panel-header">
           <div>
             {/* <h2>Nueva Cotización de Envío</h2> */}
@@ -334,6 +379,7 @@ function NewShippingQuoteSection({
           <Truck size={24} />
         </div>
         <div className="shipping-quote-form">
+          <div id="shipping-step-panel-products" role="tabpanel" aria-labelledby="shipping-step-products" hidden={quoteStep!=='products'}>
           <div className="shipping-form-band shipping-order-lookup">
             <div className="shipping-band-head">
               <div>
@@ -390,11 +436,13 @@ function NewShippingQuoteSection({
           {orderResult ? <ShippingProductInputs lines={shippableOrderLines} isAdmin={isAdmin} onChange={line => {
             setLineOverrides(current => ({...current, [line.lineId]: line})); setPackingEdits(null); setQuote(null);
           }} /> : null}
+          <div className="shipping-wizard-actions"><button type="button" disabled={!orderResult} onClick={()=>setQuoteStep('packing')}>Continuar a embalaje →</button></div>
+          </div>
           {packing.error ? <p className="form-error">{packing.error}</p> : null}
           {packageMessage ? <p className="form-error">{packageMessage}</p> : null}
           {postalLookup.status === 'error' ? <p className="form-error">{postalLookup.message}</p> : null}
           {quoteMutation.error ? <p className="form-error">{quoteMutation.error.message}</p> : null}
-          <article className="panel shipping-rate-panel">
+          <article className="panel shipping-rate-panel" id="shipping-step-panel-rates" role="tabpanel" aria-labelledby="shipping-step-rates" hidden={quoteStep!=='rates'}>
           <div className="panel-header">
             <h2>Resultados</h2>
             <span>{displayedQuote?.rates.length ?? 0} servicios</span>
@@ -414,16 +462,27 @@ function NewShippingQuoteSection({
               orderCurrency={orderResult?.order.currencyCode ?? 'MXN'}
               distributeShippingCost={isAdmin && distributeShippingCost}
             />
-          ) : <EmptyState title="Sin cotización">Revisa los productos y su distribución para consultar servicios FedEx.</EmptyState>}
+          ) : <EmptyState title={quoteMutation.isPending?'Consultando FedEx…':'Sin cotización'}>{quoteMutation.isPending?'Estamos calculando las tarifas para los paquetes seleccionados.':'Revisa la distribución o pulsa Cotizar con FedEx para consultar los servicios.'}</EmptyState>}
         </article>
         </div>
       </article>
-      <aside className="shipping-side-column">
+      <article className="panel shipping-wizard-packing" id="shipping-step-panel-packing" role="tabpanel" aria-labelledby="shipping-step-packing" hidden={quoteStep!=='packing'}>
+          {packing.error ? <p role="alert" className="form-error">{packing.error}</p> : null}
+          {orderResult && packing.plan ? <ShippingPackingWorkspace plan={packing.plan} disabledHeightCuts={disabledHeightCuts} onHeightCut={(id,enabled)=>{setHeightCutEdits({key:packingKey,disabled:enabled?disabledHeightCuts.filter(v=>v!==id):[...disabledHeightCuts,id]});setQuote(null);}} lines={shippableOrderLines}
+            assignments={packing.assignments} packageTypes={packageTypes} strategy={packingStrategy}
+            onStrategy={s => {setPackingStrategy(s);setPackingEdits(null);setQuote(null);}}
+            onAssignments={assignments => {setPackingEdits({key:packingKey,assignments});setQuote(null);}}
+            onRecalculate={() => {setPackingEdits(null);setQuote(null);}} /> : <p>Busca una orden para preparar su distribución.</p>}
+          <div className="shipping-wizard-actions"><button type="button" className="secondary-button" onClick={()=>setQuoteStep('products')}>← Volver a productos</button><button type="button" disabled={packing.plan?.status!=='READY_FOR_QUOTE'||quoteMutation.isPending} onClick={continueToRates}>Continuar y cotizar →</button></div>
+      </article>
+      <aside className="shipping-side-column" hidden={quoteStep!=='rates'}>
         <form className="panel shipping-summary-card" onSubmit={(event) => {
           event.preventDefault();
           if (prepared.errors.length || packing.plan?.status !== 'READY_FOR_QUOTE') {
             return;
           }
+          if (quoteRequestRef.current) return;
+          quoteRequestRef.current = currentInputKey;
           quoteMutation.mutate(currentInputKey);
         }}>
           <div className="shipping-band-head compact">
@@ -432,11 +491,7 @@ function NewShippingQuoteSection({
               <p>Las cajas resultantes se cotizarán juntas con FedEx.</p>
             </div>
           </div>
-          {orderResult && packing.plan ? <ShippingPackingWorkspace plan={packing.plan} lines={shippableOrderLines}
-            assignments={packing.assignments} packageTypes={packageTypes} strategy={packingStrategy}
-            onStrategy={s => {setPackingStrategy(s);setPackingEdits(null);setQuote(null);}}
-            onAssignments={assignments => {setPackingEdits({key:packingKey,assignments});setQuote(null);}}
-            onRecalculate={() => {setPackingEdits(null);setQuote(null);}} /> : <p>Busca una orden para preparar su distribución.</p>}
+          <button type="button" className="secondary-button" onClick={()=>setQuoteStep('packing')}>← Revisar embalaje</button>
           <div className="shipping-summary-grid compact">
             <Metric label="Paquetes" value={`${summary.packageCount}`} />
             <Metric label="Peso real" value={`${formatNumber(summary.actualWeight)} kg`} />
@@ -610,6 +665,9 @@ function SettingsSection({ bootstrap }: { bootstrap: Awaited<ReturnType<typeof g
   const [productImportPreview, setProductImportPreview] = useState<ShippingProductDimensionsImportPreview | null>(null);
   const [productImportFileName, setProductImportFileName] = useState('');
   const [editingProduct, setEditingProduct] = useState<ProductDimensionDraft | null>(null);
+  const [deletingProduct, setDeletingProduct] = useState<ShippingProductDimension | null>(null);
+  const [productSearch, setProductSearch] = useState('');
+  const [productPage, setProductPage] = useState(1);
   const [configDraft, setConfigDraft] = useState<ShippingCarrierConfigDraft>(() => ({
     environment: bootstrap.config?.environment ?? 'SANDBOX',
     is_active: bootstrap.config?.is_active ?? false,
@@ -666,8 +724,8 @@ function SettingsSection({ bootstrap }: { bootstrap: Awaited<ReturnType<typeof g
   });
   const testConnection = useMutation({ mutationFn: testShippingCarrierConnection });
   const dimensionsQuery = useQuery({
-    queryKey: ['shipping-product-dimensions'],
-    queryFn: listShippingProductDimensions,
+    queryKey: ['shipping-product-dimensions', productPage, productSearch],
+    queryFn: () => listShippingProductDimensions(productPage, productSearch),
     enabled: settingsTab === 'products',
   });
   const previewImport = useMutation({
@@ -690,6 +748,14 @@ function SettingsSection({ bootstrap }: { bootstrap: Awaited<ReturnType<typeof g
     onSuccess: () => {
       setEditingProduct(null);
       queryClient.invalidateQueries({ queryKey: ['shipping-product-dimensions'] });
+    },
+  });
+  const deleteProduct = useMutation({
+    mutationFn: deleteShippingProductDimension,
+    onSuccess: () => {
+      setDeletingProduct(null);
+      setProductPage(1);
+      void queryClient.invalidateQueries({ queryKey: ['shipping-product-dimensions'] });
     },
   });
 
@@ -825,10 +891,11 @@ function SettingsSection({ bootstrap }: { bootstrap: Awaited<ReturnType<typeof g
             </div>
             <FileSpreadsheet size={24} />
           </div>
+          <div className="shipping-catalog-toolbar"><button type="button" className="secondary-button shipping-catalog-create" onClick={() => { saveProduct.reset(); setEditingProduct({ id: '', sku: '', product_name: null, length_cm: null, width_cm: null, height_cm: null, unit_weight_kg: null }); }}><Plus size={16}/>Nuevo producto</button></div>
           <div className="shipping-import-card">
             <div>
-              <strong>Cargar Excel de equipos</strong>
-              <span>El sistema compara la columna Equipo con la referencia o código Legacy de Odoo. Si el SKU existe, podrás confirmar si reemplazas sus propiedades.</span>
+              <strong>Cargar Excel de productos</strong>
+              <span>Importar o actualizar el catálogo.</span>
             </div>
             <label className="secondary-button shipping-file-button">
               <Upload size={16} />
@@ -859,14 +926,17 @@ function SettingsSection({ bootstrap }: { bootstrap: Awaited<ReturnType<typeof g
             <Metric label="Última carga" value={dimensionsQuery.data?.rows[0]?.source_file_name ?? 'Sin registros'} />
             <Metric label="Cruce" value="Referencia / Legacy" />
           </div>
+          <label className="field"><span>Buscar por código</span><input value={productSearch} onChange={event => { setProductSearch(event.target.value); setProductPage(1); }} /></label>
+          {dimensionsQuery.error ? <p className="form-error">{dimensionsQuery.error.message}</p> : null}
           <div className="table-wrap">
             <table className="records-table shipping-dimensions-table">
               <thead>
                 <tr>
-                  <th>Equipo</th>
+                  <th>Producto</th>
                   <th>Descripción</th>
                   <th>Medidas</th>
                   <th>Peso</th>
+                  <th>Calidad / origen</th>
                   <th>Actualizado</th>
                   <th>Acciones</th>
                 </tr>
@@ -878,11 +948,13 @@ function SettingsSection({ bootstrap }: { bootstrap: Awaited<ReturnType<typeof g
                     <td>{row.product_name ?? '-'}</td>
                     <td>{formatNumber(row.length_cm)} × {formatNumber(row.width_cm)} × {formatNumber(row.height_cm)} cm</td>
                     <td>{row.unit_weight_kg === null ? 'Sin peso físico' : `${formatNumber(row.unit_weight_kg)} kg`}</td>
+                    <td>{catalogStatus(row, row.logistics_metadata) === 'INCOMPLETE' ? 'Incompleto' : catalogStatus(row, row.logistics_metadata) === 'ESTIMATED' ? 'Estimado' : catalogStatus(row, row.logistics_metadata) === 'MEASURED' ? 'Medido' : 'Declarado / sin verificar'}<small>{row.logistics_metadata?.source_sheet ?? 'Origen anterior'} · fila {row.source_row ?? '—'}</small></td>
                     <td>{formatDateTime(row.updated_at)}</td>
                     <td>
-                      <button type="button" className="table-action" onClick={() => setEditingProduct(productDimensionToDraft(row))}>
-                        Editar
+                      <button type="button" className="shipping-catalog-icon" aria-label={`Editar ${row.sku}`} title="Editar" onClick={() => {saveProduct.reset();setEditingProduct(productDimensionToDraft(row));}}>
+                        <Pencil size={16}/>
                       </button>
+                      <button type="button" className="shipping-catalog-icon shipping-delete-action" aria-label={`Borrar ${row.sku}`} title="Borrar" onClick={() => {deleteProduct.reset();setDeletingProduct(row);}}><Trash2 size={16}/></button>
                     </td>
                   </tr>
                 ))}
@@ -893,6 +965,7 @@ function SettingsSection({ bootstrap }: { bootstrap: Awaited<ReturnType<typeof g
               <EmptyState title="Sin productos">La base inicial se cargará desde Supabase al aplicar la migración.</EmptyState>
             ) : null}
           </div>
+          <div className="pagination-row"><span>Página {productPage} · {dimensionsQuery.data?.total ?? 0} productos</span><button type="button" disabled={productPage <= 1} onClick={() => setProductPage(page => page - 1)}>Anterior</button><button type="button" disabled={productPage * 12 >= (dimensionsQuery.data?.total ?? 0)} onClick={() => setProductPage(page => page + 1)}>Siguiente</button></div>
         </article>
       )}
 
@@ -914,14 +987,18 @@ function SettingsSection({ bootstrap }: { bootstrap: Awaited<ReturnType<typeof g
               </div>
             ) : null}
             {productImportPreview.invalidRows.length ? (
-              <p className="shipping-filter-note">
-                {productImportPreview.invalidRows.length} fila(s) se omitieron por datos incompletos.
-              </p>
+              <details><summary>{productImportPreview.invalidRows.length} fila(s) separadas para revisión; no se importarán</summary>
+                {productImportPreview.invalidRows.map((row, index) => <p key={index}>{row.sheet ?? 'Hoja'} · fila {row.row} · {row.sku ?? ''}: {row.reason}</p>)}
+              </details>
             ) : null}
+            <p>Los campos vacíos se guardan pendientes. Las estimaciones no reemplazan datos medidos ni valores anteriores de mayor certeza.</p>
+            <div className="table-wrap" style={{ maxHeight: 340, overflow: 'auto' }}><table className="records-table"><thead><tr><th>SKU / origen</th><th>Unidad</th><th>Largo × ancho × alto (cm)</th><th>Peso físico (kg)</th><th>Estado / método</th></tr></thead><tbody>
+              {productImportPreview.rows.map(row => <tr key={row.sku}><td>{row.sku}<small>{row.logistics_metadata?.source_sheet} · fila {row.source_row}</small></td><td>{row.logistics_metadata?.physical_unit ?? 'Pendiente'}</td><td>{formatNumber(row.length_cm)} × {formatNumber(row.width_cm)} × {formatNumber(row.height_cm)}</td><td>{formatNumber(row.unit_weight_kg)}</td><td>{catalogStatus(row, row.logistics_metadata)}<small>{row.logistics_metadata?.weight_method}</small><small>{row.logistics_metadata?.dimensions_method}</small></td></tr>)}
+            </tbody></table></div>
             <div className="permission-modal-actions">
               <button
                 type="button"
-                disabled={confirmImport.isPending}
+                disabled={confirmImport.isPending || !productImportPreview.rows.length}
                 onClick={() => confirmImport.mutate({
                   fileName: productImportFileName,
                   rows: productImportPreview.rows,
@@ -937,23 +1014,38 @@ function SettingsSection({ bootstrap }: { bootstrap: Awaited<ReturnType<typeof g
           </div>
         </Modal>
       ) : null}
+      {deletingProduct ? <Modal title="¿Borrar producto de la base logística?" onClose={()=>{if(!deleteProduct.isPending)setDeletingProduct(null);}}>
+        <div role="alert"><p>Se eliminarán los datos logísticos de <strong>{deletingProduct.sku}</strong>{deletingProduct.product_name?` — ${deletingProduct.product_name}`:''}.</p><p>El producto de Odoo y las cotizaciones históricas se conservan. Para usarlo de nuevo tendrás que capturar o importar sus datos.</p></div>
+        {deleteProduct.error?<p role="alert" className="form-error">{deleteProduct.error.message}</p>:null}
+        <div className="permission-modal-actions"><button type="button" className="shipping-delete-confirm" disabled={deleteProduct.isPending} onClick={()=>deleteProduct.mutate(deletingProduct.id)}>{deleteProduct.isPending?'Borrando…':'Sí, borrar producto'}</button><button type="button" className="secondary-button" disabled={deleteProduct.isPending} onClick={()=>setDeletingProduct(null)}>Cancelar</button></div>
+      </Modal>:null}
       {editingProduct ? (
-        <Modal title="Editar producto" onClose={() => {
+        <Modal title={editingProduct.id?'Editar datos logísticos':'Nuevo producto logístico'} onClose={() => {
           if (!saveProduct.isPending) setEditingProduct(null);
         }}>
           <form className="shipping-product-edit-form" onSubmit={(event) => {
             event.preventDefault();
             saveProduct.mutate(editingProduct);
           }}>
-            <div className="form-grid">
+            <div className="shipping-product-editor-intro"><Database size={22}/><div><strong>Ficha logística del producto</strong><p>Separa los datos de cada rollo o pieza de los datos de su caja completa.</p></div></div>
+            <fieldset className="shipping-product-editor-section"><legend>1. Identificación</legend><div className="form-grid">
               <TextInput label="Código / referencia" value={editingProduct.sku} onChange={(value) => setEditingProduct((current) => current ? { ...current, sku: value } : current)} />
               <TextInput label="Descripción" value={editingProduct.product_name ?? ''} onChange={(value) => setEditingProduct((current) => current ? { ...current, product_name: value } : current)} />
-              <NumberInput label="Largo (cm)" value={editingProduct.length_cm} onChange={(value) => setEditingProduct((current) => current ? { ...current, length_cm: value ?? 0 } : current)} />
-              <NumberInput label="Ancho (cm)" value={editingProduct.width_cm} onChange={(value) => setEditingProduct((current) => current ? { ...current, width_cm: value ?? 0 } : current)} />
-              <NumberInput label="Alto (cm)" value={editingProduct.height_cm} onChange={(value) => setEditingProduct((current) => current ? { ...current, height_cm: value ?? 0 } : current)} />
+            </div></fieldset>
+            <fieldset className="shipping-product-editor-section"><legend>2. Medidas y peso por unidad física</legend><p className="shipping-product-editor-help">Captura un rollo o pieza. Si se vende por caja cerrada, captura esa caja y selecciona la unidad física correspondiente.</p><div className="form-grid">
+              <NumberInput label="Largo (cm)" value={editingProduct.length_cm} onChange={(value) => setEditingProduct((current) => current ? { ...current, length_cm: value } : current)} />
+              <NumberInput label="Ancho (cm)" value={editingProduct.width_cm} onChange={(value) => setEditingProduct((current) => current ? { ...current, width_cm: value } : current)} />
+              <NumberInput label="Alto (cm)" value={editingProduct.height_cm} onChange={(value) => setEditingProduct((current) => current ? { ...current, height_cm: value } : current)} />
               <NumberInput label="Peso físico (kg)" value={editingProduct.unit_weight_kg} onChange={(value) => setEditingProduct((current) => current ? { ...current, unit_weight_kg: value } : current)} />
             </div>
+            </fieldset>
+            <p className="shipping-product-editor-help">Deja vacíos los datos pendientes. Nunca uses el peso volumétrico como peso físico.</p>
+            <details className="shipping-product-editor-details" open><summary>3. Unidad, presentación y procedencia de los datos</summary>
+            <ShippingLogisticsFields sku={editingProduct.sku} productName={editingProduct.product_name ?? ''} value={editingProduct.logistics_metadata ?? normalizeLogisticsMetadata(null, editingProduct)} onChange={metadata => setEditingProduct(current => current ? { ...current, logistics_metadata: metadata } : current)} />
+            </details>
+            <details className="shipping-product-editor-details"><summary>4. Reglas de manejo y protección</summary>
             <PhysicalRulesFields value={editingProduct} onChange={patch => setEditingProduct(current => current ? {...current, ...patch} : current)} />
+            </details>
             {saveProduct.error ? <p className="form-error">{saveProduct.error.message}</p> : null}
             <div className="permission-modal-actions">
               <button type="submit" disabled={saveProduct.isPending}>
@@ -973,6 +1065,7 @@ function SettingsSection({ bootstrap }: { bootstrap: Awaited<ReturnType<typeof g
 
 function QuoteDetail({ quote }: { quote: ShippingQuoteDetail }) {
   const exchangeRateQuery = useShippingExchangeRate();
+  const storedPackages = quote.selected_packing_plan?.packages;
   return (
     <div className="shipping-quote-detail">
       <div className="shipping-detail-summary">
@@ -988,6 +1081,16 @@ function QuoteDetail({ quote }: { quote: ShippingQuoteDetail }) {
             <strong>Paquete {item.package_index}</strong>
             <span>{readSnapshotName(item.package_snapshot)} · {item.length} × {item.width} × {item.height} {item.dimension_unit.toLowerCase()}</span>
             <span>Contenido {formatNumber(item.content_weight)} {item.weight_unit.toLowerCase()} · Tara {formatNumber(item.tare_weight)} · Total {formatNumber(item.billable_weight)}</span>
+            {Array.isArray(storedPackages) && Array.isArray(storedPackages[item.package_index - 1]?.items) ? (
+              <details>
+                <summary>Productos incluidos</summary>
+                <ul>{storedPackages[item.package_index - 1].items.map((placement: { unit?: { id?: string; productName?: string; sku?: string | null; unitIndex?: number; commercialQuantity?: number; commercialUom?: string | null; originalQuantity?: number; physicalUnit?: string; commercialUnitsPerPhysicalUnit?: number } }, index: number) => (
+                  <li key={placement.unit?.id ?? index}>{placement.unit?.productName ?? 'Producto'} · {placement.unit?.sku ?? 'Sin referencia'} · unidad {placement.unit?.unitIndex ?? index + 1}
+                    {placement.unit?.commercialQuantity !== undefined ? <small> · Línea original: {placement.unit.commercialQuantity} {placement.unit.commercialUom || 'unidades comerciales'} → {placement.unit.originalQuantity} {placement.unit.physicalUnit?.toLowerCase()}(s) · factor {placement.unit.commercialUnitsPerPhysicalUnit}</small> : null}
+                  </li>
+                ))}</ul>
+              </details>
+            ) : null}
           </div>
         ))}
       </div>
@@ -1104,6 +1207,7 @@ type ShippingProductAllocation = {
   key: string;
   name: string;
   quantity: number;
+  uom: string;
   sharePercent: number;
   originalUnitPrice: number;
   shippingAllocated: number;
@@ -1138,7 +1242,7 @@ function ShippingIncludedProducts({
             <div className="shipping-included-product" key={item.key}>
               <div className="shipping-included-product-name">
                 <strong>{item.name}</strong>
-                <small>{item.quantity} pieza(s) · {formatRate(item.sharePercent)}% del subtotal</small>
+                <small>{item.quantity} {item.uom} · {formatRate(item.sharePercent)}% del subtotal</small>
               </div>
               <CopyableShippingValue label="Precio" value={original} copyKey={`${item.key}-original`} copiedValue={copiedValue} onCopy={onCopy} />
               <CopyableShippingValue label="Envío asignado" value={shipping} copyKey={`${item.key}-shipping`} copiedValue={copiedValue} onCopy={onCopy} />
@@ -1217,9 +1321,9 @@ function productDimensionToDraft(row: ShippingProductDimension): ProductDimensio
     id: row.id,
     sku: row.sku,
     product_name: row.product_name,
-    width_cm: Number(row.width_cm) || 0,
-    length_cm: Number(row.length_cm) || 0,
-    height_cm: Number(row.height_cm) || 0,
+    width_cm: row.width_cm,
+    length_cm: row.length_cm,
+    height_cm: row.height_cm,
     unit_weight_kg: row.unit_weight_kg === null ? null : Number(row.unit_weight_kg),
   };
 }
@@ -1301,8 +1405,22 @@ function Metric({ label, value }: { label: string; value: string }) {
 }
 
 function Modal({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
-  return (
-    <div className="modal-backdrop shipping-modal-backdrop" role="dialog" aria-modal="true" aria-label={title}>
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    dialogRef.current?.querySelector<HTMLElement>('input,select,button')?.focus();
+    return () => previous?.focus();
+  }, []);
+  return createPortal(
+    <div ref={dialogRef} className="modal-backdrop shipping-modal-backdrop" role="dialog" aria-modal="true" aria-label={title} onKeyDown={event=>{
+      if(event.key==='Escape'){event.stopPropagation();onClose();}
+      if(event.key==='Tab'){
+        const focusable=Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),summary')??[]).filter(e=>e.getClientRects().length>0);
+        const first=focusable[0],last=focusable[focusable.length-1];
+        if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}
+        else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
+      }
+    }}>
       <section className="modal-card modal-wide shipping-modal-card">
         <div className="modal-head">
           <h2>{title}</h2>
@@ -1312,7 +1430,7 @@ function Modal({ title, children, onClose }: { title: string; children: ReactNod
         </div>
         {children}
       </section>
-    </div>
+    </div>, document.body
   );
 }
 
@@ -1369,7 +1487,8 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
-function formatNumber(value: number) {
+function formatNumber(value: number | null) {
+  if (value === null) return 'Pendiente';
   return new Intl.NumberFormat('es-MX', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 3,
@@ -1447,6 +1566,7 @@ function buildShippingProductAllocations(
       key: `${line.lineId}-${line.productId}`,
       name: line.productName || line.description || 'Producto',
       quantity: line.quantity,
+      uom: line.uom || 'unidades comerciales',
       sharePercent: round(share * 100, 2),
       originalUnitPrice: line.priceUnit,
       shippingAllocated,

@@ -29,17 +29,17 @@ import {
   isSupportPdf,
 } from "../../lib/supportImages";
 import {
+  currentSupportBadgeStyle,
   getCurrentSupportState,
   getLatestSupportEvent,
-  getSupportStateHeaderColor,
   statusLabel,
 } from "../../lib/tracking";
 import type {
   SupportCaseWithEvents,
   SupportEvent,
+  SupportEventType,
   SupportImage,
 } from "../../lib/types";
-import { StatusBadge } from "../../components/StatusBadge";
 import {
   deleteSupportEvent,
   respondToRepairApproval,
@@ -51,6 +51,7 @@ import {
 
 type SupportDetailsProps = {
   cases: SupportCaseWithEvents[];
+  eventTypes?: SupportEventType[];
   disableFolioModal?: boolean;
   audience?: "public" | "admin";
   onSupportUpdated?: (supportCaseId: string) => void | Promise<void>;
@@ -73,6 +74,7 @@ type TimelineEvent = SupportEvent & {
 
 export function SupportDetails({
   cases,
+  eventTypes,
   disableFolioModal = false,
   audience = "public",
   onSupportUpdated,
@@ -136,15 +138,6 @@ export function SupportDetails({
     () => buildTimelineGroups(allEvents),
     [allEvents],
   );
-  const supportBadgeStatus =
-    latestCase.status === "closed"
-      ? "closed"
-      : latestCase.status === "pending"
-        ? "pending"
-        : "open";
-  const headerStyle = isPublicView
-    ? { background: getSupportStateHeaderColor(latestCase) }
-    : undefined;
   const normalizedDraftEmail = customerEmailDraft.trim().toLowerCase();
   const normalizedSavedEmail = savedCustomerEmail.trim().toLowerCase();
   const canSendStatusEmails =
@@ -350,7 +343,6 @@ export function SupportDetails({
               ? "panel-header dynamic-status"
               : "panel-header tracking"
           }
-          style={headerStyle}
         >
           <div>
             <h2>Estado actual del soporte</h2>
@@ -369,7 +361,7 @@ export function SupportDetails({
               )}
             </small>
           </div>
-          <StatusBadge status={supportBadgeStatus} label={currentState} />
+          <span className="support-state-badge" style={currentSupportBadgeStyle(latestCase, eventTypes)}>{currentState}</span>
         </div>
         <div className="summary-grid">
           <SummaryItem
@@ -411,7 +403,7 @@ export function SupportDetails({
               />
             </>
           ) : null}
-          {isTechnicalSupport ? (
+          {isTechnicalSupport && latestCase.warranty_end_date ? (
             <>
               <SummaryItem
                 label="Estatus de garantía"
@@ -459,32 +451,37 @@ export function SupportDetails({
             label="Fabricante"
             value={latestCase.manufacturer}
           />
-          <SummaryItem label="Modelo" value={latestCase.printer_model} />
+          <SummaryItem label="Modelo" value={latestCase.printer_model} optional />
           {!isPublicView ? (
             <SummaryItem
               label="Número de parte"
-              value={latestCase.part_number ?? "Sin dato"}
+              value={latestCase.part_number ?? ""}
+              optional
             />
           ) : null}
           <SummaryItem
             label="Número de serie"
             value={latestCase.serial_number}
+            optional
           />
           {isTechnicalSupport ? (
             <>
               <SummaryItem
                 label="Fecha de venta"
-                value={formatDate(latestCase.sale_date)}
+                value={latestCase.sale_date ? formatDate(latestCase.sale_date) : ""}
+                optional
               />
               <SummaryItem
                 label="Fin de la garantía"
-                value={formatDate(latestCase.warranty_end_date)}
+                value={latestCase.warranty_end_date ? formatDate(latestCase.warranty_end_date) : ""}
+                optional
               />
               <SummaryItem
                 icon={<CalendarClock />}
                 label="Días restantes de garantía"
+                optional
                 value={
-                  daysRemaining === null ? "Sin dato" : String(daysRemaining)
+                  daysRemaining === null ? "" : String(daysRemaining)
                 }
                 tone={
                   daysRemaining !== null && daysRemaining >= 0 ? "good" : "bad"
@@ -501,15 +498,18 @@ export function SupportDetails({
               />
               <SummaryItem
                 label="Correo"
-                value={savedCustomerEmail || "Sin dato"}
+                value={savedCustomerEmail || ""}
+                optional
+                compact={savedCustomerEmail.length > 30}
               />
               <SummaryItem
                 label="Teléfono"
-                value={latestCase.customer_phone ?? "Sin dato"}
+                value={latestCase.customer_phone ?? ""}
+                optional
               />
               <SummaryItem
                 icon={<UserRound />}
-                label="Quién realizó el soporte"
+                label="Agente"
                 value={latestCase.performed_by}
               />
             </>
@@ -1091,20 +1091,26 @@ function SummaryItem({
   value,
   tone,
   wide,
+  optional,
+  compact,
 }: {
   icon?: ReactNode;
   label: string;
   value: string;
   tone?: "good" | "bad";
   wide?: boolean;
+  optional?: boolean;
+  compact?: boolean;
 }) {
+  if (optional && !value?.trim()) return null;
+
   return (
     <div className={wide ? "summary-item summary-item-wide" : "summary-item"}>
       <span className="summary-label">
         {icon}
         {label}
       </span>
-      <strong className={tone ? `tone-${tone}` : undefined}>{value}</strong>
+      <strong className={[tone ? `tone-${tone}` : "", compact ? "summary-value-compact" : ""].filter(Boolean).join(" ") || undefined}>{value}</strong>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import type {
   ReportRequestedDomain,
   ReportsConfig,
 } from './odooSalesCore';
+import type { CustomerMarginAggregate, StockSnapshot } from './commercialIntelligence';
 
 export type ReportLoadMode = 'fast' | 'full' | 'partition';
 
@@ -55,6 +56,7 @@ export type ReportDailySalesComparison = {
     untaxed_amount: number;
     margin_amount: number;
   }>;
+  marginMetrics?: ReportDailySalesComparison['monthlyMetrics'] | null;
   closedMonthsOnly?: boolean;
   yearToDateTotals?: { current: number; previous: number } | null;
   comparisonCurrentEndDate?: string | null;
@@ -85,6 +87,7 @@ export async function syncOdooReportAnalytics(options: {
     body: {
       batchSize: options.batchSize ?? 350,
       forceFull: options.forceFull === true,
+      refreshMode: options.forceFull ? 'full' : 'incremental',
       initialStartDate: options.initialStartDate,
       maxBatches: options.maxBatches ?? 2,
     },
@@ -110,6 +113,28 @@ export async function getReportDailySalesComparison(filters: ReportFilters, forc
   if (error) throw new Error(await readFunctionErrorMessage(error) || error.message);
   if (data?.error) throw new Error(normalizeReportFunctionError(String(data.error)));
   return data as ReportDailySalesComparison;
+}
+
+export async function getBusinessIntelligenceStock(filters: ReportFilters, productIds: number[]): Promise<{
+  products: StockSnapshot[];
+  stockAvailable: boolean;
+}> {
+  const { data, error } = await supabase.functions.invoke('odoo-sales-report', {
+    body: { ...filters, requestedDomain: 'sales', reportContext: 'reports',
+      action: 'business-intelligence-stock', productIds: productIds.slice(0, 12) },
+  });
+  if (error) throw new Error(await readFunctionErrorMessage(error) || error.message);
+  if (data?.error) throw new Error(normalizeReportFunctionError(String(data.error)));
+  return data as { products: StockSnapshot[]; stockAvailable: boolean };
+}
+
+export async function getBusinessIntelligenceCustomerMargins(filters: ReportFilters): Promise<CustomerMarginAggregate[]> {
+  const { data, error } = await supabase.functions.invoke('odoo-sales-report', {
+    body: { ...filters, requestedDomain: 'sales', reportContext: 'reports', action: 'business-intelligence-customer-margin' },
+  });
+  if (error) throw new Error(await readFunctionErrorMessage(error) || error.message);
+  if (data?.error) throw new Error(normalizeReportFunctionError(String(data.error)));
+  return (data?.customers ?? []) as CustomerMarginAggregate[];
 }
 
 export async function getCommercialDataset(

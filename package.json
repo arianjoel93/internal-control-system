@@ -7,7 +7,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "test:reports": "node --test --experimental-strip-types src/features/reports/__tests__/reportsAnalytics.test.ts src/features/reports/__tests__/reportScope.test.ts src/features/reports/__tests__/reportsPartitioning.test.ts src/features/reports/__tests__/salesAgentIntelligence.test.ts supabase/functions/odoo-sales-report/__tests__/dataset-cache.test.ts",
+    "test:reports": "node --test --experimental-strip-types src/features/reports/__tests__/commercialIntelligence.test.ts src/features/reports/__tests__/reportsAnalytics.test.ts src/features/reports/__tests__/reportDetailDistribution.test.ts src/features/reports/__tests__/reportScope.test.ts src/features/reports/__tests__/reportsPartitioning.test.ts src/features/reports/__tests__/salesAgentIntelligence.test.ts supabase/functions/odoo-sales-report/__tests__/dataset-cache.test.ts supabase/functions/odoo-sales-report/__tests__/crm-creator-cache.test.ts",
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
@@ -17,11 +17,13 @@
     "bootstrap-icons": "^1.13.1",
     "clsx": "latest",
     "date-fns": "latest",
+    "jspdf": "^4.2.1",
     "lucide-react": "latest",
     "react": "latest",
     "react-dom": "latest",
     "react-hook-form": "latest",
     "react-router-dom": "latest",
+    "recharts": "3.10.1",
     "zod": "latest"
   },
   "devDependencies": {

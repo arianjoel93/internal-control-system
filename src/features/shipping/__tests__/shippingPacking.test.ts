@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { generatePackingPlan, normalizePackingLines, assignmentsFromPlan, validatePackingAssignments, mapPackingToShipment, fedexPackageLineItems,
+import { generatePackingPlan, normalizePackingLines, assignmentsFromPlan, validatePackingAssignments, mapPackingToShipment, fedexPackageLineItems, preparePackingQuote, applyHeightCuts,
   type PackagingRow, type PackingLine } from '../../../../supabase/functions/_shared/shipping-packing.ts';
 
 const box = (id='small', side=10, maxWeight=20):PackagingRow => ({ id,name:id,internal_code:id,is_active:true,sort_order:10,
@@ -9,6 +9,34 @@ const box = (id='small', side=10, maxWeight=20):PackagingRow => ({ id,name:id,in
   dimension_unit:'CM',weight_unit:'KG',box_cost:0 });
 const line = (patch:Partial<PackingLine>={}):PackingLine => ({lineId:1,productId:1,sku:'A',productName:'Producto A',quantity:1,
   lengthCm:5,widthCm:5,heightCm:5,weightKg:1,canRotate:true,canStack:true,...patch});
+
+test('cotización conserva distribución y aplica protección una sola vez con paridad entre cliente y servidor', () => {
+  const lines = [line({ quantity: 3, weightKg: 0.1 })];
+  const rows = [box('limited', 10, 0.7)];
+  const initial = generatePackingPlan(lines, rows, 'BALANCED');
+  const assignments = assignmentsFromPlan(initial);
+  const preview = mapPackingToShipment(applyHeightCuts(initial), 5000);
+  const result = preparePackingQuote({ version: 1, lines, assignments, strategy: 'BALANCED' }, rows, 5000);
+  assert.deepEqual(result.packages, preview);
+  assert.deepEqual(result.snapshot.assignments, assignmentsFromPlan(result.plan));
+  const saved = JSON.parse(JSON.stringify(result.snapshot));
+  assert.equal(saved.packages.flatMap((pkg: { items: unknown[] }) => pkg.items).length, 3);
+  result.packages.forEach((pkg, index) => {
+    const physical = result.plan.packages[index];
+    assert.equal(pkg.contentWeight, physical.productsWeight + physical.packagingWeight);
+    const extraHeight = 5000 / result.packages.length / (physical.externalDimensions.length * physical.externalDimensions.width);
+    assert.equal(pkg.height, Math.ceil(physical.externalDimensions.height + extraHeight));
+  });
+  assert.deepEqual(fedexPackageLineItems(result.packages).map(pkg => pkg.weight.value), result.packages.map(pkg => Math.ceil(pkg.contentWeight * 1000) / 1000));
+});
+
+test('cotización rechaza una distribución incompleta y cajas desactivadas', () => {
+  const lines = [line()];
+  const rows = [box()];
+  const plan = generatePackingPlan(lines, rows);
+  assert.throws(() => preparePackingQuote({ version: 1, lines, assignments: [], strategy: 'BALANCED' }, rows), /distribución/i);
+  assert.throws(() => preparePackingQuote({ version: 1, lines, assignments: assignmentsFromPlan(plan), strategy: 'BALANCED' }, [{ ...rows[0], is_active: false }]));
+});
 const rectangularBox = (id:string, internal:[number,number,number], external:[number,number,number], maxWeight=100):PackagingRow => ({
   ...box(id, 1, maxWeight),
   length:internal[0], width:internal[1], height:internal[2],
@@ -57,7 +85,7 @@ test('10. prefiere la caja eficiente y evalúa consolidación',()=>{
   const p=generatePackingPlan([line()],[box('large',30),box()]);assert.equal(p.packages[0].packagingTypeId,'small');
   const lines=[line({quantity:5})];const types=[{...box('flat'),internal_height:5},box('taller')];
   const balanced=generatePackingPlan(lines,types);assert.equal(balanced.packages.length,1);
-  assert.equal(generatePackingPlan(lines,types,'COMPACT').packages.length,2);
+  assert.equal(generatePackingPlan(lines,types,'COMPACT').packages.length,1);
 });
 test('11. peso neto aceptable pero tara supera máximo',()=>{
   const p=generatePackingPlan([line({weightKg:10})],[box('overweight',10,10)]);assert.equal(p.unpackedItems.length,1);
@@ -133,7 +161,7 @@ test('optimiza una orden pequeña en una sola caja pequeña',()=>{
 test('prefiere dos cajas pequeñas cuando tienen menor peso volumétrico que una grande',()=>{
   const small=rectangularBox('small',[10,10,10],[12,12,12]);
   const large=rectangularBox('large',[20,20,20],[22,22,22]);
-  const plan=generatePackingPlan([line({quantity:9})],[small,large],'MIN_PACKAGES');
+  const plan=generatePackingPlan([line({quantity:9})],[small,large],'COMPACT');
   assert.equal(plan.metrics.packageCount,2);
   assert.deepEqual(plan.packages.map((item)=>item.packagingTypeId),['small','small']);
   assert.ok(plan.metrics.volumetricWeight < (22*22*22)/5000);
@@ -176,8 +204,9 @@ test('cambia la combinación cuando una caja supera su peso máximo',()=>{
   const larger=rectangularBox('larger',[20,20,20],[22,22,22],20);
   const plan=generatePackingPlan([line({quantity:2,weightKg:2})],[limited,larger],'MIN_PACKAGES');
   assert.equal(plan.status,'READY_FOR_QUOTE');
-  assert.equal(plan.packages.length,2);
-  assert.ok(plan.packages.every((item)=>item.totalWeight<=3));
+  assert.equal(plan.packages.length,1);
+  assert.equal(plan.packages[0].packagingTypeId,'larger');
+  assert.ok(plan.packages[0].totalWeight<=20);
 });
 
 test('reparte unidades repetidas entre diferentes cajas',()=>{
@@ -211,7 +240,7 @@ test('prefiere una caja pequeña y mediana cuando vence a una grande en peso vol
   const plan=generatePackingPlan([
     line({lengthCm:10,widthCm:10,heightCm:10}),
     line({lineId:2,productId:2,lengthCm:11,widthCm:11,heightCm:11}),
-  ],[small,medium,large],'MIN_PACKAGES');
+  ],[small,medium,large],'COMPACT');
   assert.deepEqual(plan.packages.map((item)=>item.packagingTypeId).sort(),['medium','small']);
   assert.ok(plan.metrics.volumetricWeight < (27*27*27)/5000);
 });

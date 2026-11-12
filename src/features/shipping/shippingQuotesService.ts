@@ -8,7 +8,8 @@ import type {
   ShippingQuoteRow,
 } from '../../lib/types';
 import type { ShippingPackageDraft } from './shippingQuoteMath';
-import type { ProductRules } from '../../../supabase/functions/_shared/shipping-packing';
+import type { ProductRules, PackingRequest } from '../../../supabase/functions/_shared/shipping-packing';
+import type { CatalogImportRow, LogisticsMetadata } from '../../../supabase/functions/_shared/shipping-catalog';
 
 export type ShippingPhysicalRules = {
   can_rotate?: boolean; stackable?: boolean; fragile?: boolean; requires_individual_package?: boolean;
@@ -82,12 +83,14 @@ export type CreateShippingQuotePayload = {
   destination: ShippingAddressSnapshot;
   requestedShipDate: string | null;
   packages: ShippingPackageDraft[];
+  packingRequest: PackingRequest;
   odooOrderName?: string | null;
   odooOrderId?: number | null;
   selectedPackingPlan?: Record<string, unknown> | null;
 };
 
 export type ShippingOrderLine = ProductRules & {
+  logisticsMetadata?: LogisticsMetadata | null;
   lineId: number;
   productId: number;
   sku: string | null;
@@ -143,17 +146,7 @@ export type ShippingQuoteListResult = {
   total: number;
 };
 
-export type ShippingProductDimensionImportRow = {
-  sku: string;
-  product_name: string | null;
-  width_cm: number;
-  length_cm: number;
-  height_cm: number;
-  unit_weight_kg: number | null;
-  volumetric_weight_kg: number | null;
-  billable_weight_kg: number | null;
-  source_row: number;
-};
+export type ShippingProductDimensionImportRow = CatalogImportRow;
 
 export type ShippingProductDimensionsImportPreview = {
   rows: ShippingProductDimensionImportRow[];
@@ -163,7 +156,7 @@ export type ShippingProductDimensionsImportPreview = {
     incoming: ShippingProductDimensionImportRow;
     changed: boolean;
   }>;
-  invalidRows: Array<{ row: number; reason: string }>;
+  invalidRows: Array<{ row: number; sheet?: string; sku?: string; reason: string }>;
   newCount: number;
   updateCount: number;
   unchangedCount: number;
@@ -319,8 +312,8 @@ export async function deleteShippingPackageType(id: string) {
   return invokeShippingFunction<{ deleted: boolean }>('deletePackageType', { id });
 }
 
-export async function listShippingProductDimensions() {
-  return invokeShippingFunction<ShippingProductDimensionsListResult>('listProductDimensions');
+export async function listShippingProductDimensions(page = 1, search = '') {
+  return invokeShippingFunction<ShippingProductDimensionsListResult>('listProductDimensions', { page, search });
 }
 
 export async function previewShippingProductDimensionsImport(payload: {
@@ -345,12 +338,17 @@ export async function saveShippingProductDimension(payload: ShippingPhysicalRule
   id?: string;
   sku: string;
   product_name: string | null;
-  width_cm: number;
-  length_cm: number;
-  height_cm: number;
+  width_cm: number | null;
+  length_cm: number | null;
+  height_cm: number | null;
   unit_weight_kg: number | null;
+  logistics_metadata?: LogisticsMetadata | null;
 }) {
   return invokeShippingFunction<{ product: ShippingPhysicalProduct }>('saveProductDimension', payload);
+}
+
+export async function deleteShippingProductDimension(id: string) {
+  return invokeShippingFunction<{ deleted: boolean }>('deleteProductDimension', { id });
 }
 
 export async function createShippingQuote(payload: CreateShippingQuotePayload) {

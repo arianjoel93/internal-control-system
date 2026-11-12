@@ -4281,6 +4281,7 @@ function buildAgentCustomerBalance(lifecycleRows, filters, rows, customerContact
     const contact = (customer.customerId ? contactById.get(customer.customerId) : null) ?? contactByName.get(normalizeText2(customer.customerName.split(",")[0] ?? ""));
     return [{
       customer: customer.customerName,
+      sellerName: customer.sellerName || "Sin vendedor asignado",
       status,
       email: contact?.email ?? null,
       phone: contact?.mobile ?? contact?.phone ?? null,
@@ -4333,9 +4334,12 @@ function buildAgentCrmBalance(dataset, filters, sellerName) {
   const details = leads.map((lead) => ({
     label: lead.name || `Lead ${lead.id}`,
     customer: lead.customerName ?? "Sin cliente",
-    stage: lead.stageName ?? "Sin etapa",
+    stage: formatCrmStageName(lead.stageName),
     attended: isAgentLeadAttendedStage(lead.stageName),
-    createdAt: (lead.assignmentDate ?? lead.createDate)?.slice(0, 10) ?? "-"
+    createdAt: (lead.assignmentDate ?? lead.createDate)?.slice(0, 10) ?? "-",
+    creatorName: lead.creatorName?.trim() || "No disponible",
+    sellerId: lead.sellerId,
+    sellerName: lead.sellerName?.trim() || "Sin vendedor asignado"
   }));
   const attended = details.filter((lead) => lead.attended).length;
   const assigned = leads.length;
@@ -4346,6 +4350,27 @@ function buildAgentCrmBalance(dataset, filters, sellerName) {
     note: assigned ? `${formatNumber3(assigned - attended)} pendientes de atenci\xF3n` : "No hay leads asignados en el periodo",
     details
   };
+}
+function formatCrmStageName(stageName) {
+  const label = stageName?.trim();
+  if (!label) return "Sin etapa";
+  const normalized = normalizeText2(label);
+  const translations = {
+    new: "Nuevo",
+    qualified: "Calificado",
+    proposition: "Propuesta",
+    proposal: "Propuesta",
+    quotation: "Cotizado",
+    quoted: "Cotizado",
+    unquoted: "Sin cotizar",
+    won: "Ganado",
+    lost: "Perdido",
+    pending: "Pendiente",
+    contacted: "Contactado",
+    "in progress": "En seguimiento",
+    negotiation: "Negociaci\xF3n"
+  };
+  return translations[normalized] ?? label;
 }
 function isAgentLeadAttendedStage(stageName) {
   const stage = normalizeText2(stageName ?? "");

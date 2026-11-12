@@ -1,0 +1,22 @@
+{
+  "currency": "MXN",
+  "net_sales": 100.0,
+  "margin": 20.0,
+  "margin_pct": 20.0,
+  "invoices": 1,
+  "rows": 1,
+  "observed_days": 1,
+  "daily_mean": 100.0,
+  "daily_median": 100.0,
+  "daily_stddev": null,
+  "daily": {
+    "2026-10-01": 100.0
+  },
+  "sellers": {
+    "SINTETICO": 100.0
+  },
+  "retrieved_at": "2026-10-22T12:00:00Z",
+  "filters": {
+    "datos": "SINTETICOS"
+  }
+}

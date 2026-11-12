@@ -1,0 +1,370 @@
+TAP version 13
+# Subtest: recorte predeterminado y desmarcado usan las mismas dimensiones en cliente y servidor
+ok 1 - recorte predeterminado y desmarcado usan las mismas dimensiones en cliente y servidor
+  ---
+  duration_ms: 4.6686
+  type: 'test'
+  ...
+# Subtest: etiqueta del embalaje muestra nombre y medidas exteriores
+ok 2 - etiqueta del embalaje muestra nombre y medidas exteriores
+  ---
+  duration_ms: 0.2486
+  type: 'test'
+  ...
+# Subtest: sugerencia usa altura ocupada más holgura; no cambia masa, posiciones ni dimensiones
+ok 3 - sugerencia usa altura ocupada más holgura; no cambia masa, posiciones ni dimensiones
+  ---
+  duration_ms: 0.3008
+  type: 'test'
+  ...
+# Subtest: no propone cortar cajas propias, cajas llenas ni paquetes inválidos
+ok 4 - no propone cortar cajas propias, cajas llenas ni paquetes inválidos
+  ---
+  duration_ms: 0.3177
+  type: 'test'
+  ...
+# Subtest: cotización conserva distribución y aplica protección una sola vez con paridad entre cliente y servidor
+ok 5 - cotización conserva distribución y aplica protección una sola vez con paridad entre cliente y servidor
+  ---
+  duration_ms: 47.5482
+  type: 'test'
+  ...
+# Subtest: cotización rechaza una distribución incompleta y cajas desactivadas
+ok 6 - cotización rechaza una distribución incompleta y cajas desactivadas
+  ---
+  duration_ms: 6.1307
+  type: 'test'
+  ...
+# Subtest: 1. ajuste exacto en las dimensiones internas
+ok 7 - 1. ajuste exacto en las dimensiones internas
+  ---
+  duration_ms: 1.9408
+  type: 'test'
+  ...
+# Subtest: 2. cinco unidades pequeñas comparten una caja
+ok 8 - 2. cinco unidades pequeñas comparten una caja
+  ---
+  duration_ms: 11.4139
+  type: 'test'
+  ...
+# Subtest: 3. distribuye al superar peso bruto
+ok 9 - 3. distribuye al superar peso bruto
+  ---
+  duration_ms: 16.922
+  type: 'test'
+  ...
+# Subtest: 4. volumen menor no sustituye comprobación dimensional
+ok 10 - 4. volumen menor no sustituye comprobación dimensional
+  ---
+  duration_ms: 1.0814
+  type: 'test'
+  ...
+# Subtest: 5. prueba rotación y respeta su prohibición
+ok 11 - 5. prueba rotación y respeta su prohibición
+  ---
+  duration_ms: 0.6729
+  type: 'test'
+  ...
+# Subtest: 6. conserva unidades que no caben
+ok 12 - 6. conserva unidades que no caben
+  ---
+  duration_ms: 0.4708
+  type: 'test'
+  ...
+# Subtest: 7. paquete individual y no combinable van solos
+ok 13 - 7. paquete individual y no combinable van solos
+  ---
+  duration_ms: 1.7278
+  type: 'test'
+  ...
+# Subtest: 8. datos desconocidos nunca se convierten en cero
+ok 14 - 8. datos desconocidos nunca se convierten en cero
+  ---
+  duration_ms: 1.4674
+  type: 'test'
+  ...
+# Subtest: 9. explota cantidades sin perder referencia de la línea
+ok 15 - 9. explota cantidades sin perder referencia de la línea
+  ---
+  duration_ms: 777.9946
+  type: 'test'
+  ...
+# Subtest: 10. prefiere la caja eficiente y evalúa consolidación
+ok 16 - 10. prefiere la caja eficiente y evalúa consolidación
+  ---
+  duration_ms: 55.3918
+  type: 'test'
+  ...
+# Subtest: 11. peso neto aceptable pero tara supera máximo
+ok 17 - 11. peso neto aceptable pero tara supera máximo
+  ---
+  duration_ms: 0.7075
+  type: 'test'
+  ...
+# Subtest: 12. pedido heterogéneo entrega paquetes y peso bruto a FedEx
+ok 18 - 12. pedido heterogéneo entrega paquetes y peso bruto a FedEx
+  ---
+  duration_ms: 4.1047
+  type: 'test'
+  ...
+# Subtest: valida el mismo plan en el servidor sin duplicar tara ni peso volumétrico
+ok 19 - valida el mismo plan en el servidor sin duplicar tara ni peso volumétrico
+  ---
+  duration_ms: 6.5665
+  type: 'test'
+  ...
+# Subtest: edición manual rechaza duplicados, unidades omitidas y caja incompatible
+ok 20 - edición manual rechaza duplicados, unidades omitidas y caja incompatible
+  ---
+  duration_ms: 2.4327
+  type: 'test'
+  ...
+# Subtest: sin caja requiere confirmación explícita de unidad propia
+ok 21 - sin caja requiere confirmación explícita de unidad propia
+  ---
+  duration_ms: 0.6732
+  type: 'test'
+  ...
+# Subtest: no apilable conserva espacio de suelo sin bloquear acomodo lateral
+ok 22 - no apilable conserva espacio de suelo sin bloquear acomodo lateral
+  ---
+  duration_ms: 8.3393
+  type: 'test'
+  ...
+# Subtest: respeta fragilidad, grupo compatible y protección por lado
+ok 23 - respeta fragilidad, grupo compatible y protección por lado
+  ---
+  duration_ms: 10.1091
+  type: 'test'
+  ...
+# Subtest: convierte pulgadas y libras a cm/kg
+ok 24 - convierte pulgadas y libras a cm/kg
+  ---
+  duration_ms: 2.1745
+  type: 'test'
+  ...
+# Subtest: resultado determinista, incluido el orden de entrada
+ok 25 - resultado determinista, incluido el orden de entrada
+  ---
+  duration_ms: 2620.1832
+  type: 'test'
+  ...
+# Subtest: no hay intersecciones entre unidades ni unidades fuera de caja
+ok 26 - no hay intersecciones entre unidades ni unidades fuera de caja
+  ---
+  duration_ms: 3.9064
+  type: 'test'
+  ...
+# Subtest: protección final se agrega al volumen externo, sin alterar el peso físico
+ok 27 - protección final se agrega al volumen externo, sin alterar el peso físico
+  ---
+  duration_ms: 0.3854
+  type: 'test'
+  ...
+# Subtest: cantidades fraccionarias y demasiado grandes se rechazan sin truncarlas
+ok 28 - cantidades fraccionarias y demasiado grandes se rechazan sin truncarlas
+  ---
+  duration_ms: 0.4589
+  type: 'test'
+  ...
+# Subtest: optimiza una orden pequeña en una sola caja pequeña
+ok 29 - optimiza una orden pequeña en una sola caja pequeña
+  ---
+  duration_ms: 17.5216
+  type: 'test'
+  ...
+# Subtest: prefiere dos cajas pequeñas cuando tienen menor peso volumétrico que una grande
+ok 30 - prefiere dos cajas pequeñas cuando tienen menor peso volumétrico que una grande
+  ---
+  duration_ms: 545.6831
+  type: 'test'
+  ...
+# Subtest: usa menos cajas cuando el peso volumétrico es equivalente
+ok 31 - usa menos cajas cuando el peso volumétrico es equivalente
+  ---
+  duration_ms: 0.6642
+  type: 'test'
+  ...
+# Subtest: compara una combinación heterogénea contra dos cajas medianas
+ok 32 - compara una combinación heterogénea contra dos cajas medianas
+  ---
+  duration_ms: 0.6367
+  type: 'test'
+  ...
+# Subtest: rechaza una dimensión imposible aunque el volumen del producto sea menor
+ok 33 - rechaza una dimensión imposible aunque el volumen del producto sea menor
+  ---
+  duration_ms: 0.3122
+  type: 'test'
+  ...
+# Subtest: permite la rotación física necesaria
+ok 34 - permite la rotación física necesaria
+  ---
+  duration_ms: 0.2875
+  type: 'test'
+  ...
+# Subtest: cambia la combinación cuando una caja supera su peso máximo
+ok 35 - cambia la combinación cuando una caja supera su peso máximo
+  ---
+  duration_ms: 0.6061
+  type: 'test'
+  ...
+# Subtest: reparte unidades repetidas entre diferentes cajas
+ok 36 - reparte unidades repetidas entre diferentes cajas
+  ---
+  duration_ms: 519.2077
+  type: 'test'
+  ...
+# Subtest: devuelve el producto imposible con embalajes evaluados
+ok 37 - devuelve el producto imposible con embalajes evaluados
+  ---
+  duration_ms: 0.7702
+  type: 'test'
+  ...
+# Subtest: utiliza un cuarto tipo de caja configurado sin cambios de código
+ok 38 - utiliza un cuarto tipo de caja configurado sin cambios de código
+  ---
+  duration_ms: 0.5396
+  type: 'test'
+  ...
+# Subtest: prefiere una caja pequeña y mediana cuando vence a una grande en peso volumétrico
+ok 39 - prefiere una caja pequeña y mediana cuando vence a una grande en peso volumétrico
+  ---
+  duration_ms: 1.0466
+  type: 'test'
+  ...
+# Subtest: desempata con menor espacio desperdiciado y expone pesos separados
+ok 40 - desempata con menor espacio desperdiciado y expone pesos separados
+  ---
+  duration_ms: 0.4036
+  type: 'test'
+  ...
+# Subtest: 35 rollos conservan cantidad y presentaciones completas
+ok 41 - 35 rollos conservan cantidad y presentaciones completas
+  ---
+  duration_ms: 6.9206
+  type: 'test'
+  ...
+# Subtest: 36 rollos conservan cantidad y presentaciones completas
+ok 42 - 36 rollos conservan cantidad y presentaciones completas
+  ---
+  duration_ms: 3.0392
+  type: 'test'
+  ...
+# Subtest: 37 rollos conservan cantidad y presentaciones completas
+ok 43 - 37 rollos conservan cantidad y presentaciones completas
+  ---
+  duration_ms: 0.3764
+  type: 'test'
+  ...
+# Subtest: 40 rollos conservan cantidad y presentaciones completas
+ok 44 - 40 rollos conservan cantidad y presentaciones completas
+  ---
+  duration_ms: 0.2564
+  type: 'test'
+  ...
+# Subtest: 72 rollos conservan cantidad y presentaciones completas
+ok 45 - 72 rollos conservan cantidad y presentaciones completas
+  ---
+  duration_ms: 0.2413
+  type: 'test'
+  ...
+# Subtest: 40 rollos: 36 cerrados más cuatro, comparan dos paquetes con una caja exterior sin duplicar tara
+ok 46 - 40 rollos: 36 cerrados más cuatro, comparan dos paquetes con una caja exterior sin duplicar tara
+  ---
+  duration_ms: 61.2078
+  type: 'test'
+  ...
+# Subtest: no propone caja exterior cuando excede geometría, peso o está desactivada
+ok 47 - no propone caja exterior cuando excede geometría, peso o está desactivada
+  ---
+  duration_ms: 9.3273
+  type: 'test'
+  ...
+# Subtest: presentaciones de 36 y 72 se validan en servidor y los rollos fraccionarios permanecen bloqueados
+ok 48 - presentaciones de 36 y 72 se validan en servidor y los rollos fraccionarios permanecen bloqueados
+  ---
+  duration_ms: 1.8242
+  type: 'test'
+  ...
+# Subtest: sin presentación no infiere 36 del SKU, y una caja comercial no vuelve a agruparse
+ok 49 - sin presentación no infiere 36 del SKU, y una caja comercial no vuelve a agruparse
+  ---
+  duration_ms: 0.851
+  type: 'test'
+  ...
+# Subtest: rechaza presentaciones incompletas y conserva la configuración ante reimportación
+ok 50 - rechaza presentaciones incompletas y conserva la configuración ante reimportación
+  ---
+  duration_ms: 3.1879
+  type: 'test'
+  ...
+# Subtest: ribbon vendido por piezas usa su unidad física de rollo documentada en catálogo
+ok 51 - ribbon vendido por piezas usa su unidad física de rollo documentada en catálogo
+  ---
+  duration_ms: 0.3945
+  type: 'test'
+  ...
+# Subtest: trece rollos sueltos conservan trece colocaciones visibles, sin agruparlos
+ok 52 - trece rollos sueltos conservan trece colocaciones visibles, sin agruparlos
+  ---
+  duration_ms: 8.2518
+  type: 'test'
+  ...
+# Subtest: equipo individual y caja comercial de etiquetas usan dimensiones propias sin tara adicional
+ok 53 - equipo individual y caja comercial de etiquetas usan dimensiones propias sin tara adicional
+  ---
+  duration_ms: 1.281
+  type: 'test'
+  ...
+# Subtest: volumétrico de productos suma unidades físicas, sin volumen de la caja exterior
+ok 54 - volumétrico de productos suma unidades físicas, sin volumen de la caja exterior
+  ---
+  duration_ms: 17.9975
+  type: 'test'
+  ...
+# Subtest: menos paquetes consolida equipo cerrado y rollos; compacto conserva dos si reducen volumen
+ok 55 - menos paquetes consolida equipo cerrado y rollos; compacto conserva dos si reducen volumen
+  ---
+  duration_ms: 140.6685
+  type: 'test'
+  ...
+# Subtest: un solo paquete no ignora límites de peso ni aislamiento obligatorio
+ok 56 - un solo paquete no ignora límites de peso ni aislamiento obligatorio
+  ---
+  duration_ms: 41.662
+  type: 'test'
+  ...
+# Subtest: conservador separa frágiles mientras menos paquetes puede compartir el suelo
+ok 57 - conservador separa frágiles mientras menos paquetes puede compartir el suelo
+  ---
+  duration_ms: 1.102
+  type: 'test'
+  ...
+# Subtest: más de doce unidades también prueban consolidación en una caja
+ok 58 - más de doce unidades también prueban consolidación en una caja
+  ---
+  duration_ms: 2.3879
+  type: 'test'
+  ...
+# Subtest: equipo solo dentro de un envío de dos paquetes conserva caja propia en todas las estrategias
+ok 59 - equipo solo dentro de un envío de dos paquetes conserva caja propia en todas las estrategias
+  ---
+  duration_ms: 34.0671
+  type: 'test'
+  ...
+# Subtest: validación elimina caja exterior innecesaria del equipo solo, pero la conserva en paquete mixto
+ok 60 - validación elimina caja exterior innecesaria del equipo solo, pero la conserva en paquete mixto
+  ---
+  duration_ms: 2.1504
+  type: 'test'
+  ...
+1..60
+# tests 60
+# suites 0
+# pass 60
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 5163.576

@@ -3,6 +3,12 @@ import { generatePackingPlan, validatePackingAssignments, assignmentsFromPlan, t
 export const packingStrategyLabels: Record<PackingStrategy, string> = {
   BALANCED: 'Equilibrado', MIN_PACKAGES: 'Menos paquetes', COMPACT: 'Compacto', CONSERVATIVE: 'Conservador',
 };
+export const packingStrategyDescriptions: Record<PackingStrategy, string> = {
+  MIN_PACKAGES: 'Prioriza menos paquetes; después, menor peso facturable. Puede reunir cajas propias cerradas dentro de una caja exterior.',
+  COMPACT: 'Prioriza menor volumen exterior total, aunque requiera más paquetes.',
+  BALANCED: 'Equilibra peso facturable, cantidad de paquetes y volumen. No compara precios de FedEx.',
+  CONSERVATIVE: 'Limita la ocupación al 80 % y separa los productos frágiles; después busca menos paquetes.',
+};
 export const fmtPacking = (value: number) => new Intl.NumberFormat('es-MX', { maximumFractionDigits: 3 }).format(value);
 export function packingInputKey(lines: PackingLine[], rows: PackagingRow[], strategy: PackingStrategy): string {
   return JSON.stringify([lines, rows, strategy]);

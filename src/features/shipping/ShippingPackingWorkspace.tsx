@@ -1,13 +1,16 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Box, Pencil, Plus, Save, Trash2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import type { ShippingPackageType } from '../../lib/types';
-import { normalizePackingLines, type PackingAssignment, type PackingLine, type PackingPlan, type PackingStrategy } from '../../../supabase/functions/_shared/shipping-packing';
+import { packagingDisplayName, assignmentsFromPlan, buildPresentationAlternatives, normalizePackingLines, resolveShippingQuantity, type PackingAssignment, type PackingLine, type PackingPlan, type PackingStrategy } from '../../../supabase/functions/_shared/shipping-packing';
 import { saveShippingProductDimension, type ShippingOrderLine, type ShippingPhysicalRules } from './shippingQuotesService';
 import './shippingPacking.css';
 
-import { packingStrategyLabels, fmtPacking } from './packingPreview';
+import { packingStrategyLabels, packingStrategyDescriptions, fmtPacking } from './packingPreview';
+import { normalizeLogisticsMetadata } from '../../../supabase/functions/_shared/shipping-catalog';
+import { ShippingLogisticsFields } from './ShippingLogisticsFields';
+import { ShippingPackingViewer } from './ShippingPackingViewer';
 
 export function PackingModal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
   return createPortal(<div className="shipping-packing-modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
@@ -56,8 +59,11 @@ export function ShippingProductInputs({ lines, isAdmin, onChange }: { lines: Shi
     <div className="shipping-packing-product-list">
       {visible.slice(safePage*8,safePage*8+8).map(line => {
         const missing = normalizePackingLines([line]).missingLines.length > 0;
+        const conversion = resolveShippingQuantity(line);
         return <div key={line.lineId} className="shipping-packing-product">
-          <div><span>{line.productName}</span><small>{line.sku || 'Sin referencia'} · {line.quantity} unidades</small>
+          <div><span>{line.productName}</span><small>{line.sku || 'Sin referencia'} · {line.quantity} {line.uom || 'unidades comerciales'}</small>
+            {conversion.error ? <small className="form-error" role="alert">{conversion.error}</small> : <small>{line.quantity} {line.uom || 'unidades'} → {conversion.physicalQuantity} {conversion.physicalUnit === 'ROLLO' ? 'rollo(s)' : conversion.physicalUnit === 'CAJA' ? 'caja(s)' : 'pieza(s)'} para envío{conversion.prepacked ? ' · empaque original cerrado' : ''}</small>}
+            {line.logisticsMetadata ? <small>Peso: {line.logisticsMetadata.weight_origin === 'ESTIMATED' ? 'estimado' : line.logisticsMetadata.weight_origin === 'MEASURED' ? 'medido' : 'declarado / sin verificar'} · Medidas: {line.logisticsMetadata.dimensions_origin === 'ESTIMATED' ? 'estimadas' : line.logisticsMetadata.dimensions_origin === 'MEASURED' ? 'medidas' : 'declaradas / sin verificar'}</small> : null}
             <small className={missing ? 'form-error' : ''}>{missing ? 'Datos físicos incompletos' : `${line.lengthCm} × ${line.widthCm} × ${line.heightCm} cm · ${line.weightKg} kg por unidad`}</small></div>
           <button type="button" className="secondary-button" onClick={() => {save.reset();setEditing({...line});setPermanent(false);}}><Pencil size={14} />{missing ? 'Completar' : 'Editar'}</button>
         </div>;
@@ -71,16 +77,22 @@ export function ShippingProductInputs({ lines, isAdmin, onChange }: { lines: Shi
         if(permanent) save.mutate({ id: editing.physicalProductId ?? undefined, sku: editing.sku!, product_name: editing.productName,
           length_cm: editing.lengthCm!,width_cm:editing.widthCm!,height_cm:editing.heightCm!,unit_weight_kg:editing.weightKg,
           can_rotate:editing.canRotate,stackable:editing.canStack,fragile:editing.fragile,requires_individual_package:editing.shipAlone,
-          can_combine:editing.canCombine,packaging_group:editing.packingGroup,protection_margin_cm:editing.protectionMarginCm });
+          can_combine:editing.canCombine,packaging_group:editing.packingGroup,protection_margin_cm:editing.protectionMarginCm,
+          logistics_metadata: editing.logisticsMetadata });
         else {onChange(editing);setEditing(null);}
       }}>
         <p>{editing.productName} · {editing.sku ?? 'Sin referencia'}</p>
+        <div className="shipping-packing-fields"><PackingNumber label="Cantidad comercial de esta cotización" min={0.000001} value={editing.quantity} onChange={v=>setEditing({...editing,quantity:v??0})}/>
+          <label className="field"><span>Unidad comercial de la cantidad</span><select value={editing.uom??''} onChange={e=>setEditing({...editing,uom:e.target.value})}>
+            {editing.uom&&!['Millares','Rollos','Unidades','Cajas'].includes(editing.uom)?<option value={editing.uom}>{editing.uom}</option>:null}<option value="">Seleccionar unidad</option><option>Millares</option><option>Rollos</option><option>Unidades</option><option>Cajas</option></select></label></div>
+        <p className="shipping-product-editor-help">La cantidad y unidad se ajustan solo en esta cotización. Un rollo de 2K5 equivale a 2.5 millares; no a un millar.</p>
         <div className="shipping-packing-fields">
           <PackingNumber label="Largo (cm)" min={0.001} value={editing.lengthCm} onChange={v=>setEditing({...editing,lengthCm:v})} />
           <PackingNumber label="Ancho (cm)" min={0.001} value={editing.widthCm} onChange={v=>setEditing({...editing,widthCm:v})} />
           <PackingNumber label="Alto (cm)" min={0.001} value={editing.heightCm} onChange={v=>setEditing({...editing,heightCm:v})} />
-          <PackingNumber label="Peso físico por unidad (kg)" value={editing.weightKg} onChange={v=>setEditing({...editing,weightKg:v})} />
+          <PackingNumber label={resolveShippingQuantity(editing).physicalUnit === 'CAJA' ? 'Peso bruto por caja cerrada (kg)' : 'Peso físico por rollo o pieza (kg)'} value={editing.weightKg} onChange={v=>setEditing({...editing,weightKg:v})} />
         </div>
+        <ShippingLogisticsFields sku={editing.sku} productName={editing.productName} value={editing.logisticsMetadata ?? normalizeLogisticsMetadata(null, { length_cm: editing.lengthCm, width_cm: editing.widthCm, height_cm: editing.heightCm, unit_weight_kg: editing.weightKg })} onChange={metadata => setEditing({ ...editing, logisticsMetadata: metadata })} />
         <PhysicalRulesFields value={{can_rotate:editing.canRotate,stackable:editing.canStack,fragile:editing.fragile,requires_individual_package:editing.shipAlone,
           can_combine:editing.canCombine,packaging_group:editing.packingGroup,protection_margin_cm:editing.protectionMarginCm}}
           onChange={p=>setEditing({...editing,canRotate:p.can_rotate??editing.canRotate,canStack:p.stackable??editing.canStack,fragile:p.fragile??editing.fragile,
@@ -95,7 +107,8 @@ export function ShippingProductInputs({ lines, isAdmin, onChange }: { lines: Shi
   </section>;
 }
 
-export function ShippingPackingWorkspace({plan,lines,assignments,packageTypes,strategy,onStrategy,onAssignments,onRecalculate}: {
+export function ShippingPackingWorkspace({plan,lines,assignments,packageTypes,strategy,onStrategy,onAssignments,onRecalculate,disabledHeightCuts,onHeightCut}: {
+  disabledHeightCuts:string[]; onHeightCut:(id:string,enabled:boolean)=>void;
   plan:PackingPlan; lines:PackingLine[]; assignments:PackingAssignment[]; packageTypes:ShippingPackageType[]; strategy:PackingStrategy;
   onStrategy:(s:PackingStrategy)=>void; onAssignments:(a:PackingAssignment[])=>void; onRecalculate:()=>void;
 }) {
@@ -104,6 +117,7 @@ export function ShippingPackingWorkspace({plan,lines,assignments,packageTypes,st
   const [page,setPage]=useState(0);
   const units=normalizePackingLines(lines).units;
   const unitMap=new Map(units.map(u=>[u.id,u]));
+  const alternatives = useMemo(() => buildPresentationAlternatives(lines, packageTypes, strategy), [lines, packageTypes, strategy]);
   const active=packageTypes.filter(t=>t.is_active);
   const nextId=()=>`manual-${crypto.randomUUID()}`;
   const safePage=Math.min(page,Math.max(0,Math.ceil(assignments.length/5)-1));
@@ -117,18 +131,35 @@ export function ShippingPackingWorkspace({plan,lines,assignments,packageTypes,st
   }
   function moveSelect(unitId:string,current=''){
     return <select aria-label={`Mover ${unitMap.get(unitId)?.productName ?? 'artículo'}`} value="" onChange={e=>{if(e.target.value==='own')setOwnUnit(unitId);else if(e.target.value)move(unitId,e.target.value);}}>
-      <option value="">Mover a…</option>{assignments.filter(a=>a.id!==current&&a.packagingTypeId).map((a,i)=><option key={a.id} value={a.id}>Caja {i+1} · {packageTypes.find(t=>t.id===a.packagingTypeId)?.name}</option>)}
-      {active.map(t=><option key={t.id} value={`new:${t.id}`}>Nueva caja · {t.name}</option>)}<option value="own">Separar: dimensiones propias</option>
+      <option value="">Mover a…</option>{assignments.filter(a=>a.id!==current&&a.packagingTypeId).map((a,i)=><option key={a.id} value={a.id}>Paquete {i+1} · {packageTypes.find(t=>t.id===a.packagingTypeId) ? packagingDisplayName(packageTypes.find(t=>t.id===a.packagingTypeId)!) : "Dimensiones propias"}</option>)}
+      {active.map(t=><option key={t.id} value={`new:${t.id}`}>Nueva caja · {packagingDisplayName(t)}</option>)}<option value="own">Separar: dimensiones propias</option>
     </select>;
   }
   return <section className="shipping-packing-workspace">
+    {plan.errors.map((error, index) => <p role="alert" className="form-error" key={index}>{error}</p>)}
     <div className="shipping-packing-toolbar"><div><h3>Distribución propuesta del envío</h3><p>Valida el contenido de cada caja antes de cotizar.</p></div><Box size={24}/></div>
+    {alternatives ? <section className="shipping-presentation-options" aria-label="Alternativas de presentación completa y sobrantes">
+      <h4>Cajas completas y rollos sobrantes</h4>
+      <p>Propuestas aproximadas, sin comparación de tarifas. Las cajas del proveedor permanecen cerradas.</p>
+      <div className="shipping-packing-fields">{([
+        ['Una caja exterior', alternatives.outer], ['Presentaciones separadas y sobrantes', alternatives.separate],
+      ] as const).map(([label, candidate]) => <div key={label}>
+        <strong>{label}</strong>
+        {candidate?.status === 'READY_FOR_QUOTE' ? <>
+          <p>{candidate.metrics.packageCount} paquete(s) · {fmtPacking(candidate.metrics.grossWeight)} kg brutos · {fmtPacking(candidate.metrics.volumetricWeight)} kg volumétricos</p>
+          {candidate.packages.map(p => <small key={p.id}>{p.packagingName}: {p.externalDimensions.length} × {p.externalDimensions.width} × {p.externalDimensions.height} cm · {fmtPacking(p.totalWeight)} kg<br /></small>)}
+          <button type="button" className="secondary-button" onClick={() => onAssignments(assignmentsFromPlan(candidate))}>Usar esta distribución</button>
+        </> : <p>No se encontró un acomodo válido con los datos y cajas disponibles.</p>}
+      </div>)}</div>
+    </section> : <p className="shipping-quotes-muted">La comparación se activa cuando la cantidad alcanza una presentación completa configurada. En los datos físicos del producto puedes registrar los rollos por caja, medidas exteriores y peso bruto del proveedor.</p>}
+    <p className="shipping-quotes-muted">{packingStrategyDescriptions[strategy]}</p>
+    <ShippingPackingViewer plan={plan} lines={lines} disabledHeightCuts={disabledHeightCuts} onHeightCut={onHeightCut} />
     <div className="shipping-packing-toolbar">
       <label className="field"><span>Estrategia</span><select value={strategy} onChange={e=>onStrategy(e.target.value as PackingStrategy)}>{Object.entries(packingStrategyLabels).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
       <button type="button" className="secondary-button" onClick={onRecalculate}>Volver a optimizar</button>
     </div>
     <div className="shipping-packing-metrics"><span>{plan.metrics.articleCount} artículos</span><span>{plan.metrics.packageCount} paquetes</span><span>{fmtPacking(plan.metrics.grossWeight)} kg brutos</span><span>{fmtPacking(plan.metrics.averageUtilization)} % ocupación</span><span>{plan.metrics.unpackedCount} pendientes</span></div>
-    <div className="shipping-packing-actions"><select aria-label="Tipo de caja nueva" value={newBox} onChange={e=>setNewBox(e.target.value)}><option value="">Elegir embalaje</option>{active.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select><button type="button" className="secondary-button" disabled={!newBox} onClick={()=>{onAssignments([...assignments,{id:nextId(),packagingTypeId:newBox,unitIds:[]}]);setPage(Math.floor(assignments.length/5));}}><Plus size={16}/>Crear caja</button></div>
+    <div className="shipping-packing-actions"><select aria-label="Tipo de caja nueva" value={newBox} onChange={e=>setNewBox(e.target.value)}><option value="">Elegir embalaje</option>{active.map(t=><option key={t.id} value={t.id}>{packagingDisplayName(t)}</option>)}</select><button type="button" className="secondary-button" disabled={!newBox} onClick={()=>{onAssignments([...assignments,{id:nextId(),packagingTypeId:newBox,unitIds:[]}]);setPage(Math.floor(assignments.length/5));}}><Plus size={16}/>Crear caja</button></div>
     <div className="shipping-packing-box-list" aria-label="Embalajes de la distribución">
     {assignments.slice(safePage*5,safePage*5+5).map((a,index)=>{
       const p=plan.packages.find(p=>p.id===a.id);
@@ -136,8 +167,8 @@ export function ShippingPackingWorkspace({plan,lines,assignments,packageTypes,st
       const invalidPackage=p?.status === 'INVALID_PACKING' || packageErrors.length > 0;
       const displayedUnitIds=p?.items.map(item=>item.unit.id) ?? a.unitIds;
       return <article className={`shipping-packed-box${invalidPackage ? ' is-invalid' : ''}`} key={a.id}>
-        <div className="shipping-packing-toolbar"><h4>Caja {safePage*5+index+1} · {p?.packagingName ?? 'Pendiente'}</h4><button type="button" className="secondary-button" aria-label="Eliminar caja y dejar sus artículos pendientes" onClick={()=>onAssignments(assignments.filter(x=>x.id!==a.id))}><Trash2 size={15}/></button></div>
-        <label className="field"><span>Tipo de embalaje</span><select value={a.packagingTypeId??''} disabled={!a.packagingTypeId} onChange={e=>{const selected={...a,packagingTypeId:e.target.value};onAssignments([selected,...assignments.filter(x=>x.id!==a.id)]);setPage(0);}}><option value="">Dimensiones propias</option>{active.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
+        <div className="shipping-packing-toolbar"><h4>Paquete {safePage*5+index+1} · {p?.packagingName ?? 'Pendiente'}</h4><button type="button" className="secondary-button" disabled={p?.items.some(item => item.unit.prepacked)} aria-label="Eliminar caja y dejar sus artículos pendientes" onClick={()=>onAssignments(assignments.filter(x=>x.id!==a.id))}><Trash2 size={15}/></button></div>
+        <label className="field"><span>Tipo de embalaje</span><select value={a.packagingTypeId??''} disabled={!a.packagingTypeId} onChange={e=>{const selected={...a,packagingTypeId:e.target.value};onAssignments([selected,...assignments.filter(x=>x.id!==a.id)]);setPage(0);}}><option value="">Dimensiones propias</option>{active.map(t=><option key={t.id} value={t.id}>{packagingDisplayName(t)}</option>)}</select></label>
         {invalidPackage ? <div className="shipping-packing-box-error" role="alert">
           <strong>Embalaje no recomendado</strong>
           <span>{packageErrors.join(' ') || 'La distribución actual no es válida para este embalaje. Selecciona otro o ajusta los artículos.'}</span>

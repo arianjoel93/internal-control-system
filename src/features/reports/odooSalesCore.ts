@@ -194,6 +194,7 @@ export type OdooInvoiceLineRecord = {
   marginAmount: number | null;
   analysisMarginAmount?: number | null;
   analysisUntaxedAmount?: number | null;
+  directMarginAvailable?: boolean;
   linePurchaseUnitCost: number | null;
   standardUnitCost: number | null;
   discount: number | null;
@@ -220,9 +221,11 @@ export type OdooInvoiceAnalysisMargin = {
 export type OdooCustomerFirstPurchaseRecord = {
   customerId: number | null;
   customerName: string;
+  companyId?: number | null;
   sellerId: number | null;
   sellerName: string;
   invoiceDate: string | null;
+  firstInvoiceId?: number | null;
 };
 
 export type OdooCustomerContactRecord = {
@@ -244,6 +247,8 @@ export type OdooCustomerContactRecord = {
 export type OdooCrmLeadRecord = {
   id: number;
   name: string;
+  creatorId?: number | null;
+  creatorName?: string | null;
   sourceName?: string | null;
   mediumName?: string | null;
   type: 'lead' | 'opportunity' | string;
@@ -374,6 +379,7 @@ export type ReportDrillLink = {
 
 export type OdooCommercialDataset = {
   executiveSummary?: import('./reportExecutiveModel').PreparedExecutiveSummary;
+  marketingAttributionVersion?: number;
   database: string;
   fetchedAt: string;
   odooBaseUrl: string;
@@ -1697,6 +1703,7 @@ function normalizeInvoiceLineRow({
     unitCost,
     costAmount,
     marginAmount,
+    directMarginAvailable: invoiceLineMarginValue !== null,
     linePurchaseUnitCost,
     standardUnitCost,
     discount: readNullableNumber(row.discount),
@@ -1798,10 +1805,12 @@ function normalizeCustomerFirstPurchases(
     firstPurchaseByCustomer.set(customerKey, {
       customerId,
       customerName,
+      companyId: readManyToOneId(row.company_id),
       sellerId: readManyToOneId(row[invoiceSellerField ?? 'invoice_user_id']),
       sellerName:
         readManyToOneLabel(row[invoiceSellerField ?? 'invoice_user_id']) ?? 'Sin vendedor',
       invoiceDate,
+      firstInvoiceId: readNumber(row.id) || null,
     });
   });
 
@@ -2604,7 +2613,7 @@ async function fetchFirstPurchaseRows({
   odooUrl: string;
   uid: number;
 }) {
-  const fields = uniqueFields(['id', 'invoice_date', 'partner_id', invoiceSellerField]);
+  const fields = uniqueFields(['id', 'invoice_date', 'partner_id', 'company_id', invoiceSellerField]);
 
   try {
     const groupedRows = await executeKw<Array<Record<string, unknown>>>({

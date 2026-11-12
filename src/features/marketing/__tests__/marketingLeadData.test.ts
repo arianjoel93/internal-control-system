@@ -8,6 +8,7 @@ import {
   marketingAssignedLeadsForPeriod,
   marketingCrmDateKey,
   marketingLeadCustomerInvoiceRows,
+  marketingLeadsCreatedBy,
   marketingLeadsForPeriod,
   marketingLostLeadsForPeriod,
   marketingNewLeadsForPeriod,
@@ -16,12 +17,43 @@ import {
   matchMarketingLeadsToInvoices,
   sumMarketingLeadCustomerInvoices,
   sumMarketingInvoiceAmountsForCustomers,
+  summarizeMarketingLeadCreators,
 } from '../marketingLeadData.ts';
 
 const filters = {
   startDate: '2026-09-01',
   endDate: '2026-09-29',
 } as ReportFilters;
+
+test('creadores: cuenta cada lead una vez por fecha de creación y usuario de Odoo', () => {
+  const leads = [
+    { id: 1, creatorId: 10, creatorName: 'Ana', sellerId: 99, createDate: '2026-09-02', stageName: 'Nuevo', active: true, probability: 0 },
+    { id: 2, creatorId: 10, creatorName: 'Ana', sellerId: 98, createDate: '2026-09-03', stageName: 'Cotizado', active: true, probability: 30 },
+    { id: 3, creatorId: 20, creatorName: 'Luis', sellerId: 99, createDate: '2026-09-04', stageName: 'Ganado', active: true, stageIsWon: true, probability: 100 },
+    { id: 4, creatorId: 20, creatorName: 'Luis', sellerId: 98, createDate: '2026-08-28', stageName: 'Nuevo', active: true, probability: 0 },
+    { id: 5, creatorId: null, creatorName: null, sellerId: 99, createDate: '2026-09-05', stageName: 'Nuevo', active: true, probability: 0 },
+  ] as OdooCommercialDataset['crmLeads'];
+  const summary = summarizeMarketingLeadCreators(leads, filters);
+  assert.equal(summary.created, 4);
+  assert.equal(summary.progressed, 2);
+  assert.deepEqual(summary.rows.map((row) => [row.creatorName, row.created, row.progressed]), [
+    ['Ana', 2, 1], ['Luis', 1, 1], ['Sin usuario de creación', 1, 0],
+  ]);
+  assert.deepEqual(marketingLeadsCreatedBy(leads, 10).map((lead) => lead.id), [1, 2]);
+  assert.deepEqual(marketingLeadsCreatedBy(leads, 20).map((lead) => lead.id), [3, 4]);
+});
+
+test('creadores: una edición no se interpreta como avance si sigue en Nuevo', () => {
+  const leads = [
+    { id: 1, creatorId: 10, createDate: '2026-09-02', writeDate: '2026-09-20', stageName: 'Nuevo', active: true, probability: 0 },
+    { id: 2, creatorId: 10, createDate: '2026-09-03', stageName: null, active: true, probability: 0 },
+    { id: 3, creatorId: 10, createDate: '2026-09-04', stageName: 'Perdido', active: false, probability: 0 },
+  ] as OdooCommercialDataset['crmLeads'];
+  const summary = summarizeMarketingLeadCreators(leads, filters);
+  assert.equal(summary.created, 3);
+  assert.equal(summary.progressed, 1);
+  assert.equal(summary.rows[0].lost, 1);
+});
 
 test('leads del periodo excluye actividad fuera del rango aplicado', () => {
   const dataset = {

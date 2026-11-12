@@ -113,7 +113,7 @@ export const trackingEventSeeds = [
     description: 'La programación fue enviada.',
     sort_order: 80,
   },
-] satisfies Array<Omit<SupportEventType, 'id' | 'is_active' | 'created_at' | 'updated_at'>>;
+] satisfies Array<Omit<SupportEventType, 'id' | 'is_active' | 'created_at' | 'updated_at' | 'badge_color'>>;
 
 export function sortSupportEvents(events: SupportEvent[]) {
   return [...events].sort((a, b) => b.event_date.localeCompare(a.event_date));
@@ -187,4 +187,57 @@ function mixRgb(start: [number, number, number], end: [number, number, number], 
   const clampedProgress = Math.min(Math.max(progress, 0), 1);
   const mixed = start.map((channel, index) => Math.round(channel + (end[index] - channel) * clampedProgress));
   return `rgb(${mixed[0]}, ${mixed[1]}, ${mixed[2]})`;
+}
+
+export const supportBadgePalette = [
+  { value: 'slate', label: 'Gris azulado', backgroundColor: '#e8eef4' },
+  { value: 'mist', label: 'Niebla', backgroundColor: '#f0f3f7' },
+  { value: 'stone', label: 'Piedra', backgroundColor: '#eee9e4' },
+  { value: 'sand', label: 'Arena', backgroundColor: '#f4e8d4' },
+  { value: 'rose', label: 'Rosa', backgroundColor: '#fbe7ed' },
+  { value: 'red', label: 'Rojo suave', backgroundColor: '#fbcdd2' },
+  { value: 'blush', label: 'Rubor', backgroundColor: '#fce0df' },
+  { value: 'coral', label: 'Coral', backgroundColor: '#ffd8cc' },
+  { value: 'orange', label: 'Naranja suave', backgroundColor: '#ffd8b5' },
+  { value: 'peach', label: 'Durazno', backgroundColor: '#ffe6d3' },
+  { value: 'apricot', label: 'Chabacano', backgroundColor: '#ffebd3' },
+  { value: 'amber', label: 'Ámbar', backgroundColor: '#fff0cf' },
+  { value: 'gold', label: 'Dorado suave', backgroundColor: '#ffe4a3' },
+  { value: 'lemon', label: 'Amarillo limón', backgroundColor: '#fff5ac' },
+  { value: 'vanilla', label: 'Vainilla', backgroundColor: '#fff8d8' },
+  { value: 'lime', label: 'Lima', backgroundColor: '#eaf4c5' },
+  { value: 'sage', label: 'Salvia', backgroundColor: '#dce8d3' },
+  { value: 'green', label: 'Verde suave', backgroundColor: '#e3f4e7' },
+  { value: 'leaf', label: 'Verde hoja', backgroundColor: '#cdebcf' },
+  { value: 'mint', label: 'Menta', backgroundColor: '#d6f7e6' },
+  { value: 'teal', label: 'Turquesa', backgroundColor: '#dff3f0' },
+  { value: 'jade', label: 'Jade', backgroundColor: '#c6eae1' },
+  { value: 'aqua', label: 'Agua marina', backgroundColor: '#d0f3f5' },
+  { value: 'cyan', label: 'Cian suave', backgroundColor: '#d7edf5' },
+  { value: 'sky', label: 'Azul cielo', backgroundColor: '#cde6fc' },
+  { value: 'blue', label: 'Azul suave', backgroundColor: '#e0efff' },
+  { value: 'denim', label: 'Azul mezclilla', backgroundColor: '#d6e1f6' },
+  { value: 'periwinkle', label: 'Azul bígaro', backgroundColor: '#e0e1ff' },
+  { value: 'violet', label: 'Lavanda', backgroundColor: '#eee6fc' },
+  { value: 'lilac', label: 'Lila', backgroundColor: '#e9d9f8' },
+  { value: 'mauve', label: 'Malva', backgroundColor: '#f1def0' },
+  { value: 'orchid', label: 'Orquídea', backgroundColor: '#f6dbf2' },
+] as const;
+
+export function supportBadgeStyle(value: string) {
+  const { backgroundColor } = supportBadgePalette.find((tone) => tone.value === value) ?? supportBadgePalette[0];
+  return { backgroundColor, color: '#243449' };
+}
+
+export function currentSupportBadgeStyle(support: SupportCaseWithEvents, eventTypes: SupportEventType[] = []) {
+  const event = getLatestSupportEvent(support);
+  const configuredType = eventTypes.find((type) =>
+    event?.support_event_type_id
+      ? type.id === event.support_event_type_id
+      : type.support_type === support.support_type && type.name === event?.title,
+  );
+  return supportBadgeStyle(
+    configuredType?.badge_color ?? event?.support_event_types?.badge_color ??
+    (support.status === 'closed' ? 'green' : support.status === 'pending' ? 'amber' : 'slate'),
+  );
 }

@@ -1,0 +1,420 @@
+{"kind":"deck","id":"pr/q8kuzf","name":"Deck"}
+{"kind":"layout","layoutId":"/ppt/slideMasters/slideMaster1.xml","name":"","type":"master","placeholders":[{"name":"title","type":"title","textPreview":"Click to edit Master title style"},{"name":"body","type":"body","textPreview":"Click to edit Master text styles | Second level | Third level | Fourth level | Fifth level"},{"name":"footer","type":"footer"},{"name":"slideNumber","type":"slideNumber","textPreview":"‹#›"}]}
+{"kind":"layout","layoutId":"/ppt/slideLayouts/slideLayout1.xml","name":"Title Slide","placeholders":[{"name":"title","type":"title","textPreview":"Click to edit Master title style"},{"name":"subtitle","type":"subtitle","textPreview":"Click to edit Master subtitle style"}]}
+{"kind":"layout","layoutId":"/ppt/slideLayouts/slideLayout2.xml","name":"Title and Content","placeholders":[{"name":"text placeholder 2","textPreview":"Click to edit Master text styles | Second level | Third level | Fourth level | Fifth level"},{"name":"footer","type":"footer"},{"name":"slideNumber","type":"slideNumber","textPreview":"‹#›"},{"name":"title","type":"title","textPreview":"Click to edit Master title style"}]}
+{"kind":"layout","layoutId":"/ppt/slideLayouts/slideLayout3.xml","name":"Two Content","placeholders":[{"name":"text placeholder 2","textPreview":"Click to edit Master text styles | Second level | Third level | Fourth level | Fifth level"},{"name":"footer","type":"footer"},{"name":"slideNumber","type":"slideNumber","textPreview":"‹#›"},{"name":"text placeholder 2","textPreview":"Click to edit Master text styles | Second level | Third level | Fourth level | Fifth level"},{"name":"title","type":"title","textPreview":"Click to edit Master title style"}]}
+{"kind":"layout","layoutId":"/ppt/slideLayouts/slideLayout4.xml","name":"Three Content","placeholders":[{"name":"text placeholder 2","textPreview":"Click to edit Master text styles | Second level | Third level | Fourth level | Fifth level"},{"name":"footer","type":"footer"},{"name":"slideNumber","type":"slideNumber","textPreview":"‹#›"},{"name":"text placeholder 2","textPreview":"Click to edit Master text styles | Second level | Third level | Fourth level | Fifth level"},{"name":"text placeholder 2","textPreview":"Click to edit Master text styles | Second level | Third level | Fourth level | Fifth level"},{"name":"title","type":"title","textPreview":"Click to edit Master title style"}]}
+{"kind":"layout","layoutId":"/ppt/slideLayouts/slideLayout5.xml","name":"Four Content","placeholders":[{"name":"text placeholder 2","textPreview":"Click to edit Master"},{"name":"footer","type":"footer"},{"name":"slideNumber","type":"slideNumber","textPreview":"‹#›"},{"name":"title","type":"title","textPreview":"Click to edit Master title style"},{"name":"body","type":"body","textPreview":"Click to edit Master"},{"name":"text placeholder 2","textPreview":"Click to edit Master"},{"name":"body","type":"body","textPreview":"Click to edit Master"}]}
+{"kind":"layout","layoutId":"/ppt/slideLayouts/slideLayout6.xml","name":"Title Only","placeholders":[{"name":"footer","type":"footer"},{"name":"slideNumber","type":"slideNumber","textPreview":"‹#›"},{"name":"title","type":"title","textPreview":"Click to edit Master title style"}]}
+{"kind":"layout","layoutId":"/ppt/slideLayouts/slideLayout7.xml","name":"Footer Only","placeholders":[{"name":"footer","type":"footer"},{"name":"slideNumber","type":"slideNumber","textPreview":"‹#›"}]}
+{"kind":"layout","layoutId":"/ppt/slideLayouts/slideLayout8.xml","name":"Blank"}
+{"kind":"layout","layoutId":"/ppt/slideLayouts/slideLayout9.xml","name":"36 Field Grid"}
+{"kind":"layout","layoutId":"/ppt/slideLayouts/slideLayout10.xml","name":"48 Field Grid"}
+{"kind":"slide","id":"sl/y90nupkv","slide":1,"title":"Cotizador de","textShapes":2}
+{"kind":"textbox","id":"sh/7qp4be9c","slide":1,"name":"Title 3","placeholder":"title","text":"Cotizador de\nEnvíos","textPreview":"Cotizador de | Envíos","textChars":19,"textLines":2,"bbox":[65.76,47.21,706.61,252.12]}
+{"kind":"textbox","id":"sh/65g3298r","slide":1,"name":"Subtitle 4","placeholder":"subtitle","text":"Embalaje, resumen y distribución propuesta\nGuía técnica y operativa · Septiembre 2026","textPreview":"Embalaje, resumen y distribución propuesta | Guía técnica y operativa · Septiembre 2026","textChars":85,"textLines":2,"bbox":[67.47,374.27,394.58,64.53]}
+{"kind":"image","id":"im/cj21o7ed","slide":1,"name":"Picture 2","bbox":[0,500.09,1279.85,219.91]}
+{"kind":"notes","id":"nt/y90nupkv","slide":1,"text":"Presentación elaborada a partir de la implementación actual. Fuente principal: src/features/shipping/ShippingQuotesDashboard.tsx, src/features/shipping/ShippingPackingWorkspace.tsx, src/features/shipping/packingPreview.ts, src/features/shipping/shippingQuoteMath.ts y supabase/functions/_shared/shipping-packing.ts."}
+{"kind":"slide","id":"sl/32cdgz","slide":2,"title":"01 · PROPÓSITO","textShapes":23}
+{"kind":"textbox","id":"sh/v2987mdk","slide":2,"text":"01 · PROPÓSITO","textPreview":"01 · PROPÓSITO","textChars":14,"textLines":1,"bbox":[56,32,420,22]}
+{"kind":"textbox","id":"sh/w32pgre5","slide":2,"text":"Del pedido de Odoo a una cotización auditable","textPreview":"Del pedido de Odoo a una cotización auditable","textChars":45,"textLines":1,"bbox":[56,58,920,50]}
+{"kind":"textbox","id":"sh/x4bq9wvq","slide":2,"text":"El módulo convierte una orden en un conjunto realista de bultos para consultar a FedEx.","textPreview":"El módulo convierte una orden en un conjunto realista de bultos para consultar a FedEx.","textChars":87,"textLines":1,"bbox":[58,111,980,32]}
+{"kind":"shape","id":"sh/md07ahw3","slide":2,"bbox":[56,151,1166,0]}
+{"kind":"shape","id":"sh/ne983mdo","slide":2,"bbox":[56,205,238,142]}
+{"kind":"textbox","id":"sh/8fipcre9","slide":2,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[74,218,48,28]}
+{"kind":"textbox","id":"sh/90rq5wve","slide":2,"text":"Orden Odoo","textPreview":"Orden Odoo","textChars":10,"textLines":1,"bbox":[74,251,202,27]}
+{"kind":"textbox","id":"sh/69krmlw7","slide":2,"text":"Cliente, líneas, cantidades y destino.","textPreview":"Cliente, líneas, cantidades y destino.","textChars":38,"textLines":1,"bbox":[74,288,202,43]}
+{"kind":"shape","id":"sh/7at8f6ds","slide":2,"bbox":[302,266,34,24]}
+{"kind":"shape","id":"sh/7ylsn2x4","slide":2,"bbox":[348,205,238,142]}
+{"kind":"textbox","id":"sh/mdsruhgj","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[366,218,48,28]}
+{"kind":"textbox","id":"sh/903apcfa","slide":2,"text":"Datos físicos","textPreview":"Datos físicos","textChars":13,"textLines":1,"bbox":[366,251,202,27]}
+{"kind":"textbox","id":"sh/8zu9w7yp","slide":2,"text":"SKU, peso y dimensiones por producto.","textPreview":"SKU, peso y dimensiones por producto.","textChars":37,"textLines":1,"bbox":[366,288,202,43]}
+{"kind":"shape","id":"sh/v2lsrmx0","slide":2,"bbox":[594,266,34,24]}
+{"kind":"shape","id":"sh/u1cryhgv","slide":2,"bbox":[640,205,238,142]}
+{"kind":"textbox","id":"sh/h43atwf6","slide":2,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[658,218,48,28]}
+{"kind":"textbox","id":"sh/w3u90ryl","slide":2,"text":"Distribución","textPreview":"Distribución","textChars":12,"textLines":1,"bbox":[658,251,202,27]}
+{"kind":"textbox","id":"sh/j65svmxc","slide":2,"text":"El motor propone cajas y asignaciones.","textPreview":"El motor propone cajas y asignaciones.","textChars":38,"textLines":1,"bbox":[658,288,202,43]}
+{"kind":"shape","id":"sh/i5cr21gr","slide":2,"bbox":[886,266,34,24]}
+{"kind":"shape","id":"sh/e1gvul0z","slide":2,"bbox":[932,205,238,142]}
+{"kind":"textbox","id":"sh/f2pc3qhk","slide":2,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[950,218,48,28]}
+{"kind":"textbox","id":"sh/03ydwvi5","slide":2,"text":"FedEx","textPreview":"FedEx","textChars":5,"textLines":1,"bbox":[950,251,202,27]}
+{"kind":"textbox","id":"sh/1o7u50zq","slide":2,"text":"Se envía un paquete por bulto a Rates API.","textPreview":"Se envía un paquete por bulto a Rates API.","textChars":42,"textLines":1,"bbox":[950,288,202,43]}
+{"kind":"shape","id":"sh/qxgbql03","slide":2,"bbox":[56,398,360,150]}
+{"kind":"shape","id":"sh/rypczqh8","slide":2,"bbox":[56,398,6,150]}
+{"kind":"textbox","id":"sh/szydsvit","slide":2,"text":"Solo lectura en Odoo","textPreview":"Solo lectura en Odoo","textChars":20,"textLines":1,"bbox":[76,412,324,28]}
+{"kind":"textbox","id":"sh/d07u10ze","slide":2,"text":"La integración consulta órdenes, contactos y productos; no modifica datos en Odoo.","textPreview":"La integración consulta órdenes, contactos y productos; no modifica datos en Odoo.","textChars":82,"textLines":1,"bbox":[76,447,324,92]}
+{"kind":"shape","id":"sh/at0v2507","slide":2,"bbox":[438,398,360,150]}
+{"kind":"shape","id":"sh/bu9cbahs","slide":2,"bbox":[438,398,6,150]}
+{"kind":"textbox","id":"sh/lovy1oju","slide":2,"text":"Sin dimensiones inventadas","textPreview":"Sin dimensiones inventadas","textChars":26,"textLines":1,"bbox":[458,412,324,28]}
+{"kind":"textbox","id":"sh/kn2xsj29","slide":2,"text":"Si falta peso o medida, el usuario completa el dato en Paquetes y resumen antes de cotizar.","textPreview":"Si falta peso o medida, el usuario completa el dato en Paquetes y resumen antes de cotizar.","textChars":91,"textLines":1,"bbox":[458,447,324,92]}
+{"kind":"shape","id":"sh/zmtgze1o","slide":2,"bbox":[820,398,360,150]}
+{"kind":"shape","id":"sh/ylkfq9k3","slide":2,"bbox":[820,398,6,150]}
+{"kind":"textbox","id":"sh/xkbex4jy","slide":2,"text":"Menos paquetes por defecto","textPreview":"Menos paquetes por defecto","textChars":26,"textLines":1,"bbox":[840,412,324,28]}
+{"kind":"textbox","id":"sh/cj2xoz2d","slide":2,"text":"La estrategia inicial es MIN_PACKAGES: buscar la menor cantidad de bultos válidos.","textPreview":"La estrategia inicial es MIN_PACKAGES: buscar la menor cantidad de bultos válidos.","textChars":82,"textLines":1,"bbox":[840,447,324,92]}
+{"kind":"shape","id":"sh/bitwvu1s","slide":2,"bbox":[56,681,1166,0]}
+{"kind":"textbox","id":"sh/axkfmpk7","slide":2,"text":"Cotizador de Envíos · Tectronic","textPreview":"Cotizador de Envíos · Tectronic","textChars":31,"textLines":1,"bbox":[56,690,420,18]}
+{"kind":"textbox","id":"sh/hgfy98j2","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[1170,688,52,22]}
+{"kind":"notes","id":"nt/32cdgz","slide":2,"text":"Fuentes: src/features/shipping/ShippingQuotesDashboard.tsx; src/features/shipping/shippingQuotesService.ts; supabase/functions/shipping-quote/index.ts. La presentación resume el flujo visible y la separación de responsabilidades."}
+{"kind":"slide","id":"sl/mjkbei","slide":3,"title":"02 · ARQUITECTURA","textShapes":16}
+{"kind":"textbox","id":"sh/yx07ex83","slide":3,"text":"02 · ARQUITECTURA","textPreview":"02 · ARQUITECTURA","textChars":17,"textLines":1,"bbox":[56,32,420,22]}
+{"kind":"textbox","id":"sh/l0bqpc7u","slide":3,"text":"Cinco piezas que trabajan como un solo flujo","textPreview":"Cinco piezas que trabajan como un solo flujo","textChars":44,"textLines":1,"bbox":[56,58,920,50]}
+{"kind":"textbox","id":"sh/kz29g7q9","slide":3,"text":"La interfaz orquesta servicios especializados; cada etapa deja datos verificables para la siguiente.","textPreview":"La interfaz orquesta servicios especializados; cada etapa deja datos verificables para la siguiente.","textChars":100,"textLines":1,"bbox":[58,111,980,32]}
+{"kind":"shape","id":"sh/bu98jips","slide":3,"bbox":[56,151,1166,0]}
+{"kind":"shape","id":"sh/a907ad87","slide":3,"bbox":[56,196,350,145]}
+{"kind":"shape","id":"sh/xwrqls7i","slide":3,"bbox":[56,196,6,145]}
+{"kind":"textbox","id":"sh/cvipcnqx","slide":3,"text":"OdooService","textPreview":"OdooService","textChars":11,"textLines":1,"bbox":[76,210,314,28]}
+{"kind":"textbox","id":"sh/vqt8vmpw","slide":3,"text":"Orden, contacto, dirección de entrega, SKU y líneas.\n\nsrc/features/shipping/shippingQuotesService.ts","textPreview":"Orden, contacto, dirección de entrega, SKU y líneas. |  | src/features/shipping/shippingQuotesService.ts","textChars":100,"textLines":3,"bbox":[76,245,314,87]}
+{"kind":"shape","id":"sh/u5krmh8b","slide":3,"bbox":[444,196,350,145]}
+{"kind":"shape","id":"sh/ozq1gfe1","slide":3,"bbox":[444,196,6,145]}
+{"kind":"textbox","id":"sh/90z29kfm","slide":3,"text":"Producto físico","textPreview":"Producto físico","textChars":15,"textLines":1,"bbox":[464,210,314,28]}
+{"kind":"textbox","id":"sh/mxoje5wv","slide":3,"text":"Dimensiones, peso, rotación y reglas guardadas en Supabase.\n\nshipping_product_dimensions","textPreview":"Dimensiones, peso, rotación y reglas guardadas en Supabase. |  | shipping_product_dimensions","textChars":88,"textLines":3,"bbox":[464,245,314,87]}
+{"kind":"shape","id":"sh/nyh07axg","slide":3,"bbox":[832,196,350,145]}
+{"kind":"shape","id":"sh/0b61cfep","slide":3,"bbox":[832,196,6,145]}
+{"kind":"textbox","id":"sh/1cfi5kfa","slide":3,"text":"Packing engine","textPreview":"Packing engine","textChars":14,"textLines":1,"bbox":[852,210,314,28]}
+{"kind":"textbox","id":"sh/e9oja5wz","slide":3,"text":"Normaliza unidades, prueba rotaciones y arma bultos.\n\nsupabase/functions/_shared/shipping-packing.ts","textPreview":"Normaliza unidades, prueba rotaciones y arma bultos. |  | supabase/functions/_shared/shipping-packing.ts","textChars":100,"textLines":3,"bbox":[852,245,314,87]}
+{"kind":"shape","id":"sh/zax03ax4","slide":3,"bbox":[56,384,350,145]}
+{"kind":"shape","id":"sh/c7618vet","slide":3,"bbox":[56,384,6,145]}
+{"kind":"textbox","id":"sh/d8fi10fe","slide":3,"text":"FedExService","textPreview":"FedExService","textChars":12,"textLines":1,"bbox":[76,398,314,28]}
+{"kind":"textbox","id":"sh/tsnqps3q","slide":3,"text":"Convierte cada paquete a requestedPackageLineItems.\n\nsupabase/functions/shipping-quote/index.ts","textPreview":"Convierte cada paquete a requestedPackageLineItems. |  | supabase/functions/shipping-quote/index.ts","textChars":95,"textLines":3,"bbox":[76,433,314,87]}
+{"kind":"shape","id":"sh/8repgn25","slide":3,"bbox":[444,384,350,145]}
+{"kind":"shape","id":"sh/7q58nil0","slide":3,"bbox":[444,384,6,145]}
+{"kind":"textbox","id":"sh/6pc7exkf","slide":3,"text":"Historial y auditoría","textPreview":"Historial y auditoría","textChars":21,"textLines":1,"bbox":[464,398,314,28]}
+{"kind":"textbox","id":"sh/lo3qls3u","slide":3,"text":"Guarda cotización, bultos, tarifas y configuración.\n\nshipping_quotes · shipping_quote_packages","textPreview":"Guarda cotización, bultos, tarifas y configuración. |  | shipping_quotes · shipping_quote_packages","textChars":94,"textLines":3,"bbox":[464,433,314,87]}
+{"kind":"shape","id":"sh/knupcn29","slide":3,"bbox":[237,341,0,27]}
+{"kind":"shape","id":"sh/jml8jilo","slide":3,"bbox":[625,341,0,27]}
+{"kind":"shape","id":"sh/ylc7adk3","slide":3,"bbox":[1013,341,0,27]}
+{"kind":"textbox","id":"sh/pk7qxc3y","slide":3,"text":"Resultado: un request de tarifas basado en paquetes físicos, no en una lista genérica de productos.","textPreview":"Resultado: un request de tarifas basado en paquetes físicos, no en una lista genérica de productos.","textChars":99,"textLines":1,"bbox":[56,575,1110,38]}
+{"kind":"shape","id":"sh/4jy9o72d","slide":3,"bbox":[56,681,1166,0]}
+{"kind":"textbox","id":"sh/mp8ni90v","slide":3,"text":"Cotizador de Envíos · Tectronic","textPreview":"Cotizador de Envíos · Tectronic","textChars":31,"textLines":1,"bbox":[56,690,420,18]}
+{"kind":"textbox","id":"sh/nqh4be1g","slide":3,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[1170,688,52,22]}
+{"kind":"notes","id":"nt/mjkbei","slide":3,"text":"Fuentes: src/features/shipping/ShippingQuotesDashboard.tsx; src/features/shipping/ShippingPackingWorkspace.tsx; src/features/shipping/packingPreview.ts; src/features/shipping/shippingQuoteMath.ts; supabase/functions/_shared/shipping-packing.ts; supabase/functions/shipping-quote/index.ts."}
+{"kind":"slide","id":"sl/5vwie8","slide":4,"title":"03 · DATOS","textShapes":7}
+{"kind":"textbox","id":"sh/szelwja1","slide":4,"text":"03 · DATOS","textPreview":"03 · DATOS","textChars":10,"textLines":1,"bbox":[56,32,420,22]}
+{"kind":"textbox","id":"sh/7y5knetg","slide":4,"text":"Qué se toma de cada fuente","textPreview":"Qué se toma de cada fuente","textChars":26,"textLines":1,"bbox":[56,58,920,50]}
+{"kind":"textbox","id":"sh/6xw3utsv","slide":4,"text":"La coincidencia principal entre Odoo y la base física es el código interno o SKU.","textPreview":"La coincidencia principal entre Odoo y la base física es el código interno o SKU.","textChars":81,"textLines":1,"bbox":[58,111,980,32]}
+{"kind":"shape","id":"sh/5wn2loba","slide":4,"bbox":[56,151,1166,0]}
+{"kind":"shape","id":"sh/julkjetk","slide":4,"bbox":[56,588,170,30]}
+{"kind":"textbox","id":"sh/itcjq9cz","slide":4,"text":"Fallback controlado","textPreview":"Fallback controlado","textChars":19,"textLines":1,"bbox":[66,590,150,26]}
+{"kind":"textbox","id":"sh/ps72x8bu","slide":4,"text":"Si el SKU no coincide o faltan datos físicos, el producto no se inventa: queda visible para completar manualmente.","textPreview":"Si el SKU no coincide o faltan datos físicos, el producto no se inventa: queda visible para completar manualmente.","textChars":114,"textLines":1,"bbox":[242,588,930,30]}
+{"kind":"shape","id":"sh/4ryl43a9","slide":4,"bbox":[56,681,1166,0]}
+{"kind":"textbox","id":"sh/6xor6h4v","slide":4,"text":"Cotizador de Envíos · Tectronic","textPreview":"Cotizador de Envíos · Tectronic","textChars":31,"textLines":1,"bbox":[56,690,420,18]}
+{"kind":"textbox","id":"sh/7yxsfmlg","slide":4,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[1170,688,52,22]}
+{"kind":"table","id":"tb/lor21k3u","slide":4,"name":"","rows":6,"cols":3,"preview":"Dato | Fuente | Uso en el cotizador","bbox":[56,190,1168,364]}
+{"kind":"notes","id":"nt/5vwie8","slide":4,"text":"Fuentes: src/features/shipping/ShippingQuotesDashboard.tsx, src/features/shipping/ShippingPackingWorkspace.tsx, supabase/functions/_shared/shipping-packing.ts. Los nombres de tablas se basan en el esquema actual del cotizador."}
+{"kind":"slide","id":"sl/tdiens","slide":5,"title":"04 · EMBALAJE Y RESUMEN","textShapes":29}
+{"kind":"textbox","id":"sh/10b618zu","slide":5,"text":"04 · EMBALAJE Y RESUMEN","textPreview":"04 · EMBALAJE Y RESUMEN","textChars":23,"textLines":1,"bbox":[56,32,420,22]}
+{"kind":"textbox","id":"sh/ed076t0j","slide":5,"text":"La vista que traduce datos físicos en una decisión","textPreview":"La vista que traduce datos físicos en una decisión","textChars":50,"textLines":1,"bbox":[56,58,920,50]}
+{"kind":"textbox","id":"sh/fy9ozyh4","slide":5,"text":"Antes de consultar FedEx, el usuario puede comprobar qué se va a enviar y por qué.","textPreview":"Antes de consultar FedEx, el usuario puede comprobar qué se va a enviar y por qué.","textChars":82,"textLines":1,"bbox":[58,111,980,32]}
+{"kind":"shape","id":"sh/o32pc3yl","slide":5,"bbox":[56,151,1166,0]}
+{"kind":"shape","id":"sh/p4b658z6","slide":5,"bbox":[56,187,435,370]}
+{"kind":"textbox","id":"sh/21k7adgf","slide":5,"text":"RESUMEN DEL ENVÍO","textPreview":"RESUMEN DEL ENVÍO","textChars":17,"textLines":1,"bbox":[80,208,300,22]}
+{"kind":"textbox","id":"sh/n2to3ih0","slide":5,"text":"Artículos","textPreview":"Artículos","textChars":9,"textLines":1,"bbox":[80,247,190,25]}
+{"kind":"textbox","id":"sh/c7mpgnyh","slide":5,"text":"12","textPreview":"12","textChars":2,"textLines":1,"bbox":[286,247,160,25]}
+{"kind":"shape","id":"sh/x8v69sz2","slide":5,"bbox":[80,278,366,0]}
+{"kind":"textbox","id":"sh/tk7mhorq","slide":5,"text":"Paquetes","textPreview":"Paquetes","textChars":8,"textLines":1,"bbox":[80,293,190,25]}
+{"kind":"textbox","id":"sh/sze5o3ql","slide":5,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[286,293,160,25]}
+{"kind":"shape","id":"sh/ry54fy90","slide":5,"bbox":[80,324,366,0]}
+{"kind":"textbox","id":"sh/6xw3mtsf","slide":5,"text":"Peso bruto","textPreview":"Peso bruto","textChars":10,"textLines":1,"bbox":[80,339,190,25]}
+{"kind":"textbox","id":"sh/1o7ml8r2","slide":5,"text":"28.400 kg","textPreview":"28.400 kg","textChars":9,"textLines":1,"bbox":[286,339,160,25]}
+{"kind":"shape","id":"sh/gny5s3qh","slide":5,"bbox":[80,370,366,0]}
+{"kind":"textbox","id":"sh/fmp4jy9w","slide":5,"text":"Peso volumétrico","textPreview":"Peso volumétrico","textChars":16,"textLines":1,"bbox":[80,385,190,25]}
+{"kind":"textbox","id":"sh/elgnqt8b","slide":5,"text":"31.250 kg","textPreview":"31.250 kg","textChars":9,"textLines":1,"bbox":[286,385,160,25]}
+{"kind":"shape","id":"sh/hs3m94ry","slide":5,"bbox":[80,416,366,0]}
+{"kind":"textbox","id":"sh/wrulgjad","slide":5,"text":"Peso facturable","textPreview":"Peso facturable","textChars":15,"textLines":1,"bbox":[80,431,190,25]}
+{"kind":"textbox","id":"sh/8by5wji9","slide":5,"text":"31.250 kg","textPreview":"31.250 kg","textChars":9,"textLines":1,"bbox":[286,431,160,25]}
+{"kind":"shape","id":"sh/9c7mpoze","slide":5,"bbox":[80,462,366,0]}
+{"kind":"textbox","id":"sh/m9gnu903","slide":5,"text":"Utilización","textPreview":"Utilización","textChars":11,"textLines":1,"bbox":[80,477,190,25]}
+{"kind":"textbox","id":"sh/nap4neho","slide":5,"text":"86%","textPreview":"86%","textChars":3,"textLines":1,"bbox":[286,477,160,25]}
+{"kind":"shape","id":"sh/wfi50ji5","slide":5,"bbox":[80,508,366,0]}
+{"kind":"shape","id":"sh/x0rmtozq","slide":5,"bbox":[538,187,686,370]}
+{"kind":"textbox","id":"sh/adgnyt0z","slide":5,"text":"Tres bultos listos para cotizar","textPreview":"Tres bultos listos para cotizar","textChars":31,"textLines":1,"bbox":[568,208,580,28]}
+{"kind":"shape","id":"sh/ve94rehk","slide":5,"bbox":[570,279,170,170]}
+{"kind":"textbox","id":"sh/k3i543i1","slide":5,"text":"Bulto 1","textPreview":"Bulto 1","textChars":7,"textLines":1,"bbox":[582,294,145,24]}
+{"kind":"shape","id":"sh/54rmx8zm","slide":5,"bbox":[608,331,95,60]}
+{"kind":"textbox","id":"sh/fyd8n214","slide":5,"text":"40 × 30 × 25 cm","textPreview":"40 × 30 × 25 cm","textChars":15,"textLines":1,"bbox":[579,406,152,21]}
+{"kind":"textbox","id":"sh/ux47uxkj","slide":5,"text":"8.4 kg","textPreview":"8.4 kg","textChars":6,"textLines":1,"bbox":[579,431,152,21]}
+{"kind":"shape","id":"sh/h0vqpcju","slide":5,"bbox":[775,279,170,170]}
+{"kind":"textbox","id":"sh/gzmpw729","slide":5,"text":"Bulto 2","textPreview":"Bulto 2","textChars":7,"textLines":1,"bbox":[787,294,145,24]}
+{"kind":"shape","id":"sh/7utoji1s","slide":5,"bbox":[813,331,95,60]}
+{"kind":"textbox","id":"sh/69k7qdk7","slide":5,"text":"50 × 40 × 30 cm","textPreview":"50 × 40 × 30 cm","textChars":15,"textLines":1,"bbox":[784,406,152,21]}
+{"kind":"textbox","id":"sh/twbqlsjy","slide":5,"text":"12.6 kg","textPreview":"12.6 kg","textChars":7,"textLines":1,"bbox":[784,431,152,21]}
+{"kind":"shape","id":"sh/sv2psn2d","slide":5,"bbox":[980,279,170,170]}
+{"kind":"textbox","id":"sh/bqx8vm1c","slide":5,"text":"Bulto 3","textPreview":"Bulto 3","textChars":7,"textLines":1,"bbox":[992,294,145,24]}
+{"kind":"shape","id":"sh/qpo72h0r","slide":5,"bbox":[1018,331,95,60]}
+{"kind":"textbox","id":"sh/yd4bqlgv","slide":5,"text":"35 × 25 × 20 cm","textPreview":"35 × 25 × 20 cm","textChars":15,"textLines":1,"bbox":[989,406,152,21]}
+{"kind":"textbox","id":"sh/zedsz6xg","slide":5,"text":"10.7 kg","textPreview":"10.7 kg","textChars":7,"textLines":1,"bbox":[989,431,152,21]}
+{"kind":"textbox","id":"sh/kfmtsby1","slide":5,"text":"El resumen conserva peso real, peso volumétrico, peso facturable, tara, cantidad de bultos y utilización para que la decisión sea auditable.","textPreview":"El resumen conserva peso real, peso volumétrico, peso facturable, tara, cantidad de bultos y utilización para que la decisión sea auditable.","textChars":140,"textLines":1,"bbox":[568,482,610,48]}
+{"kind":"shape","id":"sh/lgvu1gfm","slide":5,"bbox":[56,681,1166,0]}
+{"kind":"textbox","id":"sh/a9kbm1gz","slide":5,"text":"Cotizador de Envíos · Tectronic","textPreview":"Cotizador de Envíos · Tectronic","textChars":31,"textLines":1,"bbox":[56,690,420,18]}
+{"kind":"textbox","id":"sh/batsv6x4","slide":5,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[1170,688,52,22]}
+{"kind":"notes","id":"nt/tdiens","slide":5,"text":"Fuentes: src/features/shipping/ShippingPackingWorkspace.tsx; src/features/shipping/shippingQuoteMath.ts. La ilustración muestra datos de ejemplo para explicar la UI; no representa una orden real."}
+{"kind":"slide","id":"sl/i967t5","slide":6,"title":"05 · DISTRIBUCIÓN PROPUESTA","textShapes":24}
+{"kind":"textbox","id":"sh/g7uxozyt","slide":6,"text":"05 · DISTRIBUCIÓN PROPUESTA","textPreview":"05 · DISTRIBUCIÓN PROPUESTA","textChars":27,"textLines":1,"bbox":[56,32,420,22]}
+{"kind":"textbox","id":"sh/f6lgfex8","slide":6,"text":"El usuario revisa y ajusta el plan antes de enviarlo","textPreview":"El usuario revisa y ajusta el plan antes de enviarlo","textChars":52,"textLines":1,"bbox":[56,58,920,50]}
+{"kind":"textbox","id":"sh/e5cfm9gn","slide":6,"text":"La propuesta no es una caja negra: cada unidad puede moverse, separarse o documentarse.","textPreview":"La propuesta no es una caja negra: cada unidad puede moverse, separarse o documentarse.","textChars":87,"textLines":1,"bbox":[58,111,980,32]}
+{"kind":"shape","id":"sh/tk3ed4f2","slide":6,"bbox":[56,151,1166,0]}
+{"kind":"shape","id":"sh/sjuxkzyx","slide":6,"bbox":[56,184,138,30]}
+{"kind":"textbox","id":"sh/ri1wbuxc","slide":6,"text":"Estrategia inicial","textPreview":"Estrategia inicial","textChars":18,"textLines":1,"bbox":[66,186,118,26]}
+{"kind":"textbox","id":"sh/6hsfipgr","slide":6,"text":"Menos paquetes · MIN_PACKAGES","textPreview":"Menos paquetes · MIN_PACKAGES","textChars":29,"textLines":1,"bbox":[208,184,350,30]}
+{"kind":"textbox","id":"sh/5gje9kf6","slide":6,"text":"Objetivo: agrupar tanto como sea válido, sin superar límites físicos o de peso.","textPreview":"Objetivo: agrupar tanto como sea válido, sin superar límites físicos o de peso.","textChars":79,"textLines":1,"bbox":[560,184,615,30]}
+{"kind":"shape","id":"sh/4faxgfyl","slide":6,"bbox":[56,247,190,100]}
+{"kind":"textbox","id":"sh/mx0bat0b","slide":6,"text":"Líneas","textPreview":"Líneas","textChars":6,"textLines":1,"bbox":[68,264,166,25]}
+{"kind":"textbox","id":"sh/ny9cjyhw","slide":6,"text":"SKU + cantidad","textPreview":"SKU + cantidad","textChars":14,"textLines":1,"bbox":[68,299,166,25]}
+{"kind":"shape","id":"sh/ozitc3ih","slide":6,"bbox":[250,285,30,24]}
+{"kind":"shape","id":"sh/90bul8z2","slide":6,"bbox":[294,247,190,100]}
+{"kind":"textbox","id":"sh/et0b6t0f","slide":6,"text":"Unidades","textPreview":"Unidades","textChars":8,"textLines":1,"bbox":[306,264,166,25]}
+{"kind":"textbox","id":"sh/zu9cfyh0","slide":6,"text":"cada pieza física","textPreview":"cada pieza física","textChars":17,"textLines":1,"bbox":[306,299,166,25]}
+{"kind":"shape","id":"sh/0vit83il","slide":6,"bbox":[488,285,30,24]}
+{"kind":"shape","id":"sh/1wruhozq","slide":6,"bbox":[532,247,190,100]}
+{"kind":"textbox","id":"sh/q5gb2903","slide":6,"text":"Candidatos","textPreview":"Candidatos","textChars":10,"textLines":1,"bbox":[544,264,166,25]}
+{"kind":"textbox","id":"sh/rqpcbeho","slide":6,"text":"cajas disponibles","textPreview":"cajas disponibles","textChars":17,"textLines":1,"bbox":[544,299,166,25]}
+{"kind":"shape","id":"sh/vyl0nqtk","slide":6,"bbox":[726,285,30,24]}
+{"kind":"shape","id":"sh/uxczulcz","slide":6,"bbox":[770,247,190,100]}
+{"kind":"textbox","id":"sh/h03ipgba","slide":6,"text":"Asignaciones","textPreview":"Asignaciones","textChars":12,"textLines":1,"bbox":[782,264,166,25]}
+{"kind":"textbox","id":"sh/gzuhwvup","slide":6,"text":"unidad → bulto","textPreview":"unidad → bulto","textChars":14,"textLines":1,"bbox":[782,299,166,25]}
+{"kind":"shape","id":"sh/3ml0rqtg","slide":6,"bbox":[964,285,30,24]}
+{"kind":"shape","id":"sh/ilczylcv","slide":6,"bbox":[1008,247,190,100]}
+{"kind":"textbox","id":"sh/5onit0bm","slide":6,"text":"Validación","textPreview":"Validación","textChars":10,"textLines":1,"bbox":[1020,264,166,25]}
+{"kind":"textbox","id":"sh/4ne10vu1","slide":6,"text":"listo para FedEx","textPreview":"listo para FedEx","textChars":16,"textLines":1,"bbox":[1020,299,166,25]}
+{"kind":"shape","id":"sh/jq10f6tc","slide":6,"bbox":[56,391,350,145]}
+{"kind":"shape","id":"sh/ypszm1cr","slide":6,"bbox":[56,391,6,145]}
+{"kind":"textbox","id":"sh/ov6xw7ap","slide":6,"text":"Cambiar estrategia","textPreview":"Cambiar estrategia","textChars":18,"textLines":1,"bbox":[76,405,314,28]}
+{"kind":"textbox","id":"sh/pwzepcru","slide":6,"text":"Equilibrado, Menos paquetes, Compacto o Conservador. La selección vuelve a generar el plan.","textPreview":"Equilibrado, Menos paquetes, Compacto o Conservador. La selección vuelve a generar el plan.","textChars":91,"textLines":1,"bbox":[76,440,314,87]}
+{"kind":"shape","id":"sh/29ofuxsj","slide":6,"bbox":[465,391,350,145]}
+{"kind":"shape","id":"sh/naxwn294","slide":6,"bbox":[465,391,6,145]}
+{"kind":"textbox","id":"sh/076xsnad","slide":6,"text":"Mover unidades","textPreview":"Mover unidades","textChars":14,"textLines":1,"bbox":[485,405,314,28]}
+{"kind":"textbox","id":"sh/18felsry","slide":6,"text":"Mover a otra caja, crear una nueva o separar una unidad con dimensiones propias.","textPreview":"Mover a otra caja, crear una nueva o separar una unidad con dimensiones propias.","textChars":80,"textLines":1,"bbox":[485,440,314,87]}
+{"kind":"shape","id":"sh/e5ofqds7","slide":6,"bbox":[874,391,350,145]}
+{"kind":"shape","id":"sh/f6xwji9s","slide":6,"bbox":[874,391,6,145]}
+{"kind":"textbox","id":"sh/k3qx4rah","slide":6,"text":"Explicar la decisión","textPreview":"Explicar la decisión","textChars":20,"textLines":1,"bbox":[894,405,314,28]}
+{"kind":"textbox","id":"sh/l4jyxwr2","slide":6,"text":"La vista permite inspeccionar por qué se eligió cada distribución y qué queda pendiente.","textPreview":"La vista permite inspeccionar por qué se eligió cada distribución y qué queda pendiente.","textChars":88,"textLines":1,"bbox":[894,440,314,87]}
+{"kind":"shape","id":"sh/h8bupo7e","slide":6,"bbox":[56,681,1166,0]}
+{"kind":"textbox","id":"sh/g72twjq9","slide":6,"text":"Cotizador de Envíos · Tectronic","textPreview":"Cotizador de Envíos · Tectronic","textChars":31,"textLines":1,"bbox":[56,690,420,18]}
+{"kind":"textbox","id":"sh/v6tcnepo","slide":6,"text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[1170,688,52,22]}
+{"kind":"notes","id":"nt/i967t5","slide":6,"text":"Fuentes: src/features/shipping/ShippingPackingWorkspace.tsx; src/features/shipping/packingPreview.ts; src/features/shipping/packingEngine.ts. Estrategias y controles corresponden a la implementación actual."}
+{"kind":"slide","id":"sl/51xufz","slide":7,"title":"06 · MOTOR DE EMBALAJE","textShapes":22}
+{"kind":"textbox","id":"sh/lk7qh07e","slide":7,"text":"06 · MOTOR DE EMBALAJE","textPreview":"06 · MOTOR DE EMBALAJE","textChars":22,"textLines":1,"bbox":[56,32,420,22]}
+{"kind":"textbox","id":"sh/yxw76l8n","slide":7,"text":"Cómo decide si una unidad cabe","textPreview":"Cómo decide si una unidad cabe","textChars":30,"textLines":1,"bbox":[56,58,920,50]}
+{"kind":"textbox","id":"sh/zy58fqp8","slide":7,"text":"El motor prueba restricciones físicas y de negocio antes de aceptar una asignación.","textPreview":"El motor prueba restricciones físicas y de negocio antes de aceptar una asignación.","textChars":83,"textLines":1,"bbox":[58,111,980,32]}
+{"kind":"shape","id":"sh/8nypcvq5","slide":7,"bbox":[56,151,1166,0]}
+{"kind":"shape","id":"sh/9o7ql07a","slide":7,"bbox":[74,228,145,145]}
+{"kind":"textbox","id":"sh/mlg7a58z","slide":7,"text":"Normalizar","textPreview":"Normalizar","textChars":10,"textLines":1,"bbox":[86,267,121,27]}
+{"kind":"textbox","id":"sh/nmp8jqpk","slide":7,"text":"cm · kg · cantidad","textPreview":"cm · kg · cantidad","textChars":18,"textLines":1,"bbox":[86,306,121,38]}
+{"kind":"shape","id":"sh/orup0bql","slide":7,"bbox":[224,289,55,24]}
+{"kind":"shape","id":"sh/ps3q9gr6","slide":7,"bbox":[306,228,145,145]}
+{"kind":"textbox","id":"sh/dsrahkvy","slide":7,"text":"Ordenar","textPreview":"Ordenar","textChars":7,"textLines":1,"bbox":[318,267,121,27]}
+{"kind":"textbox","id":"sh/crit8fud","slide":7,"text":"peso · volumen · reglas","textPreview":"peso · volumen · reglas","textChars":23,"textLines":1,"bbox":[318,306,121,38]}
+{"kind":"shape","id":"sh/bqpsfads","slide":7,"bbox":[456,289,55,24]}
+{"kind":"shape","id":"sh/qpgb65c7","slide":7,"bbox":[538,228,145,145]}
+{"kind":"textbox","id":"sh/lgralkvu","slide":7,"text":"Rotar","textPreview":"Rotar","textChars":5,"textLines":1,"bbox":[550,267,121,27]}
+{"kind":"textbox","id":"sh/0fitcfu9","slide":7,"text":"orientaciones válidas","textPreview":"orientaciones válidas","textChars":21,"textLines":1,"bbox":[550,306,121,38]}
+{"kind":"shape","id":"sh/zu9sjado","slide":7,"bbox":[688,289,55,24]}
+{"kind":"shape","id":"sh/yt0bapcj","slide":7,"bbox":[770,228,145,145]}
+{"kind":"textbox","id":"sh/9kbap4v6","slide":7,"text":"Colocar","textPreview":"Colocar","textChars":7,"textLines":1,"bbox":[782,267,121,27]}
+{"kind":"textbox","id":"sh/8j2tgzul","slide":7,"text":"espacio libre + soporte","textPreview":"espacio libre + soporte","textChars":23,"textLines":1,"bbox":[782,306,121,38]}
+{"kind":"shape","id":"sh/snads32h","slide":7,"bbox":[920,289,55,24]}
+{"kind":"shape","id":"sh/tojul8j2","slide":7,"bbox":[1002,228,145,145]}
+{"kind":"textbox","id":"sh/618vqtkr","slide":7,"text":"Validar","textPreview":"Validar","textChars":7,"textLines":1,"bbox":[1014,267,121,27]}
+{"kind":"textbox","id":"sh/7m1cjylc","slide":7,"text":"peso · límites · vacíos","textPreview":"peso · límites · vacíos","textChars":23,"textLines":1,"bbox":[1014,306,121,38]}
+{"kind":"shape","id":"sh/gradwn2t","slide":7,"bbox":[84,443,326,122]}
+{"kind":"shape","id":"sh/hsjepsje","slide":7,"bbox":[84,443,6,122]}
+{"kind":"textbox","id":"sh/upsvudkn","slide":7,"text":"Rotable","textPreview":"Rotable","textChars":7,"textLines":1,"bbox":[104,457,290,28]}
+{"kind":"textbox","id":"sh/fq1cni18","slide":7,"text":"Por defecto puede probar orientaciones; la línea puede bloquear rotación cuando el producto lo requiera.","textPreview":"Por defecto puede probar orientaciones; la línea puede bloquear rotación cuando el producto lo requiera.","textChars":104,"textLines":1,"bbox":[104,492,290,64]}
+{"kind":"shape","id":"sh/wvqdkj2p","slide":7,"bbox":[477,443,326,122]}
+{"kind":"shape","id":"sh/xwzudo3u","slide":7,"bbox":[477,443,6,122]}
+{"kind":"textbox","id":"sh/zq5gjmlc","slide":7,"text":"Peso límite","textPreview":"Peso límite","textChars":11,"textLines":1,"bbox":[497,457,290,28]}
+{"kind":"textbox","id":"sh/epwfqh47","slide":7,"text":"La caja no se acepta si el peso total supera su máximo configurado.","textPreview":"La caja no se acepta si el peso total supera su máximo configurado.","textChars":67,"textLines":1,"bbox":[497,492,290,64]}
+{"kind":"shape","id":"sh/1cnylw3i","slide":7,"bbox":[870,443,326,122]}
+{"kind":"shape","id":"sh/0rexsrmx","slide":7,"bbox":[870,443,6,122]}
+{"kind":"textbox","id":"sh/rm5gfmlg","slide":7,"text":"Pendientes visibles","textPreview":"Pendientes visibles","textChars":19,"textLines":1,"bbox":[890,457,290,28]}
+{"kind":"textbox","id":"sh/qlwfmh4v","slide":7,"text":"Unidades sin asignar o datos incompletos se reportan; no desaparecen silenciosamente.","textPreview":"Unidades sin asignar o datos incompletos se reportan; no desaparecen silenciosamente.","textChars":85,"textLines":1,"bbox":[890,492,290,64]}
+{"kind":"textbox","id":"sh/donyhc3m","slide":7,"text":"La optimización no busca solo volumen: valida simultáneamente dimensiones, peso y reglas de combinación.","textPreview":"La optimización no busca solo volumen: valida simultáneamente dimensiones, peso y reglas de combinación.","textChars":104,"textLines":1,"bbox":[80,604,1110,32]}
+{"kind":"shape","id":"sh/cnexorm1","slide":7,"bbox":[56,681,1166,0]}
+{"kind":"textbox","id":"sh/3ilgb25k","slide":7,"text":"Cotizador de Envíos · Tectronic","textPreview":"Cotizador de Envíos · Tectronic","textChars":31,"textLines":1,"bbox":[56,690,420,18]}
+{"kind":"textbox","id":"sh/2hcfix4z","slide":7,"text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[1170,688,52,22]}
+{"kind":"notes","id":"nt/51xufz","slide":7,"text":"Fuente: supabase/functions/_shared/shipping-packing.ts. Se describen normalizePackaging, normalizePackingLines, generatePackingPlan y validatePackingAssignments."}
+{"kind":"slide","id":"sl/y3h8cb","slide":8,"title":"07 · CÁLCULO","textShapes":19}
+{"kind":"textbox","id":"sh/x836lc36","slide":8,"text":"07 · CÁLCULO","textPreview":"07 · CÁLCULO","textChars":12,"textLines":1,"bbox":[56,32,420,22]}
+{"kind":"textbox","id":"sh/a5cnah4v","slide":8,"text":"Peso volumétrico vs. peso facturable","textPreview":"Peso volumétrico vs. peso facturable","textChars":36,"textLines":1,"bbox":[56,58,920,50]}
+{"kind":"textbox","id":"sh/b6lojmlg","slide":8,"text":"FedEx cotiza el mayor entre el peso real y el peso volumétrico del bulto.","textPreview":"FedEx cotiza el mayor entre el peso real y el peso volumétrico del bulto.","textChars":73,"textLines":1,"bbox":[58,111,980,32]}
+{"kind":"shape","id":"sh/o3u587mp","slide":8,"bbox":[56,151,1166,0]}
+{"kind":"textbox","id":"sh/p436hc3a","slide":8,"text":"Peso volumétrico","textPreview":"Peso volumétrico","textChars":16,"textLines":1,"bbox":[74,189,260,28]}
+{"kind":"textbox","id":"sh/21sn6x4j","slide":8,"text":"Largo × Ancho × Alto ÷ 5000","textPreview":"Largo × Ancho × Alto ÷ 5000","textChars":27,"textLines":1,"bbox":[74,224,390,42]}
+{"kind":"textbox","id":"sh/n2lof2l4","slide":8,"text":"La implementación convierte unidades, redondea el cálculo a tres decimales y aplica la tara según el modo configurado.","textPreview":"La implementación convierte unidades, redondea el cálculo a tres decimales y aplica la tara según el modo configurado.","textChars":118,"textLines":1,"bbox":[74,285,390,82]}
+{"kind":"textbox","id":"sh/0fa54nmt","slide":8,"text":"Ejemplo ilustrativo · kg por bulto","textPreview":"Ejemplo ilustrativo · kg por bulto","textChars":34,"textLines":1,"bbox":[525,188,650,26]}
+{"kind":"textbox","id":"sh/10j6ds3e","slide":8,"text":"Real","textPreview":"Real","textChars":4,"textLines":1,"bbox":[525,252,130,25]}
+{"kind":"shape","id":"sh/5ovi50ny","slide":8,"bbox":[665,254,260.4,25]}
+{"kind":"textbox","id":"sh/knmhwvmd","slide":8,"text":"8.4 kg","textPreview":"8.4 kg","textChars":6,"textLines":1,"bbox":[939.4,252,120,25]}
+{"kind":"textbox","id":"sh/jmd03q5s","slide":8,"text":"Volumétrico","textPreview":"Volumétrico","textChars":11,"textLines":1,"bbox":[525,330,130,25]}
+{"kind":"shape","id":"sh/ilkzulo7","slide":8,"bbox":[665,332,390.6,25]}
+{"kind":"textbox","id":"sh/xkbi1gn2","slide":8,"text":"12.6 kg","textPreview":"12.6 kg","textChars":7,"textLines":1,"bbox":[1069.6,330,120,25]}
+{"kind":"textbox","id":"sh/wj2hsb6h","slide":8,"text":"Facturable","textPreview":"Facturable","textChars":10,"textLines":1,"bbox":[525,408,130,25]}
+{"kind":"shape","id":"sh/bit0z65w","slide":8,"bbox":[665,410,390.6,25]}
+{"kind":"textbox","id":"sh/ahkzq1ob","slide":8,"text":"12.6 kg","textPreview":"12.6 kg","textChars":7,"textLines":1,"bbox":[1069.6,408,120,25]}
+{"kind":"shape","id":"sh/9wbixgnq","slide":8,"bbox":[665,470,390,0]}
+{"kind":"textbox","id":"sh/ov2hob65","slide":8,"text":"Mayor valor = peso que se factura","textPreview":"Mayor valor = peso que se factura","textChars":33,"textLines":1,"bbox":[665,482,390,24]}
+{"kind":"shape","id":"sh/0zmh4be1","slide":8,"bbox":[74,426,395,104]}
+{"kind":"textbox","id":"sh/10fidgvm","slide":8,"text":"Regla","textPreview":"Regla","textChars":5,"textLines":1,"bbox":[95,442,100,22]}
+{"kind":"textbox","id":"sh/ex4z21wv","slide":8,"text":"Peso facturable = max(peso real, peso volumétrico)","textPreview":"Peso facturable = max(peso real, peso volumétrico)","textChars":50,"textLines":1,"bbox":[95,470,344,35]}
+{"kind":"textbox","id":"sh/fyd0b6dg","slide":8,"text":"Ejemplo ilustrativo, no corresponde a una orden real.","textPreview":"Ejemplo ilustrativo, no corresponde a una orden real.","textChars":53,"textLines":1,"bbox":[525,555,650,22]}
+{"kind":"shape","id":"sh/sbmh0re5","slide":8,"bbox":[56,681,1166,0]}
+{"kind":"textbox","id":"sh/dwvi9wvq","slide":8,"text":"Cotizador de Envíos · Tectronic","textPreview":"Cotizador de Envíos · Tectronic","textChars":31,"textLines":1,"bbox":[56,690,420,18]}
+{"kind":"textbox","id":"sh/q94zy1wz","slide":8,"text":"08","textPreview":"08","textChars":2,"textLines":1,"bbox":[1170,688,52,22]}
+{"kind":"notes","id":"nt/y3h8cb","slide":8,"text":"Fuentes: src/features/shipping/shippingQuoteMath.ts; supabase/functions/_shared/shipping-packing.ts. Los valores del gráfico son un ejemplo visual para explicar la fórmula; el sistema calcula los valores reales de cada bulto."}
+{"kind":"slide","id":"sl/r1bhbm","slide":9,"title":"08 · CONTROL DE CALIDAD","textShapes":7}
+{"kind":"textbox","id":"sh/0bahc7qd","slide":9,"text":"08 · CONTROL DE CALIDAD","textPreview":"08 · CONTROL DE CALIDAD","textChars":23,"textLines":1,"bbox":[56,32,420,22]}
+{"kind":"textbox","id":"sh/fa1032ps","slide":9,"text":"No se cotiza hasta que el envío sea coherente","textPreview":"No se cotiza hasta que el envío sea coherente","textChars":45,"textLines":1,"bbox":[56,58,920,50]}
+{"kind":"textbox","id":"sh/e9szax87","slide":9,"text":"Los estados hacen visible si falta información o si una distribución necesita corrección.","textPreview":"Los estados hacen visible si falta información o si una distribución necesita corrección.","textChars":89,"textLines":1,"bbox":[58,111,980,32]}
+{"kind":"shape","id":"sh/pg3i9w7u","slide":9,"bbox":[56,151,1166,0]}
+{"kind":"shape","id":"sh/nel07mp4","slide":9,"bbox":[56,556,160,30]}
+{"kind":"textbox","id":"sh/2dszeh8j","slide":9,"text":"Regla de seguridad","textPreview":"Regla de seguridad","textChars":18,"textLines":1,"bbox":[66,558,140,26]}
+{"kind":"textbox","id":"sh/x43idw76","slide":9,"text":"Los errores se muestran en la interfaz; una unidad pendiente no se oculta ni se convierte en una dimensión inventada.","textPreview":"Los errores se muestran en la interfaz; una unidad pendiente no se oculta ni se convierte en una dimensión inventada.","textChars":117,"textLines":1,"bbox":[230,556,930,31]}
+{"kind":"shape","id":"sh/w3u1krql","slide":9,"bbox":[56,681,1166,0]}
+{"kind":"textbox","id":"sh/ed0za1kb","slide":9,"text":"Cotizador de Envíos · Tectronic","textPreview":"Cotizador de Envíos · Tectronic","textChars":31,"textLines":1,"bbox":[56,690,420,18]}
+{"kind":"textbox","id":"sh/zy9gjm1g","slide":9,"text":"09","textPreview":"09","textChars":2,"textLines":1,"bbox":[1170,688,52,22]}
+{"kind":"table","id":"tb/18bqtcrq","slide":9,"name":"","rows":5,"cols":3,"preview":"Estado | Qué significa | Acción","bbox":[56,201,1168,308]}
+{"kind":"notes","id":"nt/r1bhbm","slide":9,"text":"Fuentes: src/features/shipping/packingPreview.ts; src/features/shipping/shippingQuoteMath.ts; src/features/shipping/ShippingPackingWorkspace.tsx. Estados y validaciones se resumen de la lógica actual."}
+{"kind":"slide","id":"sl/taoff0","slide":10,"title":"09 · FEDEX","textShapes":20}
+{"kind":"textbox","id":"sh/qtsjutcf","slide":10,"text":"09 · FEDEX","textPreview":"09 · FEDEX","textChars":10,"textLines":1,"bbox":[56,32,420,22]}
+{"kind":"textbox","id":"sh/dwj2povq","slide":10,"text":"Un request por cada paquete físico","textPreview":"Un request por cada paquete físico","textChars":34,"textLines":1,"bbox":[56,58,920,50]}
+{"kind":"textbox","id":"sh/sva1wjul","slide":10,"text":"La integración conserva el detalle necesario para que el resultado sea comparable y trazable.","textPreview":"La integración conserva el detalle necesario para que el resultado sea comparable y trazable.","textChars":93,"textLines":1,"bbox":[58,111,980,32]}
+{"kind":"shape","id":"sh/jqhkjedo","slide":10,"bbox":[56,151,1166,0]}
+{"kind":"shape","id":"sh/ip8jq9c3","slide":10,"bbox":[56,198,372,320]}
+{"kind":"textbox","id":"sh/5sj2lovu","slide":10,"text":"REQUEST","textPreview":"REQUEST","textChars":7,"textLines":1,"bbox":[80,220,110,20]}
+{"kind":"shape","id":"sh/4rq1sju9","slide":10,"bbox":[82,266,9,9]}
+{"kind":"textbox","id":"sh/v2hkfeds","slide":10,"text":"Origen y destino","textPreview":"Origen y destino","textChars":16,"textLines":1,"bbox":[102,258,280,33]}
+{"kind":"shape","id":"sh/u18jm9c7","slide":10,"bbox":[82,301,9,9]}
+{"kind":"textbox","id":"sh/sji103y1","slide":10,"text":"Servicio y pickup","textPreview":"Servicio y pickup","textChars":17,"textLines":1,"bbox":[102,293,280,33]}
+{"kind":"shape","id":"sh/dkr298fm","slide":10,"bbox":[82,336,9,9]}
+{"kind":"textbox","id":"sh/qh0jytgv","slide":10,"text":"TotalPackageCount","textPreview":"TotalPackageCount","textChars":17,"textLines":1,"bbox":[102,328,280,33]}
+{"kind":"shape","id":"sh/ri9k7yxg","slide":10,"bbox":[82,371,9,9]}
+{"kind":"textbox","id":"sh/4fi1w3yp","slide":10,"text":"requestedPackageLineItems","textPreview":"requestedPackageLineItems","textChars":25,"textLines":1,"bbox":[102,363,280,33]}
+{"kind":"shape","id":"sh/5gr258fa","slide":10,"bbox":[82,406,9,9]}
+{"kind":"textbox","id":"sh/idgjutgz","slide":10,"text":"Peso redondeado a 3 decimales","textPreview":"Peso redondeado a 3 decimales","textChars":29,"textLines":1,"bbox":[102,398,280,33]}
+{"kind":"shape","id":"sh/3e903yx4","slide":10,"bbox":[82,441,9,9]}
+{"kind":"textbox","id":"sh/ob218ny9","slide":10,"text":"Dimensiones enteras en cm","textPreview":"Dimensiones enteras en cm","textChars":25,"textLines":1,"bbox":[102,433,280,33]}
+{"kind":"shape","id":"sh/pcb2hsfu","slide":10,"bbox":[502,198,340,320]}
+{"kind":"textbox","id":"sh/x8r21s7y","slide":10,"text":"PAQUETES","textPreview":"PAQUETES","textChars":8,"textLines":1,"bbox":[526,220,160,20]}
+{"kind":"shape","id":"sh/w7y1snqd","slide":10,"bbox":[530,262,282,46]}
+{"kind":"textbox","id":"sh/b6pkzips","slide":10,"text":"Bulto 1 · 8.4 kg","textPreview":"Bulto 1 · 8.4 kg","textChars":16,"textLines":1,"bbox":[548,272,246,25]}
+{"kind":"shape","id":"sh/a5gjqd87","slide":10,"bbox":[530,330,282,46]}
+{"kind":"textbox","id":"sh/947ix87m","slide":10,"text":"Bulto 2 · 12.6 kg","textPreview":"Bulto 2 · 12.6 kg","textChars":17,"textLines":1,"bbox":[548,340,246,25]}
+{"kind":"shape","id":"sh/o3y1onq1","slide":10,"bbox":[530,398,282,46]}
+{"kind":"textbox","id":"sh/n2p0vipg","slide":10,"text":"Bulto 3 · 10.7 kg","textPreview":"Bulto 3 · 10.7 kg","textChars":17,"textLines":1,"bbox":[548,408,246,25]}
+{"kind":"shape","id":"sh/m1gjmd8b","slide":10,"bbox":[900,198,324,320]}
+{"kind":"textbox","id":"sh/10nit87q","slide":10,"text":"RESPONSE","textPreview":"RESPONSE","textChars":8,"textLines":1,"bbox":[924,220,160,20]}
+{"kind":"textbox","id":"sh/0ze1k3q5","slide":10,"text":"Servicios FedEx\n\nCosto · moneda · tránsito\n\nSe guarda el resultado para historial y comparación.","textPreview":"Servicios FedEx |  | Costo · moneda · tránsito |  | Se guarda el resultado para historial y comparación.","textChars":96,"textLines":5,"bbox":[924,262,252,155]}
+{"kind":"shape","id":"sh/qts7e5kr","slide":10,"bbox":[56,564,110,30]}
+{"kind":"textbox","id":"sh/ru187a1c","slide":10,"text":"Seguridad","textPreview":"Seguridad","textChars":9,"textLines":1,"bbox":[66,566,90,26]}
+{"kind":"textbox","id":"sh/svapgf2x","slide":10,"text":"OAuth, client secret y credenciales viven en backend/Edge Function; nunca se exponen al navegador.","textPreview":"OAuth, client secret y credenciales viven en backend/Edge Function; nunca se exponen al navegador.","textChars":98,"textLines":1,"bbox":[184,564,990,30]}
+{"kind":"shape","id":"sh/dw3q9kj2","slide":10,"bbox":[56,681,1166,0]}
+{"kind":"textbox","id":"sh/i5s7a5kf","slide":10,"text":"Cotizador de Envíos · Tectronic","textPreview":"Cotizador de Envíos · Tectronic","textChars":31,"textLines":1,"bbox":[56,690,420,18]}
+{"kind":"textbox","id":"sh/36183a10","slide":10,"text":"10","textPreview":"10","textChars":2,"textLines":1,"bbox":[1170,688,52,22]}
+{"kind":"notes","id":"nt/taoff0","slide":10,"text":"Fuentes: supabase/functions/shipping-quote/index.ts; src/features/shipping/shippingQuotesService.ts; src/features/shipping/shippingQuoteMath.ts. La presentación no muestra secretos ni tokens."}
+{"kind":"slide","id":"sl/zadeqr","slide":11,"title":"10 · PERSISTENCIA","textShapes":12}
+{"kind":"textbox","id":"sh/98je9w7e","slide":11,"text":"10 · PERSISTENCIA","textPreview":"10 · PERSISTENCIA","textChars":17,"textLines":1,"bbox":[56,32,420,22]}
+{"kind":"textbox","id":"sh/m58fy183","slide":11,"text":"Cada cotización deja un rastro útil","textPreview":"Cada cotización deja un rastro útil","textChars":35,"textLines":1,"bbox":[56,58,920,50]}
+{"kind":"textbox","id":"sh/n6hw76po","slide":11,"text":"Supabase conserva configuración, snapshot de bultos, tarifas y auditoría para repetir o investigar el resultado.","textPreview":"Supabase conserva configuración, snapshot de bultos, tarifas y auditoría para repetir o investigar el resultado.","textChars":112,"textLines":1,"bbox":[58,111,980,32]}
+{"kind":"shape","id":"sh/03qxwrqx","slide":11,"bbox":[56,151,1166,0]}
+{"kind":"shape","id":"sh/e18fuh8r","slide":11,"bbox":[792,210,390,292]}
+{"kind":"textbox","id":"sh/z2hw3mpc","slide":11,"text":"Cadena de trazabilidad","textPreview":"Cadena de trazabilidad","textChars":22,"textLines":1,"bbox":[820,232,330,26]}
+{"kind":"shape","id":"sh/cz6xs7q1","slide":11,"bbox":[830,286,16,16]}
+{"kind":"textbox","id":"sh/d0fe1c76","slide":11,"text":"Configuración","textPreview":"Configuración","textChars":13,"textLines":1,"bbox":[864,281,200,24]}
+{"kind":"shape","id":"sh/toz6dgzi","slide":11,"bbox":[838,302,0,24]}
+{"kind":"shape","id":"sh/8nq54vix","slide":11,"bbox":[830,326,16,16]}
+{"kind":"textbox","id":"sh/7mx4bqhc","slide":11,"text":"Orden","textPreview":"Orden","textChars":5,"textLines":1,"bbox":[864,321,200,24]}
+{"kind":"shape","id":"sh/6lon2l0r","slide":11,"bbox":[838,342,0,24]}
+{"kind":"shape","id":"sh/lkfm9gj6","slide":11,"bbox":[830,366,16,16]}
+{"kind":"textbox","id":"sh/kj650bil","slide":11,"text":"Bultos","textPreview":"Bultos","textChars":6,"textLines":1,"bbox":[864,361,200,24]}
+{"kind":"shape","id":"sh/jix4761g","slide":11,"bbox":[838,382,0,24]}
+{"kind":"shape","id":"sh/yhony10v","slide":11,"bbox":[830,406,16,16]}
+{"kind":"textbox","id":"sh/xgfm5wja","slide":11,"text":"Tarifas","textPreview":"Tarifas","textChars":7,"textLines":1,"bbox":[864,401,200,24]}
+{"kind":"shape","id":"sh/wf65wbip","slide":11,"bbox":[838,422,0,24]}
+{"kind":"shape","id":"sh/ozq5sbql","slide":11,"bbox":[830,446,16,16]}
+{"kind":"textbox","id":"sh/p0j6lgr6","slide":11,"text":"Historial","textPreview":"Historial","textChars":9,"textLines":1,"bbox":[864,441,200,24]}
+{"kind":"textbox","id":"sh/2x8nq18f","slide":11,"text":"Esto permite explicar qué se cotizó, con qué datos y con qué respuesta del proveedor.","textPreview":"Esto permite explicar qué se cotizó, con qué datos y con qué respuesta del proveedor.","textChars":85,"textLines":1,"bbox":[792,550,390,48]}
+{"kind":"shape","id":"sh/nyhoj690","slide":11,"bbox":[56,681,1166,0]}
+{"kind":"textbox","id":"sh/0vq5orq9","slide":11,"text":"Cotizador de Envíos · Tectronic","textPreview":"Cotizador de Envíos · Tectronic","textChars":31,"textLines":1,"bbox":[56,690,420,18]}
+{"kind":"textbox","id":"sh/1wzmhwru","slide":11,"text":"11","textPreview":"11","textChars":2,"textLines":1,"bbox":[1170,688,52,22]}
+{"kind":"table","id":"tb/cj2pkvmd","slide":11,"name":"","rows":6,"cols":2,"preview":"Tabla | Responsabilidad","bbox":[56,192,680,360]}
+{"kind":"notes","id":"nt/zadeqr","slide":11,"text":"Fuentes: esquema actual en supabase/migrations y funciones del módulo de envíos. Nombres de tablas representados según la implementación existente."}
+{"kind":"slide","id":"sl/frltfz","slide":12,"title":"11 · OPERACIÓN","textShapes":28}
+{"kind":"textbox","id":"sh/6p0fm9sz","slide":12,"text":"11 · OPERACIÓN","textPreview":"11 · OPERACIÓN","textChars":14,"textLines":1,"bbox":[56,32,420,22]}
+{"kind":"textbox","id":"sh/tsbyhorq","slide":12,"text":"La secuencia recomendada para el usuario","textPreview":"La secuencia recomendada para el usuario","textChars":40,"textLines":1,"bbox":[56,58,920,50]}
+{"kind":"textbox","id":"sh/8r2xoja5","slide":12,"text":"El objetivo es llegar a FedEx con un resumen entendido y editable.","textPreview":"El objetivo es llegar a FedEx con un resumen entendido y editable.","textChars":66,"textLines":1,"bbox":[58,111,980,32]}
+{"kind":"shape","id":"sh/vetgjy9g","slide":12,"bbox":[56,151,1166,0]}
+{"kind":"shape","id":"sh/utkfqtsb","slide":12,"bbox":[56,194,238,112]}
+{"kind":"shape","id":"sh/hgbyl8rm","slide":12,"bbox":[72,214,34,34]}
+{"kind":"textbox","id":"sh/gf2hs3a1","slide":12,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[72,217,34,26]}
+{"kind":"textbox","id":"sh/3idgny9s","slide":12,"text":"Buscar orden","textPreview":"Buscar orden","textChars":12,"textLines":1,"bbox":[121,214,155,25]}
+{"kind":"textbox","id":"sh/ihkzuts7","slide":12,"text":"Número de orden Odoo","textPreview":"Número de orden Odoo","textChars":20,"textLines":1,"bbox":[121,246,155,36]}
+{"kind":"shape","id":"sh/872x0vyd","slide":12,"bbox":[302,239,30,24]}
+{"kind":"shape","id":"sh/98by90fi","slide":12,"bbox":[348,194,238,112]}
+{"kind":"shape","id":"sh/m50fylg7","slide":12,"bbox":[364,214,34,34]}
+{"kind":"textbox","id":"sh/76tg7qxs","slide":12,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[364,217,34,26]}
+{"kind":"textbox","id":"sh/wb2x4vy9","slide":12,"text":"Verificar destino","textPreview":"Verificar destino","textChars":17,"textLines":1,"bbox":[413,214,155,25]}
+{"kind":"textbox","id":"sh/hcbyd0fu","slide":12,"text":"CP de dirección de entrega","textPreview":"CP de dirección de entrega","textChars":26,"textLines":1,"bbox":[413,246,155,36]}
+{"kind":"shape","id":"sh/u9kf2lg3","slide":12,"bbox":[594,239,30,24]}
+{"kind":"shape","id":"sh/vatgbqxo","slide":12,"bbox":[640,194,238,112]}
+{"kind":"shape","id":"sh/4zmh8fyl","slide":12,"bbox":[656,214,34,34]}
+{"kind":"textbox","id":"sh/50vyhkfq","slide":12,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[656,217,34,26]}
+{"kind":"textbox","id":"sh/tk765g3y","slide":12,"text":"Completar físicos","textPreview":"Completar físicos","textChars":17,"textLines":1,"bbox":[705,214,155,25]}
+{"kind":"textbox","id":"sh/sjypcbmd","slide":12,"text":"Dimensiones y peso faltantes","textPreview":"Dimensiones y peso faltantes","textChars":28,"textLines":1,"bbox":[705,246,155,36]}
+{"kind":"shape","id":"sh/ripo36ls","slide":12,"bbox":[886,239,30,24]}
+{"kind":"shape","id":"sh/6hg7a147","slide":12,"bbox":[932,194,238,112]}
+{"kind":"shape","id":"sh/1or69g3u","slide":12,"bbox":[948,214,34,34]}
+{"kind":"textbox","id":"sh/gnipgb29","slide":12,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[948,217,34,26]}
+{"kind":"textbox","id":"sh/fmpo7qlo","slide":12,"text":"Revisar plan","textPreview":"Revisar plan","textChars":12,"textLines":1,"bbox":[997,214,155,25]}
+{"kind":"textbox","id":"sh/elg7el4j","slide":12,"text":"Embalaje y resumen","textPreview":"Embalaje y resumen","textChars":18,"textLines":1,"bbox":[997,246,155,36]}
+{"kind":"shape","id":"sh/hsn6xw3q","slide":12,"bbox":[56,364,238,112]}
+{"kind":"shape","id":"sh/wre54rm5","slide":12,"bbox":[72,384,34,34]}
+{"kind":"textbox","id":"sh/mxc3exk3","slide":12,"text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[72,387,34,26]}
+{"kind":"textbox","id":"sh/7yl4721o","slide":12,"text":"Ajustar","textPreview":"Ajustar","textChars":7,"textLines":1,"bbox":[121,384,155,25]}
+{"kind":"textbox","id":"sh/8julg72t","slide":12,"text":"Estrategia o distribución","textPreview":"Estrategia o distribución","textChars":25,"textLines":1,"bbox":[121,416,155,36]}
+{"kind":"shape","id":"sh/9k3m9sje","slide":12,"bbox":[302,409,30,24]}
+{"kind":"shape","id":"sh/ulc3ixkz","slide":12,"bbox":[348,364,238,112]}
+{"kind":"shape","id":"sh/vml4b21k","slide":12,"bbox":[364,384,34,34]}
+{"kind":"textbox","id":"sh/wne5k725","slide":12,"text":"6","textPreview":"6","textChars":1,"textLines":1,"bbox":[364,387,34,26]}
+{"kind":"textbox","id":"sh/honmdcjq","slide":12,"text":"Cotizar","textPreview":"Cotizar","textChars":7,"textLines":1,"bbox":[413,384,155,25]}
+{"kind":"textbox","id":"sh/qps36dkv","slide":12,"text":"Enviar a FedEx","textPreview":"Enviar a FedEx","textChars":14,"textLines":1,"bbox":[413,416,155,36]}
+{"kind":"shape","id":"sh/bq14zi1g","slide":12,"bbox":[594,409,30,24]}
+{"kind":"shape","id":"sh/rmtk3ut4","slide":12,"bbox":[640,364,238,112]}
+{"kind":"shape","id":"sh/qlkjapcj","slide":12,"bbox":[656,384,34,34]}
+{"kind":"textbox","id":"sh/dob254ba","slide":12,"text":"7","textPreview":"7","textChars":1,"textLines":1,"bbox":[656,387,34,26]}
+{"kind":"textbox","id":"sh/sn21czup","slide":12,"text":"Comparar","textPreview":"Comparar","textChars":8,"textLines":1,"bbox":[705,384,155,25]}
+{"kind":"textbox","id":"sh/fqtk7et0","slide":12,"text":"Servicios e historial","textPreview":"Servicios e historial","textChars":21,"textLines":1,"bbox":[705,416,155,36]}
+{"kind":"shape","id":"sh/epkje9cv","slide":12,"bbox":[56,548,1168,62]}
+{"kind":"textbox","id":"sh/1cv29ob6","slide":12,"text":"Punto de decisión","textPreview":"Punto de decisión","textChars":17,"textLines":1,"bbox":[78,566,174,25]}
+{"kind":"textbox","id":"sh/0r21gjul","slide":12,"text":"Si los datos físicos no están completos, el flujo se detiene en el paso 3; si el plan es READY_FOR_QUOTE, continúa al paso 6.","textPreview":"Si los datos físicos no están completos, el flujo se detiene en el paso 3; si el plan es READY_FOR_QUOTE, continúa al paso 6.","textChars":125,"textLines":1,"bbox":[272,566,910,25]}
+{"kind":"shape","id":"sh/nedkbetc","slide":12,"bbox":[56,681,1166,0]}
+{"kind":"textbox","id":"sh/2d4jitcr","slide":12,"text":"Cotizador de Envíos · Tectronic","textPreview":"Cotizador de Envíos · Tectronic","textChars":31,"textLines":1,"bbox":[56,690,420,18]}
+{"kind":"textbox","id":"sh/kj61sjq5","slide":12,"text":"12","textPreview":"12","textChars":2,"textLines":1,"bbox":[1170,688,52,22]}
+{"kind":"notes","id":"nt/frltfz","slide":12,"text":"Fuente: src/features/shipping/ShippingQuotesDashboard.tsx y src/features/shipping/ShippingPackingWorkspace.tsx. Es la secuencia operativa sugerida a partir de la UI actual."}
+{"kind":"slide","id":"sl/bjsup8","slide":13,"title":"12 · CIERRE","textShapes":16}
+{"kind":"textbox","id":"sh/u5szm5c3","slide":13,"text":"12 · CIERRE","textPreview":"12 · CIERRE","textChars":11,"textLines":1,"bbox":[56,32,420,22]}
+{"kind":"textbox","id":"sh/h83ixkbu","slide":13,"text":"Qué debe quedar claro antes de confirmar","textPreview":"Qué debe quedar claro antes de confirmar","textChars":40,"textLines":1,"bbox":[56,58,920,50]}
+{"kind":"textbox","id":"sh/g7uhofu9","slide":13,"text":"La mejor cotización empieza por un paquete bien definido.","textPreview":"La mejor cotización empieza por un paquete bien definido.","textChars":57,"textLines":1,"bbox":[58,111,980,32]}
+{"kind":"shape","id":"sh/3al0zatk","slide":13,"bbox":[56,151,1166,0]}
+{"kind":"shape","id":"sh/29czqpcf","slide":13,"bbox":[56,195,520,100]}
+{"kind":"shape","id":"sh/pc3i1kbq","slide":13,"bbox":[56,195,6,100]}
+{"kind":"textbox","id":"sh/4bu1sfu5","slide":13,"text":"1 · Datos confiables","textPreview":"1 · Datos confiables","textChars":20,"textLines":1,"bbox":[76,209,484,28]}
+{"kind":"textbox","id":"sh/jeh0nqdg","slide":13,"text":"Orden, destino, SKU, peso y dimensiones corresponden a la mercancía real.","textPreview":"Orden, destino, SKU, peso y dimensiones corresponden a la mercancía real.","textChars":73,"textLines":1,"bbox":[76,244,484,42]}
+{"kind":"shape","id":"sh/id8zelcv","slide":13,"bbox":[56,319,520,100]}
+{"kind":"shape","id":"sh/0r2d4nyl","slide":13,"bbox":[56,319,6,100]}
+{"kind":"textbox","id":"sh/lsbexsz6","slide":13,"text":"2 · Distribución explicable","textPreview":"2 · Distribución explicable","textChars":27,"textLines":1,"bbox":[76,333,484,28]}
+{"kind":"textbox","id":"sh/ypkv2dgf","slide":13,"text":"La propuesta usa el menor número de paquetes posible sin romper las restricciones.","textPreview":"La propuesta usa el menor número de paquetes posible sin romper las restricciones.","textChars":82,"textLines":1,"bbox":[76,368,484,42]}
+{"kind":"shape","id":"sh/zqtwvih0","slide":13,"bbox":[56,443,520,100]}
+{"kind":"shape","id":"sh/8fmx8nyh","slide":13,"bbox":[56,443,6,100]}
+{"kind":"textbox","id":"sh/9gve1sz2","slide":13,"text":"3 · Comparación útil","textPreview":"3 · Comparación útil","textChars":20,"textLines":1,"bbox":[76,457,484,28]}
+{"kind":"textbox","id":"sh/mtkv6xgr","slide":13,"text":"Los servicios FedEx se comparan con el mismo conjunto de bultos y condiciones.","textPreview":"Los servicios FedEx se comparan con el mismo conjunto de bultos y condiciones.","textChars":78,"textLines":1,"bbox":[76,492,484,42]}
+{"kind":"shape","id":"sh/nedwz2hc","slide":13,"bbox":[668,195,556,348]}
+{"kind":"textbox","id":"sh/ojidw3yd","slide":13,"text":"La idea central","textPreview":"La idea central","textChars":15,"textLines":1,"bbox":[700,229,450,32]}
+{"kind":"textbox","id":"sh/pkrep8zy","slide":13,"text":"Embalaje y resumen no son una pantalla intermedia: son el control que conecta la orden de Odoo con el request de FedEx.","textPreview":"Embalaje y resumen no son una pantalla intermedia: son el control que conecta la orden de Odoo con el request de FedEx.","textChars":119,"textLines":1,"bbox":[700,282,466,95]}
+{"kind":"textbox","id":"sh/54z2d0na","slide":13,"text":"Si falta un dato, se completa. Si una unidad no cabe, se corrige. Si una tarifa cambia, queda registrada con su contexto.","textPreview":"Si falta un dato, se completa. Si una unidad no cabe, se corrige. Si una tarifa cambia, queda registrada con su contexto.","textChars":121,"textLines":1,"bbox":[700,405,466,72]}
+{"kind":"shape","id":"sh/43ql4vm5","slide":13,"bbox":[700,500,105,30]}
+{"kind":"textbox","id":"sh/j2hkbq5k","slide":13,"text":"Resultado","textPreview":"Resultado","textChars":9,"textLines":1,"bbox":[710,502,85,26]}
+{"kind":"textbox","id":"sh/i1832l4z","slide":13,"text":"Cotizaciones más rápidas de revisar, comparar y defender.","textPreview":"Cotizaciones más rápidas de revisar, comparar y defender.","textChars":57,"textLines":1,"bbox":[820,500,350,30]}
+{"kind":"shape","id":"sh/t8j2hknm","slide":13,"bbox":[56,681,1166,0]}
+{"kind":"textbox","id":"sh/s7al8fm1","slide":13,"text":"Cotizador de Envíos · Tectronic","textPreview":"Cotizador de Envíos · Tectronic","textChars":31,"textLines":1,"bbox":[56,690,420,18]}
+{"kind":"textbox","id":"sh/r61kfa5g","slide":13,"text":"13","textPreview":"13","textChars":2,"textLines":1,"bbox":[1170,688,52,22]}
+{"kind":"notes","id":"nt/bjsup8","slide":13,"text":"Fuentes: arquitectura y archivos del módulo de Cotizador de Envíos. La conclusión resume el propósito operativo de Embalaje y resumen y Distribución propuesta del envío."}

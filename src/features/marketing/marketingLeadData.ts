@@ -25,6 +25,52 @@ export function marketingNewLeadsForPeriod(leads: OdooCrmLeadRecord[], filters: 
     marketingCrmDateKey(lead.createDate)! >= filters.startDate && marketingCrmDateKey(lead.createDate)! <= filters.endDate);
 }
 
+export function marketingLeadsCreatedBy(leads: OdooCrmLeadRecord[], creatorId: number) {
+  return leads.filter((lead) => lead.creatorId === creatorId);
+}
+
+export function summarizeMarketingLeadCreators(leads: OdooCrmLeadRecord[], filters: ReportFilters) {
+  const created = marketingNewLeadsForPeriod(leads, filters);
+  const creators = new Map<string, {
+    creatorId: number | null;
+    creatorName: string;
+    created: number;
+    progressed: number;
+    won: number;
+    lost: number;
+  }>();
+
+  created.forEach((lead) => {
+    const key = String(lead.creatorId ?? 'unknown');
+    const row = creators.get(key) ?? {
+      creatorId: lead.creatorId ?? null,
+      creatorName: lead.creatorName?.trim() || 'Sin usuario de creación',
+      created: 0,
+      progressed: 0,
+      won: 0,
+      lost: 0,
+    };
+    const stage = lead.stageName?.trim().toLocaleLowerCase('es-MX') ?? '';
+    const won = lead.active !== false && (lead.stageIsWon ?? lead.probability >= 100);
+    const lost = !lead.active && lead.probability === 0;
+    // Odoo only exposes the current stage here, not the full history of stage transitions.
+    const progressed = won || lost || Boolean(stage && !/^(nuevo|nueva|new)( lead| oportunidad)?$/.test(stage));
+    row.created += 1;
+    if (progressed) row.progressed += 1;
+    if (won) row.won += 1;
+    if (lost) row.lost += 1;
+    creators.set(key, row);
+  });
+
+  const rows = [...creators.values()].sort((a, b) =>
+    b.created - a.created || b.progressed - a.progressed || a.creatorName.localeCompare(b.creatorName, 'es-MX'));
+  return {
+    created: created.length,
+    progressed: rows.reduce((total, row) => total + row.progressed, 0),
+    rows,
+  };
+}
+
 export function buildMarketingLeadSourceRows(
   leads: OdooCrmLeadRecord[],
   isWon: (lead: OdooCrmLeadRecord) => boolean,

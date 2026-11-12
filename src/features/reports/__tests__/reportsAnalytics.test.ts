@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { buildCommercialDashboard } from '../reportsAnalytics.ts';
+import { hasMissingCrmCreatorMetadata } from '../reportsDatasetCache.ts';
 import { prepareExecutiveDataset } from '../../../../supabase/functions/report-summary-worker/model.generated.js';
 import {
   defaultReportsConfig,
@@ -1018,6 +1019,42 @@ test('el resumen persistido conserva los KPI, detalles y filtros del cálculo or
     assert.ok(dataset.orders.length > 0, 'el cálculo no debe mutar los datos fuente');
     assert.deepEqual(JSON.parse(JSON.stringify(prepared)).executiveSummary.snapshot, JSON.parse(JSON.stringify(expectedSummary)));
   }
+});
+
+test('el resumen conserva el vendedor del cliente nuevo y el creador del lead', () => {
+  const dataset = createDataset();
+  dataset.crmLeads = [{
+    id: 9, name: 'Proyecto nuevo', creatorId: 12, creatorName: 'María',
+    type: 'lead', active: true, createDate: '2026-05-28T12:00:00.000Z',
+    assignmentDate: '2026-06-03T12:00:00.000Z', writeDate: null,
+    deadlineDate: null, closedDate: null, customerId: 104, customerName: 'Cliente D',
+    sellerId: 22, sellerName: 'Diego', teamId: 202, teamName: 'Key Accounts',
+    companyId: 1, companyName: 'Tectronic MX', stageId: 2, stageName: 'New',
+    expectedRevenue: 1000, probability: 0, priority: null, emailFrom: null, phone: null,
+  }];
+  const prepared = prepareExecutiveDataset(dataset, createFilters(), defaultReportsConfig);
+  const newCustomer = prepared.executiveSummary.customerBalance.details.find((row) => row.status === 'Nuevo' && row.customer === 'Cliente D');
+  const lead = prepared.executiveSummary.crmBalance.details[0];
+
+  assert.equal(newCustomer?.sellerName, 'Diego');
+  assert.equal(lead?.creatorName, 'María');
+  assert.equal(lead?.sellerId, 22);
+  assert.equal(lead?.sellerName, 'Diego');
+  assert.equal(lead?.stage, 'Nuevo');
+  assert.equal(lead?.attended, false);
+  assert.equal(lead?.createdAt, '2026-06-03');
+});
+
+test('el caché del navegador renueva solo datasets con leads sin usuario de creación', () => {
+  const lead = { id: 9, name: 'Lead anterior' } as OdooCommercialDataset['crmLeads'][number];
+  const dataset = { ...createDataset(), crmLeads: [lead] };
+  assert.equal(hasMissingCrmCreatorMetadata(dataset), true);
+  dataset.crmLeads = [{ ...lead, creatorName: 'Marketing' }];
+  assert.equal(hasMissingCrmCreatorMetadata(dataset), true);
+  dataset.crmLeads = [{ ...lead, creatorId: null, creatorName: null }];
+  assert.equal(hasMissingCrmCreatorMetadata(dataset), true);
+  dataset.crmLeads = [{ ...lead, creatorId: 17, creatorName: 'Marketing' }];
+  assert.equal(hasMissingCrmCreatorMetadata(dataset), false);
 });
 
 test('separa cotizaciones, ventas confirmadas y conversion comercial', () => {

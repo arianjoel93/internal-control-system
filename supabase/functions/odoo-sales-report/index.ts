@@ -3,7 +3,10 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 import {
   assertOdooEnvironment,
   authenticateWithDatabaseCandidates,
+  executeReadKw,
+  fieldsGet,
   readOdooEnvironment,
+  searchReadAll,
   type OdooEnvironment,
 } from '../_shared/odoo-readonly.ts';
 import {
@@ -13,6 +16,8 @@ import {
 } from './core.ts';
 import { fetchAgentHistoricalBaselines, fetchPreviousOpenQuoteCount } from './agent-summary-context.ts';
 import { decodeReportDataset, encodeReportDataset, reportDatasetCacheKey, reportDatasetCacheTtlMs } from './dataset-cache.ts';
+import { mergeCrmCreators, missingCrmCreatorIds } from './crm-creator-cache.ts';
+import { selectUniqueOdooCreatorByName } from './marketing-creator-identity.ts';
 import { resolveClosedMonthComparisonRange } from './closed-month-comparison.ts';
 import { preparedKey, readPreparedSummary } from './prepared-summary.ts';
 import {
@@ -105,6 +110,83 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (body.action === 'marketing-creator-identity') {
+      if (reportContext !== 'marketing') return jsonResponse({ error: 'Consulta disponible solo en Marketing.' }, 403);
+      stage = 'odoo.marketing-creator';
+      const { data: profile, error: profileError } = await adminClient
+        .from('admin_module_permissions')
+        .select('full_name,odoo_user_id')
+        .eq('user_id', caller.id)
+        .maybeSingle();
+      if (profileError) throw profileError;
+
+      const configuredId = numberOrNull(profile?.odoo_user_id);
+      if (configuredId) {
+        let creatorName: string | null = null;
+        try {
+          const connection = await authenticateWithDatabaseCandidates({
+            apiKey: odoo.apiKey,
+            configuredDatabase: odoo.database,
+            odooUrl: odoo.url,
+            user: odoo.user,
+          });
+          const users = await searchReadAll({
+            apiKey: odoo.apiKey,
+            database: connection.database,
+            domain: [['id', '=', configuredId]],
+            fields: ['id', 'name'],
+            model: 'res.users',
+            odooUrl: connection.odooUrl,
+            pageSize: 1,
+            uid: connection.uid,
+          });
+          creatorName = typeof users[0]?.name === 'string' ? users[0].name.trim() : null;
+        } catch {
+          // The configured Odoo ID still scopes Mis Leads when the display-name lookup is unavailable.
+        }
+        return jsonResponse({ creatorId: configuredId,
+          creatorName,
+          matchMethod: 'configured' });
+      }
+
+      const identity = await resolveOdooSalespersonIdentity({
+        apiKey: odoo.apiKey,
+        email: caller.email,
+        odooUrl: odoo.url,
+        odooDatabase: odoo.database,
+        user: odoo.user,
+      });
+      if (identity.status === 'linked') {
+        return jsonResponse({ creatorId: numberOrNull(identity.users[0]?.id),
+          creatorName: typeof identity.users[0]?.name === 'string' ? identity.users[0].name.trim() : null,
+          matchMethod: 'email' });
+      }
+      if (identity.status === 'ambiguous') {
+        return jsonResponse({ creatorId: null, reason: 'Más de un usuario activo de Odoo coincide con tu correo.' });
+      }
+
+      const profileName = profile?.full_name?.trim();
+      if (!profileName) return jsonResponse({ creatorId: null, reason: 'Tu cuenta no tiene un nombre para vincular con Odoo.' });
+      const candidates = await searchReadAll({
+        apiKey: odoo.apiKey,
+        database: identity.connection.database,
+        domain: [['active', '=', true], ['name', '=ilike', profileName]],
+        fields: ['id', 'name', 'active'],
+        model: 'res.users',
+        odooUrl: identity.connection.odooUrl,
+        pageSize: 50,
+        uid: identity.connection.uid,
+      });
+      const match = selectUniqueOdooCreatorByName(candidates, profileName);
+      return jsonResponse(match.status === 'linked'
+        ? { creatorId: numberOrNull(match.user?.id),
+          creatorName: typeof match.user?.name === 'string' ? match.user.name.trim() : null,
+          matchMethod: 'exact_name' }
+        : { creatorId: null, reason: match.status === 'ambiguous'
+          ? 'Hay varios usuarios activos de Odoo con tu nombre; un administrador debe configurar el vínculo exacto.'
+          : 'No se encontró en Odoo un usuario activo con tu correo o nombre exacto.' });
+    }
+
     let salespersonIdentity: Awaited<ReturnType<typeof resolveOdooSalespersonIdentity>> | null = null;
     let forcedSalespersonId: number | null = null;
     let forcedCompanyId: number | null = null;
@@ -180,6 +262,90 @@ Deno.serve(async (req) => {
       forcedSalespersonId,
       forcedCompanyId,
     );
+    if (body.action === 'business-intelligence-stock') {
+      if (reportContext !== 'reports' || requestedDomain !== 'sales') {
+        return jsonResponse({ error: 'Consulta disponible solo en Reportes de ventas.' }, 403);
+      }
+      const productIds = [...new Set((Array.isArray(body.productIds) ? body.productIds : [])
+        .map(Number).filter((id) => Number.isSafeInteger(id) && id > 0))].slice(0, 12);
+      if (!productIds.length) return jsonResponse({ products: [], stockAvailable: false });
+      stage = 'odoo.product-stock';
+      const connection = salespersonIdentity?.connection ?? await authenticateWithDatabaseCandidates({
+        apiKey: odoo.apiKey, configuredDatabase: odoo.database, odooUrl: odoo.url, user: odoo.user,
+      });
+      const metadata = await fieldsGet({ apiKey: odoo.apiKey, database: connection.database,
+        model: 'product.product', odooUrl: connection.odooUrl, uid: connection.uid });
+      const stockField = metadata.qty_available ? 'qty_available' : null;
+      const forecastField = metadata.virtual_available ? 'virtual_available' : null;
+      const fields = ['id', ...(metadata.default_code ? ['default_code'] : []),
+        ...(stockField ? [stockField] : []), ...(forecastField ? [forecastField] : [])];
+      const selectedCompany = normalizedFilters.companyIds?.length === 1
+        ? normalizedFilters.companyIds[0] : forcedCompanyId;
+      const rows = await searchReadAll({ apiKey: odoo.apiKey, database: connection.database,
+        domain: [['id', 'in', productIds]], fields, model: 'product.product',
+        odooUrl: connection.odooUrl, uid: connection.uid,
+        ...(selectedCompany ? { context: { allowed_company_ids: [selectedCompany], company_id: selectedCompany } } : {}),
+      });
+      return jsonResponse({ stockAvailable: Boolean(stockField), products: rows.map((row) => ({
+        productId: Number(row.id), sku: typeof row.default_code === 'string' ? row.default_code : null,
+        onHand: stockField && typeof row[stockField] === 'number' && Number.isFinite(row[stockField]) ? row[stockField] : null,
+        forecast: forecastField && typeof row[forecastField] === 'number' && Number.isFinite(row[forecastField]) ? row[forecastField] : null,
+      })) });
+    }
+    if (body.action === 'business-intelligence-customer-margin') {
+      if (reportContext !== 'reports' || requestedDomain !== 'sales') {
+        return jsonResponse({ error: 'Consulta disponible solo en Reportes de ventas.' }, 403);
+      }
+      stage = 'odoo.customer-margin-analysis';
+      const connection = salespersonIdentity?.connection ?? await authenticateWithDatabaseCandidates({
+        apiKey: odoo.apiKey, configuredDatabase: odoo.database, odooUrl: odoo.url, user: odoo.user,
+      });
+      const metadata = await fieldsGet({ apiKey: odoo.apiKey, database: connection.database,
+        model: 'account.invoice.report', odooUrl: connection.odooUrl, uid: connection.uid });
+      const required = ['partner_id', 'price_margin', 'price_subtotal', 'invoice_date', 'move_type', 'state'];
+      const missingFields = required.filter((field) => !metadata[field]);
+      if (missingFields.length) {
+        return jsonResponse({ customers: [], error: `Análisis de facturas no expone: ${missingFields.join(', ')}.` }, 422);
+      }
+      const domain: unknown[] = [
+        ['invoice_date', '>=', normalizedFilters.startDate],
+        ['invoice_date', '<=', normalizedFilters.endDate],
+        ['move_type', 'in', ['out_invoice', 'out_refund']],
+        ['state', '=', 'posted'],
+      ];
+      if (normalizedFilters.companyIds?.length && metadata.company_id) domain.push(['company_id', 'in', normalizedFilters.companyIds]);
+      if (normalizedFilters.currencyCode && metadata.currency_id) domain.push(['currency_id.name', '=', normalizedFilters.currencyCode]);
+      if (normalizedFilters.sellerIds?.length) {
+        const sellerField = metadata.invoice_user_id ? 'invoice_user_id' : metadata.user_id ? 'user_id' : null;
+        if (sellerField) domain.push([sellerField, 'in', normalizedFilters.sellerIds]);
+      }
+      if (normalizedFilters.teamId && metadata.team_id) domain.push(['team_id', '=', normalizedFilters.teamId]);
+      if (normalizedFilters.customerId) domain.push(['partner_id', '=', normalizedFilters.customerId]);
+      if (normalizedFilters.productId && metadata.product_id) domain.push(['product_id', '=', normalizedFilters.productId]);
+      if (normalizedFilters.categoryId && metadata.product_categ_id) domain.push(['product_categ_id', '=', normalizedFilters.categoryId]);
+      const measures = ['price_margin:sum', 'price_subtotal:sum', 'last_purchase:max(invoice_date)'];
+      if (metadata.move_id) measures.push('invoice_count:count_distinct(move_id)');
+      const groups = await executeReadKw({
+        apiKey: odoo.apiKey,
+        args: [domain, measures, ['partner_id']],
+        database: connection.database,
+        kwargs: { lazy: false },
+        method: 'read_group',
+        model: 'account.invoice.report',
+        odooUrl: connection.odooUrl,
+        uid: connection.uid,
+      });
+      return jsonResponse({ customers: groups.flatMap((row: Record<string, unknown>) => {
+        const partner = Array.isArray(row.partner_id) ? row.partner_id : [];
+        const partnerId = Number(partner[0]);
+        const sales = Number(row.price_subtotal ?? 0);
+        const margin = Number(row.price_margin ?? 0);
+        if (!Number.isSafeInteger(partnerId) || !Number.isFinite(sales) || !Number.isFinite(margin)) return [];
+        return [{ partnerId, partnerName: String(partner[1] ?? `Cliente ${partnerId}`), sales, margin,
+          invoices: Number(row.invoice_count ?? 0),
+          lastPurchaseDate: typeof row.last_purchase === 'string' ? row.last_purchase.slice(0, 10) : null }];
+      }) });
+    }
     if (body.action === 'executive-summary') {
       if (reportContext !== 'reports' || requestedDomain !== 'sales') {
         return jsonResponse({ error: 'Resumen disponible solamente para Reportes de ventas.' }, 403);
@@ -251,13 +417,16 @@ Deno.serve(async (req) => {
           ? normalizedFilters.sellerIds
           : forcedSalespersonId ? [forcedSalespersonId] : [],
       };
-      const [monthlyMetrics, yearToDateTotals] = await Promise.all([
+      const [monthlyMetrics, yearToDateTotals, fullRangeMarginMetrics] = await Promise.all([
         readMonthlyComparison(adminClient, database, effectiveFilters, comparisonRange, Boolean(closedMonthRange)),
         closedMonthRange
           ? readYearToDateTotals(adminClient, database, effectiveFilters).catch((error) => {
             console.warn('[odoo-sales-report] Year-to-date total unavailable.', error);
             return null;
           })
+          : Promise.resolve(null),
+        closedMonthRange
+          ? readMonthlyComparison(adminClient, database, effectiveFilters, resolveDailyComparisonRange(normalizedFilters))
           : Promise.resolve(null),
       ]);
       const summary = closedMonthRange
@@ -266,6 +435,7 @@ Deno.serve(async (req) => {
       return jsonResponse({
         ...summary,
         monthlyMetrics,
+        marginMetrics: fullRangeMarginMetrics,
         yearToDateTotals,
         closedMonthsOnly: Boolean(closedMonthRange),
         comparisonCurrentEndDate: closedMonthRange?.currentEndDate ?? null,
@@ -296,7 +466,13 @@ Deno.serve(async (req) => {
           .select('payload_gzip_base64,source_checked_at').eq('cache_key', sourcePartitionKey).maybeSingle();
         if (sourceError) throw sourceError;
         if (storedSource?.payload_gzip_base64) {
-          const cachedSource = await decodeReportDataset(storedSource.payload_gzip_base64);
+          const storedReport = await decodeReportDataset(storedSource.payload_gzip_base64);
+          const cachedSource = storedReport.scopeApplied === access.visibilityScope && storedReport.availableFilters
+            ? await completeCachedCrmCreators(
+                storedReport, adminClient, 'report_prepared_cache', sourcePartitionKey,
+                odoo, salespersonIdentity?.connection,
+              )
+            : storedReport;
           if (cachedSource.scopeApplied === access.visibilityScope && cachedSource.availableFilters) {
             const checkedAt = storedSource.source_checked_at ? Date.parse(storedSource.source_checked_at) : 0;
             if (!checkedAt || Date.now() - checkedAt > 30 * 60 * 60_000) {
@@ -345,8 +521,16 @@ Deno.serve(async (req) => {
           .maybeSingle();
         if (cacheError) throw cacheError;
         if (stored?.payload_gzip_base64) {
-          const cachedReport = await decodeReportDataset(stored.payload_gzip_base64);
-          if (cachedReport.scopeApplied === access.visibilityScope && cachedReport.availableFilters) {
+          const storedReport = await decodeReportDataset(stored.payload_gzip_base64);
+          const marketingCacheCurrent = reportContext !== 'marketing' || storedReport.marketingAttributionVersion === 3;
+          const cachedReport = marketingCacheCurrent && requestedDomain === 'sales' &&
+            storedReport.scopeApplied === access.visibilityScope && storedReport.availableFilters
+            ? await completeCachedCrmCreators(
+                storedReport, adminClient, 'report_dataset_cache', persistentCacheKey,
+                odoo, salespersonIdentity?.connection,
+              )
+            : storedReport;
+          if (marketingCacheCurrent && cachedReport.scopeApplied === access.visibilityScope && cachedReport.availableFilters) {
             const safeCachedReport = sanitizeReport({ ...cachedReport, viewerRole: access.role });
             return jsonResponse(safeCachedReport);
           }
@@ -966,6 +1150,51 @@ async function persistSalespersonResolution({ adminClient, caller, access, ident
       odoo_partner_id: odooPartnerId,
     },
   });
+}
+
+async function completeCachedCrmCreators(
+  report: Record<string, unknown>,
+  adminClient: ReturnType<typeof createClient>,
+  table: 'report_prepared_cache' | 'report_dataset_cache',
+  cacheKey: string,
+  odoo: OdooEnvironment,
+  existingConnection?: { database: string; odooUrl: string; uid: number } | null,
+) {
+  const leads = Array.isArray(report.crmLeads) ? report.crmLeads : [];
+  const missingIds = missingCrmCreatorIds(leads);
+  if (!missingIds.length) return report;
+
+  try {
+    const connection = existingConnection ?? await authenticateWithDatabaseCandidates({
+      apiKey: odoo.apiKey, configuredDatabase: odoo.database, odooUrl: odoo.url, user: odoo.user,
+    });
+    const rows = [];
+    for (let offset = 0; offset < missingIds.length; offset += 300) {
+      rows.push(...await searchReadAll({
+        apiKey: odoo.apiKey,
+        database: connection.database,
+        domain: [['id', 'in', missingIds.slice(offset, offset + 300)]],
+        fields: ['id', 'create_uid'],
+        model: 'crm.lead',
+        odooUrl: connection.odooUrl,
+        pageSize: 300,
+        uid: connection.uid,
+      }));
+    }
+    const updated = { ...report, crmLeads: mergeCrmCreators(leads, rows) };
+    EdgeRuntime.waitUntil((async () => {
+      const encoded = await encodeReportDataset(updated);
+      if (!encoded) return;
+      const { error } = await adminClient.from(table).update({
+        payload_gzip_base64: encoded.value, payload_bytes: encoded.bytes,
+      }).eq('cache_key', cacheKey);
+      if (error) console.warn('[odoo-sales-report] CRM creator cache update failed.', error.message);
+    })().catch((error) => console.warn('[odoo-sales-report] CRM creator cache update failed.', error)));
+    return updated;
+  } catch (error) {
+    console.warn('[odoo-sales-report] CRM creator lookup unavailable; keeping the cached report.', error);
+    return report;
+  }
 }
 
 function sanitizeReport(report: Record<string, unknown>) {

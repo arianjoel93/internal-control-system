@@ -1,0 +1,22 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "tectronic-intelligence",
+  "version": "0.3.0",
+  "description": "Reportes gerenciales con Python y consultas de solo lectura a los agregados de ventas en Supabase.",
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Tectronic Intelligence",
+        "shortDescription": "Reportes y gráficas de ventas",
+        "longDescription": "Reportes gerenciales con resumen ejecutivo, variación diaria y semanal, contribuciones por vendedor, rentabilidad, empresas, concentración y agenda de decisiones. Motor Python local con PDF y HTML. Consultas de solo lectura a agregados Supabase mediante MCP protegido. No incluye pronósticos entrenados. La cobertura depende de los datos autorizados disponibles.",
+        "capabilities": [],
+        "defaultPrompt": "Genera un reporte gerencial visual con los datos autorizados del proyecto Supabase.",
+        "developerName": "Joel Trincado"
+      }
+    }
+  },
+  "author": {
+    "name": "Joel Trincado",
+    "email": "joeltrincadov@gmail.com"
+  }
+}

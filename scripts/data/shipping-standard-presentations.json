@@ -1,0 +1,4438 @@
+{
+  "source_file": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+  "source_sha256": "541322b6254b6afc71b6e54115f4760e8aae2bedac00f30386518412a5d69a3e",
+  "accepted": [
+    {
+      "sku": "025260BB091P000KC1N250",
+      "standard_presentation": {
+        "units_per_box": 72,
+        "length_cm": 30.0,
+        "width_cm": 30.0,
+        "height_cm": 32.0,
+        "gross_weight_kg": 21.1,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 4
+      }
+    },
+    {
+      "sku": "025260BB091P0021C1N250",
+      "standard_presentation": {
+        "units_per_box": 72,
+        "length_cm": 30.0,
+        "width_cm": 30.0,
+        "height_cm": 32.0,
+        "gross_weight_kg": 21.1,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 5
+      }
+    },
+    {
+      "sku": "027013TT013P0000C1G12K",
+      "standard_presentation": {
+        "units_per_box": 18,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 19.0,
+        "gross_weight_kg": 12.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 8
+      }
+    },
+    {
+      "sku": "027013TT013P0000C3G24K",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 19.0,
+        "gross_weight_kg": 11.5,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 9
+      }
+    },
+    {
+      "sku": "030022BB013P0000C3G18K",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 13.7,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 14
+      }
+    },
+    {
+      "sku": "030022TD011P0000C1G2K0",
+      "standard_presentation": {
+        "units_per_box": 63,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 14.3,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 15
+      }
+    },
+    {
+      "sku": "030022TT013P0000C3G18K",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 15.5,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 17
+      }
+    },
+    {
+      "sku": "030030BT013P0000C3O15K",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 15.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 18
+      }
+    },
+    {
+      "sku": "030260NY013P0000C3N2K1",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 10.4,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 20
+      }
+    },
+    {
+      "sku": "032065NY013P000KC3N7K5",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 9.4,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 21
+      }
+    },
+    {
+      "sku": "036024TD011P0000C1G2K5",
+      "standard_presentation": {
+        "units_per_box": 45,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 15.3,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 22
+      }
+    },
+    {
+      "sku": "038025TD011P0000C1G2K0",
+      "standard_presentation": {
+        "units_per_box": 45,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 14.4,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 23
+      }
+    },
+    {
+      "sku": "038025TT012P0000C3G12K",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 19.0,
+        "gross_weight_kg": 14.7,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 25
+      }
+    },
+    {
+      "sku": "038064CA031P0000C3G1K5",
+      "standard_presentation": {
+        "units_per_box": 20,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 13.9,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 26
+      }
+    },
+    {
+      "sku": "040022TD012P0000C1G5K0",
+      "standard_presentation": {
+        "units_per_box": 21,
+        "length_cm": 42.0,
+        "width_cm": 24.0,
+        "height_cm": 30.0,
+        "gross_weight_kg": 15.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 27
+      }
+    },
+    {
+      "sku": "040022TT012P0000C3G14K",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 19.0,
+        "gross_weight_kg": 15.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 28
+      }
+    },
+    {
+      "sku": "040031TT012P0000C1G4K0",
+      "standard_presentation": {
+        "units_per_box": 18,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 19.0,
+        "gross_weight_kg": 14.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 29
+      }
+    },
+    {
+      "sku": "051025BB011P0000C1G2K5",
+      "standard_presentation": {
+        "units_per_box": 36,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 15.3,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 40
+      }
+    },
+    {
+      "sku": "051025BB011P000YC1G2K5",
+      "standard_presentation": {
+        "units_per_box": 36,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 15.3,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 41
+      }
+    },
+    {
+      "sku": "051025BM041P0000C3D2K0",
+      "standard_presentation": {
+        "units_per_box": 32,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 12.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 45
+      }
+    },
+    {
+      "sku": "051025BT011P0000C1S2K5",
+      "standard_presentation": {
+        "units_per_box": 36,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 16.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 46
+      }
+    },
+    {
+      "sku": "051025PB011P0000C1G2K5",
+      "standard_presentation": {
+        "units_per_box": 36,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 25.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 47
+      }
+    },
+    {
+      "sku": "051025PL011P0000C1G2K5",
+      "standard_presentation": {
+        "units_per_box": 36,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 25.3,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 48
+      }
+    },
+    {
+      "sku": "051025SG041P0000C1G2K5",
+      "standard_presentation": {
+        "units_per_box": 36,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 22.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 49
+      }
+    },
+    {
+      "sku": "051025TD011P0000C1P1K0",
+      "standard_presentation": {
+        "units_per_box": 84,
+        "length_cm": 30.0,
+        "width_cm": 30.0,
+        "height_cm": 32.0,
+        "gross_weight_kg": 17.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 50
+      }
+    },
+    {
+      "sku": "051025TD011P0000C1P2K5",
+      "standard_presentation": {
+        "units_per_box": 36,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 51
+      }
+    },
+    {
+      "sku": "051025TD012P0000C3P12K",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 20.1,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 66
+      }
+    },
+    {
+      "sku": "051025TT011P0000C1P2K5",
+      "standard_presentation": {
+        "units_per_box": 36,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 17.5,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 67
+      }
+    },
+    {
+      "sku": "051025TT012P0000C3P12K",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 68
+      }
+    },
+    {
+      "sku": "051025TT012P000YC3P12K",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 69
+      }
+    },
+    {
+      "sku": "051025TT012P0021C3P12K",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 70
+      }
+    },
+    {
+      "sku": "051025TT012P0367C3P12K",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 71
+      }
+    },
+    {
+      "sku": "051032TT011P0000C1G2K0",
+      "standard_presentation": {
+        "units_per_box": 36,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 17.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 73
+      }
+    },
+    {
+      "sku": "058040TD011P0000C1G1K0",
+      "standard_presentation": {
+        "units_per_box": 45,
+        "length_cm": 30.0,
+        "width_cm": 30.0,
+        "height_cm": 32.0,
+        "gross_weight_kg": 16.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 80
+      }
+    },
+    {
+      "sku": "058040TD011P0000C3G3K0",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 13.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 82
+      }
+    },
+    {
+      "sku": "060030TT011P0000C3G5K0",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 16.4,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 83
+      }
+    },
+    {
+      "sku": "063011BB031P0000C1G5K0",
+      "standard_presentation": {
+        "units_per_box": 27,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 13.7,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 84
+      }
+    },
+    {
+      "sku": "063022BB031P0000C1G3K0",
+      "standard_presentation": {
+        "units_per_box": 27,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 15.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 86
+      }
+    },
+    {
+      "sku": "063022BB091P0000C1G1K5",
+      "standard_presentation": {
+        "units_per_box": 48,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 15.7,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 87
+      }
+    },
+    {
+      "sku": "076025TT011P0000C1G2K5",
+      "standard_presentation": {
+        "units_per_box": 27,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 19.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 91
+      }
+    },
+    {
+      "sku": "076025TT011P0000C3G6K0",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 21.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 92
+      }
+    },
+    {
+      "sku": "076051PB011P0000C3G3K0",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 26.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 94
+      }
+    },
+    {
+      "sku": "076051TD011P0000C1P120",
+      "standard_presentation": {
+        "units_per_box": 192,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 16.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 95
+      }
+    },
+    {
+      "sku": "076051TT011P0000C3P3K0",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 20.5,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 102
+      }
+    },
+    {
+      "sku": "076051TT011P000YC3P3K0",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 20.5,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 103
+      }
+    },
+    {
+      "sku": "076051TT011P0021C3P3K0",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 20.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 104
+      }
+    },
+    {
+      "sku": "076051TT011P0367C3P3K0",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 20.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 105
+      }
+    },
+    {
+      "sku": "076076TT051P0000C3G2K0",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 22.4,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 106
+      }
+    },
+    {
+      "sku": "102025TD011P0000C1G2K5",
+      "standard_presentation": {
+        "units_per_box": 18,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 19.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 108
+      }
+    },
+    {
+      "sku": "102025TT011P0000C3G6K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 109
+      }
+    },
+    {
+      "sku": "102038BB011P0000C1G2K0",
+      "standard_presentation": {
+        "units_per_box": 18,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 17.3,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 110
+      }
+    },
+    {
+      "sku": "102051TD011P000YC1P1K5",
+      "standard_presentation": {
+        "units_per_box": 18,
+        "length_cm": 30.0,
+        "width_cm": 30.0,
+        "height_cm": 32.0,
+        "gross_weight_kg": 21.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 116
+      }
+    },
+    {
+      "sku": "102051TD011P0217C1P1K5",
+      "standard_presentation": {
+        "units_per_box": 18,
+        "length_cm": 30.0,
+        "width_cm": 30.0,
+        "height_cm": 32.0,
+        "gross_weight_kg": 21.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 117
+      }
+    },
+    {
+      "sku": "102051TD011P0291C1P1K5",
+      "standard_presentation": {
+        "units_per_box": 18,
+        "length_cm": 30.0,
+        "width_cm": 30.0,
+        "height_cm": 32.0,
+        "gross_weight_kg": 21.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 118
+      }
+    },
+    {
+      "sku": "102051TD011P0367C1P1K5",
+      "standard_presentation": {
+        "units_per_box": 18,
+        "length_cm": 30.0,
+        "width_cm": 30.0,
+        "height_cm": 32.0,
+        "gross_weight_kg": 21.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 119
+      }
+    },
+    {
+      "sku": "102051TD011P1485C1P1K5",
+      "standard_presentation": {
+        "units_per_box": 18,
+        "length_cm": 30.0,
+        "width_cm": 30.0,
+        "height_cm": 32.0,
+        "gross_weight_kg": 21.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 120
+      }
+    },
+    {
+      "sku": "102051TT011P0000C1P1K5",
+      "standard_presentation": {
+        "units_per_box": 18,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 20.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 121
+      }
+    },
+    {
+      "sku": "102051TT011P0000C3P3K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.3,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 122
+      }
+    },
+    {
+      "sku": "102064TT011P0000C3P2K5",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 19.3,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 123
+      }
+    },
+    {
+      "sku": "102076BB011P0000C3G2K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 15.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 124
+      }
+    },
+    {
+      "sku": "102076TD011P0000C1P1K0",
+      "standard_presentation": {
+        "units_per_box": 18,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 21.5,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 125
+      }
+    },
+    {
+      "sku": "102076TD011P0000C3G2K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 42.0,
+        "width_cm": 24.0,
+        "height_cm": 33.0,
+        "gross_weight_kg": 14.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 126
+      }
+    },
+    {
+      "sku": "102076TD011P0000C3P2K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 19.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 127
+      }
+    },
+    {
+      "sku": "102076TT011P000YC3P2K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 130
+      }
+    },
+    {
+      "sku": "102076TT011P0367C3P2K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 131
+      }
+    },
+    {
+      "sku": "102102TD011P0000C1G0K5",
+      "standard_presentation": {
+        "units_per_box": 24,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.9,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 132
+      }
+    },
+    {
+      "sku": "102102TD011P0000C3G1K5",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 19.1,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 133
+      }
+    },
+    {
+      "sku": "102102TT011P0000C1G0K7",
+      "standard_presentation": {
+        "units_per_box": 18,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.7,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 134
+      }
+    },
+    {
+      "sku": "102102TT011P0000C3G1K5",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 17.9,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 135
+      }
+    },
+    {
+      "sku": "102127TD011P0000C3G1K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 16.4,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 136
+      }
+    },
+    {
+      "sku": "102127TT011P0000C3G1K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 15.3,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 137
+      }
+    },
+    {
+      "sku": "102152BB011P0000C3P1K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 15.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 138
+      }
+    },
+    {
+      "sku": "102152TD011P0000C3P1K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 19.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 141
+      }
+    },
+    {
+      "sku": "102152TD011P000YC1P0K3",
+      "standard_presentation": {
+        "units_per_box": 27,
+        "length_cm": 30.0,
+        "width_cm": 30.0,
+        "height_cm": 32.0,
+        "gross_weight_kg": 19.3,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 142
+      }
+    },
+    {
+      "sku": "102152TD011P0217C1P0K3",
+      "standard_presentation": {
+        "units_per_box": 27,
+        "length_cm": 30.0,
+        "width_cm": 30.0,
+        "height_cm": 32.0,
+        "gross_weight_kg": 19.3,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 143
+      }
+    },
+    {
+      "sku": "102152TD011P0291C1P0K3",
+      "standard_presentation": {
+        "units_per_box": 27,
+        "length_cm": 30.0,
+        "width_cm": 30.0,
+        "height_cm": 32.0,
+        "gross_weight_kg": 19.3,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 144
+      }
+    },
+    {
+      "sku": "102152TD011P0367C1P0K3",
+      "standard_presentation": {
+        "units_per_box": 27,
+        "length_cm": 30.0,
+        "width_cm": 30.0,
+        "height_cm": 32.0,
+        "gross_weight_kg": 19.3,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 145
+      }
+    },
+    {
+      "sku": "102152TD011P1485C1P0K3",
+      "standard_presentation": {
+        "units_per_box": 27,
+        "length_cm": 30.0,
+        "width_cm": 30.0,
+        "height_cm": 32.0,
+        "gross_weight_kg": 19.3,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 146
+      }
+    },
+    {
+      "sku": "102152TD011P2345C1P0K3",
+      "standard_presentation": {
+        "units_per_box": 27,
+        "length_cm": 30.0,
+        "width_cm": 30.0,
+        "height_cm": 32.0,
+        "gross_weight_kg": 19.3,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 147
+      }
+    },
+    {
+      "sku": "102152TT011P0000C1P0K5",
+      "standard_presentation": {
+        "units_per_box": 18,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 20.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 148
+      }
+    },
+    {
+      "sku": "102152TT011P0000C3P1K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 19.7,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 149
+      }
+    },
+    {
+      "sku": "102152TT011P000YC3P1K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 150
+      }
+    },
+    {
+      "sku": "102152TT011P0021C3P1K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 151
+      }
+    },
+    {
+      "sku": "102152TT011P0367C3P1K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 152
+      }
+    },
+    {
+      "sku": "102152TT011P1485C3P1K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 153
+      }
+    },
+    {
+      "sku": "102152TT051P0000C3P1K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 17.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 154
+      }
+    },
+    {
+      "sku": "102152TT101P0021C3P1K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 155
+      }
+    },
+    {
+      "sku": "102165TT011P0000C3P1K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 19.4,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 156
+      }
+    },
+    {
+      "sku": "102203TD011P0000C1P0K2",
+      "standard_presentation": {
+        "units_per_box": 27,
+        "length_cm": 30.0,
+        "width_cm": 30.0,
+        "height_cm": 32.0,
+        "gross_weight_kg": 19.4,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 157
+      }
+    },
+    {
+      "sku": "102203TD011P0000C3P0K8",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 19.9,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 158
+      }
+    },
+    {
+      "sku": "102203TT011P0000C3P0K8",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 19.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Linea",
+        "source_row": 159
+      }
+    },
+    {
+      "sku": "030022TT013P0291C3G18K",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 16.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 2
+      }
+    },
+    {
+      "sku": "030022TT013P0367C3G18K",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 16.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 3
+      }
+    },
+    {
+      "sku": "033013TT013P0000C3G9K0",
+      "standard_presentation": {
+        "units_per_box": 18,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 12.4,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 5
+      }
+    },
+    {
+      "sku": "040032TD011P0000CQG2K0",
+      "standard_presentation": {
+        "units_per_box": 45,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 18.7,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 8
+      }
+    },
+    {
+      "sku": "040032TD011P000YCQG2K0",
+      "standard_presentation": {
+        "units_per_box": 45,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 18.7,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 9
+      }
+    },
+    {
+      "sku": "040032TD011P3517CQG2K0",
+      "standard_presentation": {
+        "units_per_box": 45,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 18.7,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 10
+      }
+    },
+    {
+      "sku": "050100BD011P0000C3P1K0",
+      "standard_presentation": {
+        "units_per_box": 20,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 14.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 12
+      }
+    },
+    {
+      "sku": "051025TD081P0000C1P2K0",
+      "standard_presentation": {
+        "units_per_box": 48,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 19.7,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 13
+      }
+    },
+    {
+      "sku": "065025TT011P0367C3G5K0",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 15.4,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 14
+      }
+    },
+    {
+      "sku": "076025TT011P000YC3G5K0",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 18.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 17
+      }
+    },
+    {
+      "sku": "076025TT011P0021C3G5K0",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 18.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 18
+      }
+    },
+    {
+      "sku": "076025TT011P0032C3G5K0",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 18.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 19
+      }
+    },
+    {
+      "sku": "076025TT011P0217C3G5K0",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 18.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 20
+      }
+    },
+    {
+      "sku": "076025TT011P0291C3G5K0",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 18.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 21
+      }
+    },
+    {
+      "sku": "076025TT011P0352C3G5K0",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 18.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 22
+      }
+    },
+    {
+      "sku": "076025TT011P0367C3G5K0",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 18.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 24
+      }
+    },
+    {
+      "sku": "076025TT011P0460C3G5K0",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 18.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 25
+      }
+    },
+    {
+      "sku": "076025TT011P0482C3G5K0",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 18.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 26
+      }
+    },
+    {
+      "sku": "076025TT011P0WG1C3G5K0",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 18.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 27
+      }
+    },
+    {
+      "sku": "076025TT011P1485C3G5K0",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 18.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 28
+      }
+    },
+    {
+      "sku": "076025TT011P2572C3G5K0",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 18.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 29
+      }
+    },
+    {
+      "sku": "076025TT011PC2003240120",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 18.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 30
+      }
+    },
+    {
+      "sku": "076025TT011PC2003240128",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 18.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 31
+      }
+    },
+    {
+      "sku": "076025TT011PC2003240133",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 18.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 32
+      }
+    },
+    {
+      "sku": "076025TT011PC2004030123",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 18.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 33
+      }
+    },
+    {
+      "sku": "076025TT011PC2105270125",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 18.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 34
+      }
+    },
+    {
+      "sku": "076044TD011P0000C1G1K5",
+      "standard_presentation": {
+        "units_per_box": 27,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 21.1,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 35
+      }
+    },
+    {
+      "sku": "076044TD011P0000CQG1K5",
+      "standard_presentation": {
+        "units_per_box": 27,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 21.4,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 36
+      }
+    },
+    {
+      "sku": "076051TT011P0232C3P3K0",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 20.9,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 37
+      }
+    },
+    {
+      "sku": "076051TT011PC1TFYLLW",
+      "standard_presentation": {
+        "units_per_box": 27,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 23.3,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 39
+      }
+    },
+    {
+      "sku": "082045TD011P0000C1G1K5",
+      "standard_presentation": {
+        "units_per_box": 18,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 19.0,
+        "gross_weight_kg": 15.5,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 41
+      }
+    },
+    {
+      "sku": "102025TT011P0291C3G5K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 16.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 42
+      }
+    },
+    {
+      "sku": "102051TD011P0000CQP1K0",
+      "standard_presentation": {
+        "units_per_box": 24,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 18.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 43
+      }
+    },
+    {
+      "sku": "102076TD011P0000C1P240",
+      "standard_presentation": {
+        "units_per_box": 60,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 17.7,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 44
+      }
+    },
+    {
+      "sku": "102076TT011P0000C1G0K7",
+      "standard_presentation": {
+        "units_per_box": 27,
+        "length_cm": 30.0,
+        "width_cm": 30.0,
+        "height_cm": 33.0,
+        "gross_weight_kg": 21.7,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 45
+      }
+    },
+    {
+      "sku": "102076TT011P0232C3P2K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.9,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 46
+      }
+    },
+    {
+      "sku": "102127CA031P0000C3G0K5",
+      "standard_presentation": {
+        "units_per_box": 10,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 12.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 47
+      }
+    },
+    {
+      "sku": "102127TD011P0000C1G0K6",
+      "standard_presentation": {
+        "units_per_box": 18,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 21.1,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 48
+      }
+    },
+    {
+      "sku": "102127TT011P0232C3G1K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 15.4,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 49
+      }
+    },
+    {
+      "sku": "102127TT041P0000C3G1K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 17.1,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 50
+      }
+    },
+    {
+      "sku": "102152TD011P0000C1G200",
+      "standard_presentation": {
+        "units_per_box": 54,
+        "length_cm": 41.0,
+        "width_cm": 33.0,
+        "height_cm": 32.0,
+        "gross_weight_kg": 27.5,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 51
+      }
+    },
+    {
+      "sku": "102152TT011P2975C3P1K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 18.4,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 52
+      }
+    },
+    {
+      "sku": "102152TX061P0000C1G200",
+      "standard_presentation": {
+        "units_per_box": 24,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 14.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 53
+      }
+    },
+    {
+      "sku": "108047DG041P0000C3P1K2",
+      "standard_presentation": {
+        "units_per_box": 10,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 14.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 55
+      }
+    },
+    {
+      "sku": "203127DG041P0000C3P450",
+      "standard_presentation": {
+        "units_per_box": 5,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 14.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 56
+      }
+    },
+    {
+      "sku": "ALF13019025CS2407150915",
+      "standard_presentation": {
+        "units_per_box": 36,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 13.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 57
+      }
+    },
+    {
+      "sku": "ALF13019025CS2407150920",
+      "standard_presentation": {
+        "units_per_box": 36,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 13.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 58
+      }
+    },
+    {
+      "sku": "ATM09046046BB2607101203",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 12.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 59
+      }
+    },
+    {
+      "sku": "ATM09102076TT2510141347",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 60
+      }
+    },
+    {
+      "sku": "ATM09102076TT2510141350",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 61
+      }
+    },
+    {
+      "sku": "ATM09102076TT2510141400",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 62
+      }
+    },
+    {
+      "sku": "ATM09102076TT2512081100",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 63
+      }
+    },
+    {
+      "sku": "ATM09102076TT2512081105",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 64
+      }
+    },
+    {
+      "sku": "ATM09102076TT2512081110",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 65
+      }
+    },
+    {
+      "sku": "ATM09102076TT2512081112",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 66
+      }
+    },
+    {
+      "sku": "AUGHA102076TD2405031320",
+      "standard_presentation": {
+        "units_per_box": 18,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 17.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 67
+      }
+    },
+    {
+      "sku": "AVA22076051TT2507071524",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 20.5,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 68
+      }
+    },
+    {
+      "sku": "EFF26060060BT2609281205",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 12.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 70
+      }
+    },
+    {
+      "sku": "EFF26060060BT2609281215",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 12.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 71
+      }
+    },
+    {
+      "sku": "EFF26060060BT2609281225",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 12.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 72
+      }
+    },
+    {
+      "sku": "FTE14080080TT2211241700",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 19.0,
+        "gross_weight_kg": 15.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 73
+      }
+    },
+    {
+      "sku": "HLG1A080040TD1905210122",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 13.9,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 74
+      }
+    },
+    {
+      "sku": "IF&0A102152TD2510021358",
+      "standard_presentation": {
+        "units_per_box": 24,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 20.1,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 75
+      }
+    },
+    {
+      "sku": "IME7A102152TT2004140153",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 76
+      }
+    },
+    {
+      "sku": "IME7A102152TT2004140158",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 77
+      }
+    },
+    {
+      "sku": "IME7A102152TT2004141201",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 78
+      }
+    },
+    {
+      "sku": "IME7A102152TT2005260156",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 79
+      }
+    },
+    {
+      "sku": "IME7A102152TT2006260152",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 80
+      }
+    },
+    {
+      "sku": "IME7A102152TT2010121203",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 81
+      }
+    },
+    {
+      "sku": "LPI83054082BB2504020845",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 19.0,
+        "gross_weight_kg": 14.3,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 84
+      }
+    },
+    {
+      "sku": "LPI83075065BB2506031630",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 18.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 85
+      }
+    },
+    {
+      "sku": "LPI83100160BB2504021045",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 16.7,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 86
+      }
+    },
+    {
+      "sku": "SCP97165076TT2409201223",
+      "standard_presentation": {
+        "units_per_box": 2,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 19.0,
+        "gross_weight_kg": 12.7,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 88
+      }
+    },
+    {
+      "sku": "051025PL011P0000C3P5K3",
+      "standard_presentation": {
+        "units_per_box": 16,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 23.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 91
+      }
+    },
+    {
+      "sku": "080040TD011P000CC1G1K5",
+      "standard_presentation": {
+        "units_per_box": 18,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 19.0,
+        "gross_weight_kg": 13.9,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 92
+      }
+    },
+    {
+      "sku": "102051BB011P0000C3G2K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 10.85,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 93
+      }
+    },
+    {
+      "sku": "TRI91032032TT2610081052",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 17.15,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 94
+      }
+    },
+    {
+      "sku": "AIS16051025BT2610081515",
+      "standard_presentation": {
+        "units_per_box": 2,
+        "length_cm": 30.0,
+        "width_cm": 30.0,
+        "height_cm": 12.0,
+        "gross_weight_kg": 6.35,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 95
+      }
+    },
+    {
+      "sku": "AIS16122320BB2610011106",
+      "standard_presentation": {
+        "units_per_box": 2,
+        "length_cm": 30.0,
+        "width_cm": 30.0,
+        "height_cm": 26.0,
+        "gross_weight_kg": 12.5,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 96
+      }
+    },
+    {
+      "sku": "MES17102076BB2508141533",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 12.05,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 97
+      }
+    },
+    {
+      "sku": "PGR00135300CS2608201346",
+      "standard_presentation": {
+        "units_per_box": 3,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 19.0,
+        "gross_weight_kg": 11.9,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 98
+      }
+    },
+    {
+      "sku": "038063TD011P000YCLG175",
+      "standard_presentation": {
+        "units_per_box": 320,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 21.4,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 100
+      }
+    },
+    {
+      "sku": "GURJ5080057CS2610151011",
+      "standard_presentation": {
+        "units_per_box": 6,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 19.0,
+        "gross_weight_kg": 13.25,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 102
+      }
+    },
+    {
+      "sku": "102076TD011P0000C1G700",
+      "standard_presentation": {
+        "units_per_box": 18,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 15.3,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 103
+      }
+    },
+    {
+      "sku": "102127TT021P0000C3G1K0",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 16.35,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 104
+      }
+    },
+    {
+      "sku": "LPI83075065BB2608191500",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 25.0,
+        "gross_weight_kg": 19.05,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 105
+      }
+    },
+    {
+      "sku": "PLA97030072CS2610121141",
+      "standard_presentation": {
+        "units_per_box": 12,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 15.15,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 106
+      }
+    },
+    {
+      "sku": "AIS16122320BB2610011050",
+      "standard_presentation": {
+        "units_per_box": 2,
+        "length_cm": 30.0,
+        "width_cm": 30.0,
+        "height_cm": 26.0,
+        "gross_weight_kg": 12.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 107
+      }
+    },
+    {
+      "sku": "SCP97048023BT2510011658",
+      "standard_presentation": {
+        "units_per_box": 8,
+        "length_cm": 30.0,
+        "width_cm": 30.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 15.1,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 108
+      }
+    },
+    {
+      "sku": "PGL17099053CS2609301210",
+      "standard_presentation": {
+        "units_per_box": 2,
+        "length_cm": 30.0,
+        "width_cm": 30.0,
+        "height_cm": 23.0,
+        "gross_weight_kg": 17.65,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 109
+      }
+    },
+    {
+      "sku": "040022TD011P0000C1G2K5",
+      "standard_presentation": {
+        "units_per_box": 45,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 19.0,
+        "gross_weight_kg": 15.4,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 110
+      }
+    },
+    {
+      "sku": "080040TD011P0021C1G1K5",
+      "standard_presentation": {
+        "units_per_box": 18,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 19.0,
+        "gross_weight_kg": 13.85,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 111
+      }
+    },
+    {
+      "sku": "080040TD011P0367C1G1K5",
+      "standard_presentation": {
+        "units_per_box": 18,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 19.0,
+        "gross_weight_kg": 13.85,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 112
+      }
+    },
+    {
+      "sku": "049019TT011P0000C3G8KO",
+      "standard_presentation": {
+        "units_per_box": 16,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 22.0,
+        "gross_weight_kg": 18.45,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 113
+      }
+    },
+    {
+      "sku": "AIS16080200BB2610011130",
+      "standard_presentation": {
+        "units_per_box": 4,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 19.0,
+        "gross_weight_kg": 10.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 114
+      }
+    },
+    {
+      "sku": "040022TD012P0000C1G2K0",
+      "standard_presentation": {
+        "units_per_box": 50,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 19.0,
+        "gross_weight_kg": 16.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Etiquetas de Diseño y Especiale",
+        "source_row": 115
+      }
+    },
+    {
+      "sku": "021012BD021P0000C1M1K0",
+      "standard_presentation": {
+        "units_per_box": 100,
+        "length_cm": 23.0,
+        "width_cm": 14.0,
+        "height_cm": 33.0,
+        "gross_weight_kg": 5.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Termico, Marca precio",
+        "source_row": 7
+      }
+    },
+    {
+      "sku": "057060PT011P0000CPC108",
+      "standard_presentation": {
+        "units_per_box": 108,
+        "length_cm": 36.0,
+        "width_cm": 36.0,
+        "height_cm": 19.0,
+        "gross_weight_kg": 14.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Termico, Marca precio",
+        "source_row": 17
+      }
+    },
+    {
+      "sku": "075045PT011P0000CSC192",
+      "standard_presentation": {
+        "units_per_box": 192,
+        "length_cm": 38.0,
+        "width_cm": 38.0,
+        "height_cm": 24.0,
+        "gross_weight_kg": 19.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Termico, Marca precio",
+        "source_row": 18
+      }
+    },
+    {
+      "sku": "16GL-BIM-ROL",
+      "standard_presentation": {
+        "units_per_box": 500,
+        "length_cm": 32.0,
+        "width_cm": 32.0,
+        "height_cm": 44.0,
+        "gross_weight_kg": 19.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Termico, Marca precio",
+        "source_row": 24
+      }
+    },
+    {
+      "sku": "16GL-BPO",
+      "standard_presentation": {
+        "units_per_box": 500,
+        "length_cm": 32.0,
+        "width_cm": 32.0,
+        "height_cm": 44.0,
+        "gross_weight_kg": 19.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Termico, Marca precio",
+        "source_row": 25
+      }
+    },
+    {
+      "sku": "16GL-FIM",
+      "standard_presentation": {
+        "units_per_box": 500,
+        "length_cm": 32.0,
+        "width_cm": 32.0,
+        "height_cm": 44.0,
+        "gross_weight_kg": 22.9,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Termico, Marca precio",
+        "source_row": 26
+      }
+    },
+    {
+      "sku": "16GL-FLU",
+      "standard_presentation": {
+        "units_per_box": 500,
+        "length_cm": 32.0,
+        "width_cm": 32.0,
+        "height_cm": 44.0,
+        "gross_weight_kg": 22.9,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Termico, Marca precio",
+        "source_row": 27
+      }
+    },
+    {
+      "sku": "16GL-FRJ",
+      "standard_presentation": {
+        "units_per_box": 500,
+        "length_cm": 32.0,
+        "width_cm": 32.0,
+        "height_cm": 44.0,
+        "gross_weight_kg": 22.9,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Termico, Marca precio",
+        "source_row": 28
+      }
+    },
+    {
+      "sku": "16GL-FRS",
+      "standard_presentation": {
+        "units_per_box": 500,
+        "length_cm": 32.0,
+        "width_cm": 32.0,
+        "height_cm": 44.0,
+        "gross_weight_kg": 22.9,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Termico, Marca precio",
+        "source_row": 29
+      }
+    },
+    {
+      "sku": "16GL-FVD",
+      "standard_presentation": {
+        "units_per_box": 500,
+        "length_cm": 32.0,
+        "width_cm": 32.0,
+        "height_cm": 44.0,
+        "gross_weight_kg": 22.9,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Termico, Marca precio",
+        "source_row": 30
+      }
+    },
+    {
+      "sku": "2189-16GL",
+      "standard_presentation": {
+        "units_per_box": 500,
+        "length_cm": 32.0,
+        "width_cm": 32.0,
+        "height_cm": 46.0,
+        "gross_weight_kg": 22.4,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Termico, Marca precio",
+        "source_row": 31
+      }
+    },
+    {
+      "sku": "8GS-BPO-ROLLO",
+      "standard_presentation": {
+        "units_per_box": 500,
+        "length_cm": 32.0,
+        "width_cm": 32.0,
+        "height_cm": 44.0,
+        "gross_weight_kg": 18.9,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Termico, Marca precio",
+        "source_row": 33
+      }
+    },
+    {
+      "sku": "8GS-FLU-ROLLO",
+      "standard_presentation": {
+        "units_per_box": 500,
+        "length_cm": 32.0,
+        "width_cm": 32.0,
+        "height_cm": 44.0,
+        "gross_weight_kg": 22.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Termico, Marca precio",
+        "source_row": 34
+      }
+    },
+    {
+      "sku": "8GS-FNJ-ROLLO",
+      "standard_presentation": {
+        "units_per_box": 500,
+        "length_cm": 32.0,
+        "width_cm": 32.0,
+        "height_cm": 44.0,
+        "gross_weight_kg": 22.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Termico, Marca precio",
+        "source_row": 35
+      }
+    },
+    {
+      "sku": "8GS-FRJ-ROLLO",
+      "standard_presentation": {
+        "units_per_box": 500,
+        "length_cm": 32.0,
+        "width_cm": 32.0,
+        "height_cm": 44.0,
+        "gross_weight_kg": 22.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Termico, Marca precio",
+        "source_row": 36
+      }
+    },
+    {
+      "sku": "8GS-FRS-ROLLO",
+      "standard_presentation": {
+        "units_per_box": 500,
+        "length_cm": 32.0,
+        "width_cm": 32.0,
+        "height_cm": 44.0,
+        "gross_weight_kg": 22.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Termico, Marca precio",
+        "source_row": 37
+      }
+    },
+    {
+      "sku": "8GS-FVD-ROLLO",
+      "standard_presentation": {
+        "units_per_box": 500,
+        "length_cm": 32.0,
+        "width_cm": 32.0,
+        "height_cm": 44.0,
+        "gross_weight_kg": 22.0,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Termico, Marca precio",
+        "source_row": 38
+      }
+    },
+    {
+      "sku": "JC20-BCO-ROL",
+      "standard_presentation": {
+        "units_per_box": 300,
+        "length_cm": 41.0,
+        "width_cm": 32.0,
+        "height_cm": 29.0,
+        "gross_weight_kg": 17.2,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Termico, Marca precio",
+        "source_row": 39
+      }
+    },
+    {
+      "sku": "OFFICE-MCPI1T",
+      "standard_presentation": {
+        "units_per_box": 300,
+        "length_cm": 42.0,
+        "width_cm": 24.0,
+        "height_cm": 34.0,
+        "gross_weight_kg": 15.8,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Termico, Marca precio",
+        "source_row": 42
+      }
+    },
+    {
+      "sku": "SATO016018-MCP",
+      "standard_presentation": {
+        "units_per_box": 360,
+        "length_cm": 42.0,
+        "width_cm": 24.0,
+        "height_cm": 34.0,
+        "gross_weight_kg": 15.4,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Termico, Marca precio",
+        "source_row": 47
+      }
+    },
+    {
+      "sku": "SATO016018-MCP-IMP",
+      "standard_presentation": {
+        "units_per_box": 360,
+        "length_cm": 42.0,
+        "width_cm": 24.0,
+        "height_cm": 34.0,
+        "gross_weight_kg": 15.6,
+        "origin": "DECLARED",
+        "source_file_name": "TEC-ALM-Empaque Medidas y Peso.xlsx",
+        "source_sheet": "Termico, Marca precio",
+        "source_row": 48
+      }
+    }
+  ],
+  "pending": [
+    {
+      "sku": "020020BM044P0000C3O5K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 2,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "025260BB081P0000C1N250",
+      "sheet": "Etiquetas de Linea",
+      "row": 3,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "027013TD013P0000C1G12K",
+      "sheet": "Etiquetas de Linea",
+      "row": 6,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "027013TD013P0000C1G12K",
+      "sheet": "Etiquetas de Linea",
+      "row": 7,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "028020BM041P0000C3G9K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 10,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "028020BM042P0000C3D5K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 11,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "030017PL013P0000C1G9K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 12,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "030017PL013PC3T021KS",
+      "sheet": "Etiquetas de Linea",
+      "row": 13,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "030022TD011P0000C1G400",
+      "sheet": "Etiquetas de Linea",
+      "row": 16,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "030200NY011P0000C3C0K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 19,
+      "reason": "CAPACIDAD_NO_RESUELTA"
+    },
+    {
+      "sku": "038025TD011P0000C1G400",
+      "sheet": "Etiquetas de Linea",
+      "row": 24,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "040040TD011P0000C1O1K5",
+      "sheet": "Etiquetas de Linea",
+      "row": 30,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "040040TD011P0000C1O250",
+      "sheet": "Etiquetas de Linea",
+      "row": 31,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "040040TD011P000YC1O1K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 32,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "040040TD011P0217C1O1K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 33,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "040040TD011P0248C1O1K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 34,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "040040TD011P0291C1O1K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 35,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "040040TD011P0367C1O1K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 36,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "040040TD011P1485C1O1K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 37,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "050050BT011P0000C1O1K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 38,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "050200NY011P0000C3C0K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 39,
+      "reason": "CAPACIDAD_NO_RESUELTA"
+    },
+    {
+      "sku": "051025BB011PC1T02K0S",
+      "sheet": "Etiquetas de Linea",
+      "row": 42,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "051025BB091P0000C1G1K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 43,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "051025BB091P0000C1G400",
+      "sheet": "Etiquetas de Linea",
+      "row": 44,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "051025TD011P0000C1P400",
+      "sheet": "Etiquetas de Linea",
+      "row": 52,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "051025TD011P0000CLP0K4",
+      "sheet": "Etiquetas de Linea",
+      "row": 53,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "051025TD011P000YC1P1K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 54,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "051025TD011P000YC1P1K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 55,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "051025TD011P0217C1P1K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 56,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "051025TD011P0217C1P1K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 57,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "051025TD011P0291C1P1K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 58,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "051025TD011P0291C1P1K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 59,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "051025TD011P0367C1P1K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 60,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "051025TD011P0367C1P1K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 61,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "051025TD011P1485C1P1K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 62,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "051025TD011P1485C1P1K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 63,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "051025TD011P2345C1P1K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 64,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "051025TD011P2345C1P1K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 65,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "051025VD011P0000C1S1K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 72,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "051032TT012P0000C3G10K",
+      "sheet": "Etiquetas de Linea",
+      "row": 74,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "051032TT012P0000C3G10K",
+      "sheet": "Etiquetas de Linea",
+      "row": 75,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "051051BM011P0000C3O2K5",
+      "sheet": "Etiquetas de Linea",
+      "row": 76,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "051051TD011P0000C1G1K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 77,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "051051TD011P0000C1G200",
+      "sheet": "Etiquetas de Linea",
+      "row": 78,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "056013BB091P0000C1G2K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 79,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "058040TD011P0000C1G250",
+      "sheet": "Etiquetas de Linea",
+      "row": 81,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "063011BB091P0000C1G2K5",
+      "sheet": "Etiquetas de Linea",
+      "row": 85,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "076025TD011P0000C1G1K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 88,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "076025TD011P0000C1P1K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 89,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "076025TD011P0000C1P400",
+      "sheet": "Etiquetas de Linea",
+      "row": 90,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "076038BT011P0000C1S2K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 93,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "076051TD011P0000C1P1K5",
+      "sheet": "Etiquetas de Linea",
+      "row": 96,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "076051TD011P0000C1P1K5",
+      "sheet": "Etiquetas de Linea",
+      "row": 97,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "076051TD011P0000C3P3K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 98,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "076051TD011P0000C3P3K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 99,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "076051TT011P0000C1P1K5",
+      "sheet": "Etiquetas de Linea",
+      "row": 100,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "076051TT011P0000C1P1K5",
+      "sheet": "Etiquetas de Linea",
+      "row": 101,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "102018VD011P0000C1N2K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 107,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "102038BT031P000KC3S6K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 111,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "102051TD011P0000C1P1K5",
+      "sheet": "Etiquetas de Linea",
+      "row": 112,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "102051TD011P0000C1P1K5",
+      "sheet": "Etiquetas de Linea",
+      "row": 113,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "102051TD011P0000C3P3K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 114,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "102051TD011P0000C3P3K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 115,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "102076TT011P0000C3P2K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 128,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "102076TT011P0000C3P2K0",
+      "sheet": "Etiquetas de Linea",
+      "row": 129,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "102152TD011P0000C1P0K3",
+      "sheet": "Etiquetas de Linea",
+      "row": 139,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "102152TD011P0000C1P0K3",
+      "sheet": "Etiquetas de Linea",
+      "row": 140,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "030200TV011PC3T0",
+      "sheet": "Etiquetas de Diseño y Especiale",
+      "row": 4,
+      "reason": "CAPACIDAD_NO_RESUELTA"
+    },
+    {
+      "sku": "038025BB012PC1002090157",
+      "sheet": "Etiquetas de Diseño y Especiale",
+      "row": 6,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "038025BB012PC1103040156",
+      "sheet": "Etiquetas de Diseño y Especiale",
+      "row": 7,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "048100SG021PC3T0100C",
+      "sheet": "Etiquetas de Diseño y Especiale",
+      "row": 11,
+      "reason": "CAPACIDAD_NO_RESUELTA"
+    },
+    {
+      "sku": "076025TT011P0009C1P1K0",
+      "sheet": "Etiquetas de Diseño y Especiale",
+      "row": 15,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "076025TT011P000YC1G1K0",
+      "sheet": "Etiquetas de Diseño y Especiale",
+      "row": 16,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "076025TT011P0367C1G1K0",
+      "sheet": "Etiquetas de Diseño y Especiale",
+      "row": 23,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "076051TT011PC1811201204",
+      "sheet": "Etiquetas de Diseño y Especiale",
+      "row": 38,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "076076TT011P000YC3G2K0",
+      "sheet": "Etiquetas de Diseño y Especiale",
+      "row": 40,
+      "reason": "FALTA_PESO"
+    },
+    {
+      "sku": "102200BB011P0000C3C200",
+      "sheet": "Etiquetas de Diseño y Especiale",
+      "row": 54,
+      "reason": "CAPACIDAD_NO_RESUELTA"
+    },
+    {
+      "sku": "CALEA051025TT2010230136",
+      "sheet": "Etiquetas de Diseño y Especiale",
+      "row": 69,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "J063022BB001P1911080150",
+      "sheet": "Etiquetas de Diseño y Especiale",
+      "row": 82,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "LDL23051025BB2410070848",
+      "sheet": "Etiquetas de Diseño y Especiale",
+      "row": 83,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "METJA032127CS2012291257",
+      "sheet": "Etiquetas de Diseño y Especiale",
+      "row": 87,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "XXXXX102152CS2509191228",
+      "sheet": "Etiquetas de Diseño y Especiale",
+      "row": 89,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "022015BB011P000C1G2K5",
+      "sheet": "Etiquetas de Diseño y Especiale",
+      "row": 90,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "102102TD081P0000C1P0K5",
+      "sheet": "Etiquetas de Diseño y Especiale",
+      "row": 99,
+      "reason": "FALTA_PESO"
+    },
+    {
+      "sku": "105067DG011P0000C1C67M",
+      "sheet": "Etiquetas de Diseño y Especiale",
+      "row": 101,
+      "reason": "CAPACIDAD_NO_RESUELTA"
+    },
+    {
+      "sku": "AAC15075062TD2601211400",
+      "sheet": "Etiquetas de Diseño y Especiale",
+      "row": 116,
+      "reason": "FALTA_PESO"
+    },
+    {
+      "sku": "040031TT011P0000C3G10K",
+      "sheet": "Etiquetas de Diseño y Especiale",
+      "row": 117,
+      "reason": "CONFLICTO_CAPACIDAD, FALTA_PESO, CAPACIDAD_NO_RESUELTA"
+    },
+    {
+      "sku": "102067BT011P0000C3C67M",
+      "sheet": "Etiquetas de Diseño y Especiale",
+      "row": 118,
+      "reason": "FALTA_PESO, CAPACIDAD_NO_RESUELTA"
+    },
+    {
+      "sku": "016023BD021P0802C1M750",
+      "sheet": "Termico, Marca precio",
+      "row": 2,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "016023BD021P0804C1M750",
+      "sheet": "Termico, Marca precio",
+      "row": 3,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "016023BD021P0805C1M750",
+      "sheet": "Termico, Marca precio",
+      "row": 4,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "016023BD021P0806C1M750",
+      "sheet": "Termico, Marca precio",
+      "row": 5,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "016023BD021P0809C1M750",
+      "sheet": "Termico, Marca precio",
+      "row": 6,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "021012BD021P0802C1M1K0",
+      "sheet": "Termico, Marca precio",
+      "row": 8,
+      "reason": "Sin cantidad entera de rollos por caja mayor a uno"
+    },
+    {
+      "sku": "057040PT011P0000CSC020",
+      "sheet": "Termico, Marca precio",
+      "row": 11,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "057040PT011P0000CSC020",
+      "sheet": "Termico, Marca precio",
+      "row": 12,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "080080PT011P0000CPC040",
+      "sheet": "Termico, Marca precio",
+      "row": 21,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "080080PT011P0000CPC040",
+      "sheet": "Termico, Marca precio",
+      "row": 22,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "30GT-BPO",
+      "sheet": "Termico, Marca precio",
+      "row": 32,
+      "reason": "DIFERENCIA_PESO_MAYOR_10_PCT"
+    },
+    {
+      "sku": "OFFICE-MCP",
+      "sheet": "Termico, Marca precio",
+      "row": 40,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "OFFICE-MCP",
+      "sheet": "Termico, Marca precio",
+      "row": 41,
+      "reason": "SKU duplicado: requiere resolver la presentación"
+    },
+    {
+      "sku": "RPRT5045",
+      "sheet": "Termico, Marca precio",
+      "row": 44,
+      "reason": "Sin tres medidas exteriores válidas"
+    },
+    {
+      "sku": "RPRT80200",
+      "sheet": "Termico, Marca precio",
+      "row": 46,
+      "reason": "Sin tres medidas exteriores válidas"
+    },
+    {
+      "sku": "025122THSSI",
+      "sheet": "Ribbon",
+      "row": 2,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "025300TCEPO",
+      "sheet": "Ribbon",
+      "row": 3,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "026122HSN-TDZ",
+      "sheet": "Ribbon",
+      "row": 4,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "030122THSSI",
+      "sheet": "Ribbon",
+      "row": 5,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "030300ZRETO-2",
+      "sheet": "Ribbon",
+      "row": 6,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "0331000TNECRSI",
+      "sheet": "Ribbon",
+      "row": 7,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "033550TNECRSO",
+      "sheet": "Ribbon",
+      "row": 8,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "033600TNECRSO",
+      "sheet": "Ribbon",
+      "row": 9,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "035122THSSI",
+      "sheet": "Ribbon",
+      "row": 10,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "035300TRXSO",
+      "sheet": "Ribbon",
+      "row": 11,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "038183THSSI",
+      "sheet": "Ribbon",
+      "row": 12,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "038183THSSIB",
+      "sheet": "Ribbon",
+      "row": 13,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "038300TRESO",
+      "sheet": "Ribbon",
+      "row": 14,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "040300TREPO",
+      "sheet": "Ribbon",
+      "row": 15,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "040300TRESO",
+      "sheet": "Ribbon",
+      "row": 16,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "042213THSSIB",
+      "sheet": "Ribbon",
+      "row": 17,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "050122HSN-TDZ",
+      "sheet": "Ribbon",
+      "row": 18,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "051450ZCESO",
+      "sheet": "Ribbon",
+      "row": 19,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "053300RRXSO",
+      "sheet": "Ribbon",
+      "row": 20,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "053300TRXSO",
+      "sheet": "Ribbon",
+      "row": 21,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "055074RRXSO",
+      "sheet": "Ribbon",
+      "row": 22,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "055074TCESO",
+      "sheet": "Ribbon",
+      "row": 23,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "055074TRESO",
+      "sheet": "Ribbon",
+      "row": 24,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "055074TRXSO",
+      "sheet": "Ribbon",
+      "row": 25,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "055500SCRTI",
+      "sheet": "Ribbon",
+      "row": 26,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "055700TNECRSO",
+      "sheet": "Ribbon",
+      "row": 27,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "060075SCRTO",
+      "sheet": "Ribbon",
+      "row": 28,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "060300RCRSO",
+      "sheet": "Ribbon",
+      "row": 29,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "060300TCESO",
+      "sheet": "Ribbon",
+      "row": 30,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "060300TCRPO",
+      "sheet": "Ribbon",
+      "row": 31,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "060450TCESO",
+      "sheet": "Ribbon",
+      "row": 32,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "060450TRESO",
+      "sheet": "Ribbon",
+      "row": 33,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "064074RCESO",
+      "sheet": "Ribbon",
+      "row": 34,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "064074RCRSO",
+      "sheet": "Ribbon",
+      "row": 35,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "064074RRESO",
+      "sheet": "Ribbon",
+      "row": 36,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "064074TCESO",
+      "sheet": "Ribbon",
+      "row": 37,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "064074TCRPO",
+      "sheet": "Ribbon",
+      "row": 38,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "064074TRESO",
+      "sheet": "Ribbon",
+      "row": 39,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "064074ZCEPO",
+      "sheet": "Ribbon",
+      "row": 40,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "064074ZRETO",
+      "sheet": "Ribbon",
+      "row": 41,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "064300TRESOB",
+      "sheet": "Ribbon",
+      "row": 42,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "065300RRESO",
+      "sheet": "Ribbon",
+      "row": 43,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "065300TRESO",
+      "sheet": "Ribbon",
+      "row": 44,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "075300RCRSOP",
+      "sheet": "Ribbon",
+      "row": 45,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "076360TCEPI",
+      "sheet": "Ribbon",
+      "row": 46,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "076800TECCEO",
+      "sheet": "Ribbon",
+      "row": 47,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "083074RCESO",
+      "sheet": "Ribbon",
+      "row": 48,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "083074TCESO",
+      "sheet": "Ribbon",
+      "row": 49,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "083074ZCEPO",
+      "sheet": "Ribbon",
+      "row": 50,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "083300RCESO",
+      "sheet": "Ribbon",
+      "row": 51,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "083300TCESO",
+      "sheet": "Ribbon",
+      "row": 52,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "083450RCEPO",
+      "sheet": "Ribbon",
+      "row": 53,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "083450RCRSO",
+      "sheet": "Ribbon",
+      "row": 54,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "083450RRESO",
+      "sheet": "Ribbon",
+      "row": 55,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "083450TCEPO",
+      "sheet": "Ribbon",
+      "row": 56,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "083450TCRPO",
+      "sheet": "Ribbon",
+      "row": 57,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "083450TREGO",
+      "sheet": "Ribbon",
+      "row": 58,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "083450TRESO",
+      "sheet": "Ribbon",
+      "row": 59,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "083450TRESO-ID1036093",
+      "sheet": "Ribbon",
+      "row": 60,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "083450ZCEPO",
+      "sheet": "Ribbon",
+      "row": 61,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "083450ZCRTO",
+      "sheet": "Ribbon",
+      "row": 62,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "085450TCEUI-CC",
+      "sheet": "Ribbon",
+      "row": 63,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "102250TCEPOA",
+      "sheet": "Ribbon",
+      "row": 64,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "102250TCEPOR",
+      "sheet": "Ribbon",
+      "row": 65,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "102250TRESOB",
+      "sheet": "Ribbon",
+      "row": 66,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "102300RCESO",
+      "sheet": "Ribbon",
+      "row": 67,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "102300RRESO",
+      "sheet": "Ribbon",
+      "row": 68,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "102300RRXSO",
+      "sheet": "Ribbon",
+      "row": 69,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "102300TCEPOA",
+      "sheet": "Ribbon",
+      "row": 70,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "102300TCEPOR",
+      "sheet": "Ribbon",
+      "row": 71,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "102300TCESO",
+      "sheet": "Ribbon",
+      "row": 72,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "102300TCRPO",
+      "sheet": "Ribbon",
+      "row": 73,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "102300TRESO",
+      "sheet": "Ribbon",
+      "row": 74,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "102300TRESOB",
+      "sheet": "Ribbon",
+      "row": 75,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "102300TRESOR",
+      "sheet": "Ribbon",
+      "row": 76,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "102300TRXSO",
+      "sheet": "Ribbon",
+      "row": 77,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "102300ZCESO",
+      "sheet": "Ribbon",
+      "row": 78,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "102300ZCRTO",
+      "sheet": "Ribbon",
+      "row": 79,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "102360FRETI",
+      "sheet": "Ribbon",
+      "row": 80,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "102360TRESO",
+      "sheet": "Ribbon",
+      "row": 81,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "102360ZRETO",
+      "sheet": "Ribbon",
+      "row": 82,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "102450RRESO",
+      "sheet": "Ribbon",
+      "row": 83,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "102450TRESO",
+      "sheet": "Ribbon",
+      "row": 84,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "102450ZRETO",
+      "sheet": "Ribbon",
+      "row": 85,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "106800TECCEO",
+      "sheet": "Ribbon",
+      "row": 86,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110074RCESO",
+      "sheet": "Ribbon",
+      "row": 87,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110074RRESO",
+      "sheet": "Ribbon",
+      "row": 88,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110074TCESO",
+      "sheet": "Ribbon",
+      "row": 89,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110074TCRPO",
+      "sheet": "Ribbon",
+      "row": 90,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110074TREPO",
+      "sheet": "Ribbon",
+      "row": 91,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110074TRESO",
+      "sheet": "Ribbon",
+      "row": 92,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110074TRXSO",
+      "sheet": "Ribbon",
+      "row": 93,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110074ZCEPO",
+      "sheet": "Ribbon",
+      "row": 94,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110074ZRETO",
+      "sheet": "Ribbon",
+      "row": 95,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110110DRETI",
+      "sheet": "Ribbon",
+      "row": 96,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110300TCEPO",
+      "sheet": "Ribbon",
+      "row": 97,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110300TCESO",
+      "sheet": "Ribbon",
+      "row": 98,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110300TCRSO",
+      "sheet": "Ribbon",
+      "row": 99,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110300TRXSO",
+      "sheet": "Ribbon",
+      "row": 100,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110360FRETI",
+      "sheet": "Ribbon",
+      "row": 101,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110360TRESI",
+      "sheet": "Ribbon",
+      "row": 102,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110450RCEPO",
+      "sheet": "Ribbon",
+      "row": 103,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110450RCESO",
+      "sheet": "Ribbon",
+      "row": 104,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110450RCRSO",
+      "sheet": "Ribbon",
+      "row": 105,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110450TCEPO",
+      "sheet": "Ribbon",
+      "row": 106,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110450TCESO",
+      "sheet": "Ribbon",
+      "row": 107,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110450TCRPO",
+      "sheet": "Ribbon",
+      "row": 108,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110450ZCEPO",
+      "sheet": "Ribbon",
+      "row": 109,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110450ZCESO",
+      "sheet": "Ribbon",
+      "row": 110,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110450ZCTT808",
+      "sheet": "Ribbon",
+      "row": 111,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110450ZRETO",
+      "sheet": "Ribbon",
+      "row": 112,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "110600RCEUOM",
+      "sheet": "Ribbon",
+      "row": 113,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "152450TRESO",
+      "sheet": "Ribbon",
+      "row": 114,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "154300TCEPO",
+      "sheet": "Ribbon",
+      "row": 115,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "154300ZCEPO",
+      "sheet": "Ribbon",
+      "row": 116,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "170560TCEUI-CC",
+      "sheet": "Ribbon",
+      "row": 117,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "800033-840",
+      "sheet": "Ribbon",
+      "row": 118,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "800300-250LA",
+      "sheet": "Ribbon",
+      "row": 119,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "800300-264LA",
+      "sheet": "Ribbon",
+      "row": 120,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "800300-301",
+      "sheet": "Ribbon",
+      "row": 121,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "800300-301LA",
+      "sheet": "Ribbon",
+      "row": 122,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "800300-306",
+      "sheet": "Ribbon",
+      "row": 123,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "800300-307",
+      "sheet": "Ribbon",
+      "row": 124,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "800300-309LA",
+      "sheet": "Ribbon",
+      "row": 125,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "800300-350LA",
+      "sheet": "Ribbon",
+      "row": 126,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "800300-350LAF",
+      "sheet": "Ribbon",
+      "row": 127,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "800300-360LA",
+      "sheet": "Ribbon",
+      "row": 128,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "800300-550LA",
+      "sheet": "Ribbon",
+      "row": 129,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "800300-562LA",
+      "sheet": "Ribbon",
+      "row": 130,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "800300-563LA",
+      "sheet": "Ribbon",
+      "row": 131,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "MX053300TRXSOB",
+      "sheet": "Ribbon",
+      "row": 132,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "MX075200TRESOAM",
+      "sheet": "Ribbon",
+      "row": 133,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "MX075200TRESOAZ",
+      "sheet": "Ribbon",
+      "row": 134,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "MX075200TRESOD",
+      "sheet": "Ribbon",
+      "row": 135,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "MX075200TRESODL",
+      "sheet": "Ribbon",
+      "row": 136,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "MX075200TRESOP",
+      "sheet": "Ribbon",
+      "row": 137,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "MX075200TRESOR",
+      "sheet": "Ribbon",
+      "row": 138,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "MX075200TRESORS",
+      "sheet": "Ribbon",
+      "row": 139,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "MX075200TRESOVE",
+      "sheet": "Ribbon",
+      "row": 140,
+      "reason": "Presentación estándar reservada para etiquetas y tickets"
+    },
+    {
+      "sku": "057030PT011P0000CSC050",
+      "sheet": "Termico, Marca precio",
+      "row": 9,
+      "reason": "Producto configurado como empaque original cerrado"
+    },
+    {
+      "sku": "057030PT011P0000CSC10M",
+      "sheet": "Termico, Marca precio",
+      "row": 10,
+      "reason": "Producto configurado como empaque original cerrado"
+    },
+    {
+      "sku": "057040PT011P0000CSC050",
+      "sheet": "Termico, Marca precio",
+      "row": 13,
+      "reason": "Producto configurado como empaque original cerrado"
+    },
+    {
+      "sku": "057040PT011P0000CSC100",
+      "sheet": "Termico, Marca precio",
+      "row": 14,
+      "reason": "Producto configurado como empaque original cerrado"
+    },
+    {
+      "sku": "057040PT011P0000CSC240",
+      "sheet": "Termico, Marca precio",
+      "row": 15,
+      "reason": "Producto configurado como empaque original cerrado"
+    },
+    {
+      "sku": "057040PT011P0000CSC250",
+      "sheet": "Termico, Marca precio",
+      "row": 16,
+      "reason": "Producto configurado como empaque original cerrado"
+    },
+    {
+      "sku": "080070PT011P0000CPC025",
+      "sheet": "Termico, Marca precio",
+      "row": 19,
+      "reason": "Producto configurado como empaque original cerrado"
+    },
+    {
+      "sku": "080070PT011P0000CPC050",
+      "sheet": "Termico, Marca precio",
+      "row": 20,
+      "reason": "Producto configurado como empaque original cerrado"
+    },
+    {
+      "sku": "080080PT011P0000CPC72M",
+      "sheet": "Termico, Marca precio",
+      "row": 23,
+      "reason": "Producto configurado como empaque original cerrado"
+    },
+    {
+      "sku": "RPRP7670-2",
+      "sheet": "Termico, Marca precio",
+      "row": 43,
+      "reason": "Producto configurado como empaque original cerrado"
+    },
+    {
+      "sku": "RPRT5735-110",
+      "sheet": "Termico, Marca precio",
+      "row": 45,
+      "reason": "Producto configurado como empaque original cerrado"
+    }
+  ]
+}

@@ -524,14 +524,20 @@ export async function fetchCommercialDataset(options) {
           leadTeamField,
           ownUserIds,
           marketing: options.reportContext === 'marketing',
-          invoiceCustomerIds: uniqueNumbers(invoicesRaw
-            .filter((row) => `${row.invoice_date ?? ''}` >= filters.startDate && `${row.invoice_date ?? ''}` <= filters.endDate)
-            .map((row) => many2oneId(row.partner_id))),
+          invoiceCustomerIds: uniqueNumbers([
+            ...invoicesRaw
+              .filter((row) => `${row.invoice_date ?? ''}` >= filters.startDate && `${row.invoice_date ?? ''}` <= filters.endDate)
+              .map((row) => many2oneId(row.partner_id)),
+            ...(options.reportContext === 'marketing' ? ordersRaw
+              .filter((row) => `${row.create_date ?? ''}` >= filters.startDate && `${row.create_date ?? ''}` <= filters.endDate)
+              .map((row) => many2oneId(row.partner_id)) : []),
+          ]),
           leadAssignmentField,
         }),
         fields: uniq([
           'id',
           'name',
+          ...(leadMeta.create_uid ? ['create_uid'] : []),
           'type',
           'active',
           'create_date',
@@ -703,6 +709,8 @@ export async function fetchCommercialDataset(options) {
   const crmLeads = crmLeadsRaw.map((row) => ({
     id: Number(row.id),
     name: readText(row.name) ?? `Oportunidad ${row.id}`,
+    creatorId: many2oneId(row.create_uid),
+    creatorName: many2oneLabel(row.create_uid),
     sourceName: leadSourceField ? many2oneLabel(row[leadSourceField]) : null,
     mediumName: leadMediumField ? many2oneLabel(row[leadMediumField]) : null,
     type: readText(row.type) ?? 'opportunity',
@@ -805,6 +813,7 @@ export async function fetchCommercialDataset(options) {
         unitCost,
         costAmount,
         marginAmount: directMargin === null ? (costAmount === null ? null : untaxedAmount - costAmount) : directMargin * sign,
+        directMarginAvailable: directMargin !== null,
         linePurchaseUnitCost: purchaseUnit,
         standardUnitCost: standardUnit,
         discount: numOrNull(row.discount),
@@ -816,11 +825,15 @@ export async function fetchCommercialDataset(options) {
     })
     .filter(Boolean);
 
-  const currentCustomerIds = uniqueNumbers(
-    invoices
+  const currentCustomerIds = uniqueNumbers([
+    ...invoices
       .filter((row) => inRange(row.invoiceDate, filters.startDate, filters.endDate))
       .map((row) => row.customerId),
-  );
+    ...(options.reportContext === 'marketing' ? crmLeadsRaw
+      .filter((row) => `${row.date_closed ?? ''}`.slice(0, 10) >= filters.startDate &&
+        `${row.date_closed ?? ''}`.slice(0, 10) <= filters.endDate)
+      .map((row) => many2oneId(row.partner_id)) : []),
+  ]);
   const firstPurchasesRows = currentCustomerIds.length
     ? await fetchFirstPurchaseRows({
         apiKey,
@@ -840,9 +853,11 @@ export async function fetchCommercialDataset(options) {
   const customerFirstPurchases = [...firstMap.values()].map((row) => ({
     customerId: many2oneId(row.partner_id),
     customerName: many2oneLabel(row.partner_id) ?? 'Cliente sin nombre',
+    companyId: many2oneId(row.company_id),
     sellerId: many2oneId(row[invoiceSellerField]),
     sellerName: many2oneLabel(row[invoiceSellerField]) ?? 'Sin vendedor',
     invoiceDate: iso(row.invoice_date),
+    firstInvoiceId: Number(row.id) || null,
   }));
 
   let purchaseOrders = [];
@@ -1134,6 +1149,7 @@ export async function fetchCommercialDataset(options) {
 
   return {
     database,
+    marketingAttributionVersion: options.reportContext === 'marketing' ? 3 : undefined,
     fetchedAt: new Date().toISOString(),
     odooBaseUrl: odooUrl,
     scopeApplied: filters.visibilityScope,
@@ -1514,7 +1530,7 @@ async function fetchFirstPurchaseRows({
         ...baseDomain,
         ['invoice_date', 'in', firstDates],
       ],
-      fields: ['id', 'partner_id', invoiceSellerField, 'invoice_date'],
+      fields: ['id', 'partner_id', 'company_id', invoiceSellerField, 'invoice_date'],
       model: 'account.move',
       odooUrl,
       order: 'invoice_date asc, id asc',
@@ -1535,7 +1551,7 @@ async function fetchFirstPurchaseRows({
       apiKey,
       database,
       domain: baseDomain,
-      fields: ['id', 'partner_id', invoiceSellerField, 'invoice_date'],
+      fields: ['id', 'partner_id', 'company_id', invoiceSellerField, 'invoice_date'],
       model: 'account.move',
       odooUrl,
       order: 'invoice_date asc, id asc',

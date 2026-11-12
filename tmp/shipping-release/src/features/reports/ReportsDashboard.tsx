@@ -1,0 +1,12535 @@
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  startTransition,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
+import type { Session } from '@supabase/supabase-js';
+import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
+import {
+  BarChart3,
+  Bell,
+  Boxes,
+  CalendarDays,
+  CheckCircle2,
+  CheckCheck,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  CircleAlert,
+  Copy,
+  DollarSign,
+  Download,
+  FileText,
+  Filter,
+  Info,
+  LayoutDashboard,
+  LockKeyhole,
+  Mail,
+  MessageCircle,
+  MoreVertical,
+  PieChart,
+  RefreshCcw,
+  Share2,
+  Settings2,
+  ShoppingBag,
+  ShoppingCart,
+  Target,
+  Trash2,
+  TrendingDown,
+  TrendingUp,
+  Trophy,
+  UserRound,
+  Users,
+  X,
+} from 'lucide-react';
+import { EmptyState } from '../../components/EmptyState';
+import { OdooLoadingModal } from '../../components/OdooLoadingModal';
+import { openModuleDocs } from '../../lib/moduleDocs';
+import { SidebarUserFooter } from '../admin/SidebarUserFooter';
+import { supabase } from '../../lib/supabase';
+import {
+  buildCommercialDashboard,
+  type AgentMetricFormat,
+  type AgentPerformanceProfile,
+  type AgentYearDimensionRow,
+  type AgentYearSection,
+  type AnnualGrowthSnapshot,
+  type ClientLifecycleRow,
+  type CommercialDashboardSnapshot,
+  type DailyInvoiceDifferencePoint,
+  type ExecutiveMetric,
+  type Hallazgo,
+  type HallazgoLevel,
+  type ParetoRow,
+  type ProductAnalysisRow,
+  type RiskLevel,
+  type SellerCategoryPerformanceRow,
+  type SellerCategorySummary,
+  type SellerPerformanceRow,
+  type SellerTimelineSummary,
+  type TrendPoint,
+} from './reportsAnalytics';
+import {
+  defaultReportsConfig,
+  type OdooCommercialDataset,
+  type OdooInvoiceLineRecord,
+  type OdooInvoiceRecord,
+  type OdooCustomerContactRecord,
+  type OdooOrderLineRecord,
+  type OdooOrderRecord,
+  type ParetoMetricKey,
+  type ReportOption,
+  type ReportFilters,
+  type ReportGrouping,
+  type ReportRequestedDomain,
+  type ReportsConfig,
+  type ReportVisibilityScope,
+  type MonthlySalesGoalConfig,
+  type SellerGoalConfig,
+} from './odooSalesCore';
+import {
+  getReportMonthlySalesGoals,
+  getStoredReportsPreferences,
+  saveReportMonthlySalesGoals,
+  saveStoredReportsPreferences,
+} from './reportsPreferencesService';
+import {
+  readStoredCommercialDataset,
+  readStoredCommercialDatasetMode,
+  saveStoredCommercialDataset,
+} from './reportsDatasetCache';
+import type { SalesForecastDataset } from './reportsForecastService';
+import {
+  buildPurchaseDashboard,
+  type PurchaseBuyerRow,
+  type PurchaseCategoryRow,
+  type PurchaseDashboardSnapshot,
+  type PurchaseProductRow,
+  type PurchaseSupplierRow,
+  type PurchaseTrendPoint,
+} from './reportsPurchasingAnalytics';
+import {
+  getAgentSummaryContext,
+  getCommercialDataset,
+  getPreparedExecutiveSummary,
+  getReportDailySalesComparison,
+  syncOdooReportAnalytics,
+  type AgentSummaryContext,
+  type ReportDailySalesComparison,
+} from './reportsService';
+import { buildAgentInvoiceMargin, type AgentInvoiceMarginResult } from './agentInvoiceMargin';
+import { fetchPartitionedCommercialDataset } from './reportsPartitioning';
+import { countAbandonedQuotesPreviousPeriod, countAnalyzableAbandonedQuotes, buildAgentAbandonedQuoteBalance, buildAgentCustomerBalance, leadMatchesReportScope, buildAgentCrmBalance, isAgentLeadAttendedStage, buildAgentLeadAttention, isDeliveryOrderLine, isPlaceholderQuoteProductName, buildAbandonedQuoteAnalysisIndex, calculateAbandonedQuoteAnalysisAmount, groupOrderLinesByOrderId, type AgentAbandonedQuoteBalance, type AgentLeadAttention, type AgentCustomerBalance, type AgentCustomerLifecycleDetail, type AgentCrmLeadDetail, type AgentCrmBalance, type AbandonedQuoteAnalysisLine } from './reportExecutiveModel';
+import { buildAgentHistoricalComparison, type AgentHistoricalComparisonRow } from './agentHistoricalComparison';
+import { buildAgentCrossSellOpportunities, buildLeadAgeBands, buildRepurchaseAttentionRows, type AgentCrossSellOpportunity, type RepurchaseAttentionRow } from './agentDashboardInsights';
+import { buildAnnualInvoiceComparison, buildCumulativeInvoiceComparison } from './invoiceComparisonTrend';
+import {
+  buildAgentPerformanceScore,
+  buildSalesAgentNotifications,
+  SALES_PERFORMANCE_BIBLIOGRAPHY,
+  type AgentPerformanceScore,
+  type SalesAgentNotificationDraft,
+  type SalesNotificationSeverity,
+} from './salesAgentIntelligence';
+import {
+  createSharedSalesReport,
+  dismissSalesAgentNotification,
+  dismissSalesAgentNotifications,
+  listSalesAgentNotifications,
+  markAllSalesAgentNotificationsRead,
+  markSalesAgentNotificationRead,
+  syncSalesAgentNotifications,
+  type SalesAgentNotification,
+} from './salesReportsCollaborationService';
+
+type ReportsSection =
+  | 'executive'
+  | 'conversion'
+  | 'clients'
+  | 'products'
+  | 'sellers'
+  | 'purchases'
+  | 'pareto'
+  | 'abandonedCarts'
+  | 'details';
+
+type ReportsDashboardProps = {
+  session: Session;
+  visibilityScope: ReportVisibilityScope;
+  canAccessSales: boolean;
+  canAccessPurchases: boolean;
+  canManageReportsSettings: boolean;
+  onOpenHub: () => void;
+};
+
+export type QuickRangeKey =
+  | 'today'
+  | 'last_7_days'
+  | 'last_30_days'
+  | 'current_month'
+  | 'previous_month'
+  | 'current_quarter'
+  | 'current_year'
+  | 'previous_year';
+
+type TableColumn<T> = {
+  id: string;
+  label: string;
+  sortable?: boolean;
+  sortValue?: (row: T) => number | string;
+  render: (row: T) => ReactNode;
+};
+
+type ReportKpi = {
+  label: string;
+  value: string;
+  note?: string;
+};
+
+type ReportTable = {
+  title: string;
+  columns: string[];
+  rows: string[][];
+};
+
+type ReportChart = {
+  title: string;
+  subtitle?: string;
+  kind?: 'bar' | 'line' | 'donut' | 'scatter';
+  labels: string[];
+  series: Array<{
+    label: string;
+    color: string;
+    values: number[];
+    formatter: 'currency' | 'number' | 'percent';
+  }>;
+};
+
+type SectionReport = {
+  fileBase: string;
+  companyName: string;
+  logoSrc: string;
+  title: string;
+  subtitle: string;
+  objective: string;
+  generatedAtIso: string;
+  generatedAt: string;
+  kpis: ReportKpi[];
+  highlights: string[];
+  tables: ReportTable[];
+  sellerName?: string | null;
+  position?: string;
+  score?: AgentPerformanceScore;
+  charts?: ReportChart[];
+  bibliography?: Array<{ citation: string; url: string }>;
+};
+
+type DetailKey =
+  | 'pendingQuotes'
+  | 'expiredQuotes'
+  | 'cancelledQuotes'
+  | 'convertedQuotes'
+  | 'confirmedOrders'
+  | 'postedInvoices'
+  | 'atRiskClients'
+  | 'dormantClients'
+  | 'lostClients'
+  | 'reactivatedClients'
+  | 'negativeMarginProducts'
+  | 'lowConversionSellers';
+
+type VisibleSalesAgentNotification = SalesAgentNotification & {
+  isLocal?: boolean;
+};
+
+const REPORTS_CONFIG_STORAGE_KEY = 'tectronic-reports-config-v2';
+const REPORT_COMPANY_NAME = 'Corporación Tectronic';
+const REPORT_LOGO_SRC = '/tectronic-logo.png';
+const DEFAULT_COMPANY_FILTER_LABEL = 'Corporación Tectronic';
+const DEFAULT_COMPANY_FILTER_NAME = 'CorporaciÃ³n Tectronic';
+// Odoo company ID for Corporación Tectronic in the configured production DB.
+const DEFAULT_COMPANY_FILTER_ID = 1;
+const EMPTY_FILTER_SELECTION_ID = -1;
+
+const reportSections: Array<{
+  id: ReportsSection;
+  label: string;
+  icon: ReactNode;
+}> = [
+  { id: 'executive', label: 'Resumen ejecutivo', icon: <LayoutDashboard size={18} /> },
+  { id: 'conversion', label: 'Conversión', icon: <Target size={18} /> },
+  { id: 'clients', label: 'Clientes', icon: <Users size={18} /> },
+  { id: 'products', label: 'Productos', icon: <Boxes size={18} /> },
+  { id: 'sellers', label: 'Vendedores', icon: <Trophy size={18} /> },
+  { id: 'pareto', label: 'Pareto', icon: <BarChart3 size={18} /> },
+  { id: 'abandonedCarts', label: 'Cotizaciones abandonadas', icon: <ShoppingBag size={18} /> },
+  { id: 'details', label: 'Detalle analítico', icon: <ShoppingBag size={18} /> },
+];
+
+const quickRanges: Array<{ key: QuickRangeKey; label: string }> = [
+  { key: 'current_month', label: 'Mes actual' },
+  { key: 'previous_month', label: 'Último mes' },
+  { key: 'current_year', label: 'Año actual' },
+];
+
+const reportsSidebarSalesNav: Array<{
+  id: ReportsSection;
+  label: string;
+  icon: ReactNode;
+  detailKey?: DetailKey;
+}> = [
+  { id: 'executive', label: 'Resumen', icon: <BarChart3 size={18} /> },
+  { id: 'conversion', label: 'Conversión', icon: <FileText size={18} /> },
+  { id: 'clients', label: 'Clientes', icon: <Users size={18} /> },
+  { id: 'products', label: 'Productos', icon: <Boxes size={18} /> },
+  { id: 'sellers', label: 'Vendedores', icon: <UserRound size={18} /> },
+  { id: 'pareto', label: 'Pareto', icon: <PieChart size={18} /> },
+  { id: 'abandonedCarts', label: 'Cotizaciones abandonadas', icon: <ShoppingBag size={18} /> },
+] as const;
+
+const reportsSidebarPrimaryNav: Array<{
+  id: string;
+  label: string;
+  icon: ReactNode;
+}> = [];
+
+const reportsSidebarAdminNav: Array<{
+  id: string;
+  label: string;
+  icon: ReactNode;
+}> = [];
+
+export function ReportsDashboard({
+  session,
+  visibilityScope,
+  canAccessSales,
+  canAccessPurchases,
+  canManageReportsSettings,
+  onOpenHub,
+}: ReportsDashboardProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeSection = normalizeReportsSection(searchParams.get('reportsSection')) ?? 'executive';
+  const selectedDetailKey =
+    normalizeReportDetailKey(searchParams.get('reportDetail')) ?? 'pendingQuotes';
+  const [filters, setFilters] = useState<ReportFilters>(() =>
+    buildDefaultFilters(visibilityScope),
+  );
+  const [draftFilters, setDraftFilters] = useState<ReportFilters>(() =>
+    buildDefaultFilters(visibilityScope),
+  );
+  const [config, setConfig] = useState<ReportsConfig>(() => loadStoredConfig());
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [preferencesHydrated, setPreferencesHydrated] = useState(false);
+  const [companyDefaultPending, setCompanyDefaultPending] = useState(true);
+  const [sellerCatalog, setSellerCatalog] = useState<Array<{ sellerId: number | null; sellerName: string }>>([]);
+  const [completeSectionsReady, setCompleteSectionsReady] = useState(false);
+  const [notificationsDatasetReady, setNotificationsDatasetReady] = useState(false);
+  const forceDatasetRefresh = useRef(false);
+  const analyticsSyncStarted = useRef(false);
+  const datasetFetchFilters = useMemo<ReportFilters>(
+    () => ({
+      ...buildDefaultFilters(visibilityScope),
+      startDate: filters.startDate,
+      endDate: filters.endDate,
+      visibilityScope: filters.visibilityScope,
+      companyId: null,
+      companyIds: filters.companyIds ?? [],
+      sellerId: null,
+      sellerIds: filters.sellerIds ?? [],
+      teamId: null,
+      customerId: null,
+      productId: null,
+      categoryId: null,
+      currencyCode: null,
+      channel: null,
+      stateScope: 'all',
+    }),
+    [filters.companyIds, filters.endDate, filters.sellerIds, filters.startDate, filters.visibilityScope, visibilityScope],
+  );
+  const requestedDatasetDomain: ReportRequestedDomain =
+    activeSection === 'purchases' || !canAccessSales ? 'purchases' : 'sales';
+  const usePreparedExecutive = import.meta.env.VITE_REPORT_PREPARED_SUMMARY === 'true' &&
+    requestedDatasetDomain === 'sales' && activeSection === 'executive';
+  const isCurrentYearExecutiveReport = usePreparedExecutive;
+  const usePartitionedReport = visibilityScope === 'all' && requestedDatasetDomain === 'sales' &&
+    !isCurrentYearExecutiveReport &&
+    (Date.parse(`${filters.endDate}T00:00:00Z`) - Date.parse(`${filters.startDate}T00:00:00Z`)) / 86_400_000 > 45;
+  const notificationFetchFilters = useMemo<ReportFilters>(
+    () => ({
+      ...filters,
+      grouping: 'day',
+      visibilityScope,
+    }),
+    [filters, visibilityScope],
+  );
+  const datasetCacheOwnerKey =
+    `${session.user.id}:${session.user.email?.trim().toLowerCase() ?? ''}`;
+
+  useEffect(() => {
+    if (activeSection === 'purchases' && !canAccessPurchases) {
+      setSearchParams((currentParams) => {
+        const nextParams = new URLSearchParams(currentParams);
+        nextParams.set('reportsSection', 'executive');
+        return nextParams;
+      }, { replace: true });
+      return;
+    }
+
+    if (!canAccessSales && canAccessPurchases && activeSection !== 'purchases') {
+      setSearchParams((currentParams) => {
+        const nextParams = new URLSearchParams(currentParams);
+        nextParams.set('reportsSection', 'purchases');
+        nextParams.delete('reportDetail');
+        return nextParams;
+      }, { replace: true });
+    }
+  }, [activeSection, canAccessPurchases, canAccessSales, setSearchParams, visibilityScope]);
+
+  const preferencesQuery = useQuery({
+    queryKey: ['reports-preferences', session.user.id],
+    queryFn: () => getStoredReportsPreferences(),
+  });
+  const monthlyGoalsYear = useMemo(() => {
+    const date = new Date(`${filters.endDate}T00:00:00.000Z`);
+    return Number.isFinite(date.getTime()) ? date.getUTCFullYear() : new Date().getFullYear();
+  }, [filters.endDate]);
+  const monthlyGoalsQuery = useQuery({
+    queryKey: ['report-monthly-sales-goals', monthlyGoalsYear],
+    queryFn: () => getReportMonthlySalesGoals(monthlyGoalsYear),
+    enabled: preferencesHydrated && canAccessSales,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  const cachedDataset = useMemo(
+    () => readStoredCommercialDataset(datasetFetchFilters, requestedDatasetDomain, datasetCacheOwnerKey),
+    [datasetCacheOwnerKey, datasetFetchFilters, requestedDatasetDomain],
+  );
+  const cachedDatasetMode = useMemo(
+    () => readStoredCommercialDatasetMode(datasetFetchFilters, requestedDatasetDomain, datasetCacheOwnerKey),
+    [datasetCacheOwnerKey, datasetFetchFilters, requestedDatasetDomain],
+  );
+  const lastMonthPrefetchFilters = useMemo<ReportFilters>(() => {
+    const range = buildQuickRange('last_30_days');
+    return {
+      ...datasetFetchFilters,
+      ...range,
+      grouping: recommendedGroupingForRange(range),
+    };
+  }, [datasetFetchFilters]);
+  const cachedLastMonthDataset = useMemo(
+    () => readStoredCommercialDataset(lastMonthPrefetchFilters, requestedDatasetDomain, datasetCacheOwnerKey),
+    [datasetCacheOwnerKey, lastMonthPrefetchFilters, requestedDatasetDomain],
+  );
+  const isDefaultSevenDayRange = useMemo(() => {
+    const range = buildQuickRange('last_7_days');
+    return filters.startDate === range.startDate && filters.endDate === range.endDate;
+  }, [filters.endDate, filters.startDate]);
+  const hasPendingFilterChanges = useMemo(
+    () => !areFiltersEqual(filters, draftFilters),
+    [draftFilters, filters],
+  );
+
+  useEffect(() => {
+    if (visibilityScope !== 'all') return;
+    const normalizedFilters = clearExecutiveOnlyHiddenFilters(filters);
+    const normalizedDraftFilters = clearExecutiveOnlyHiddenFilters(draftFilters);
+    if (!areFiltersEqual(filters, normalizedFilters)) {
+      setFilters(normalizedFilters);
+    }
+    if (!areFiltersEqual(draftFilters, normalizedDraftFilters)) {
+      setDraftFilters(normalizedDraftFilters);
+    }
+  }, [draftFilters, filters, visibilityScope]);
+
+  useEffect(() => {
+    queueMicrotask(() => setCompleteSectionsReady(false));
+    queueMicrotask(() => setNotificationsDatasetReady(false));
+  }, [datasetCacheOwnerKey, datasetFetchFilters, requestedDatasetDomain]);
+
+  useEffect(() => {
+    if (preferencesHydrated || preferencesQuery.isPending) {
+      return;
+    }
+
+    queueMicrotask(() => {
+      const storedFilters = mergeStoredFilters(preferencesQuery.data?.filters, visibilityScope);
+      setConfig(mergeStoredConfig(preferencesQuery.data?.config ?? loadStoredConfig()));
+      setFilters(storedFilters);
+      setDraftFilters(storedFilters);
+      setCompanyDefaultPending(visibilityScope === 'all' || !preferencesQuery.data);
+      setPreferencesHydrated(true);
+    });
+  }, [preferencesHydrated, preferencesQuery.data, preferencesQuery.isPending, visibilityScope]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      setFilters((current) =>
+        current.visibilityScope === visibilityScope
+          ? current
+          : { ...current, visibilityScope },
+      );
+      setDraftFilters((current) =>
+        current.visibilityScope === visibilityScope
+          ? current
+          : { ...current, visibilityScope },
+      );
+    });
+  }, [visibilityScope]);
+
+  useEffect(() => {
+    if (!preferencesHydrated) {
+      return;
+    }
+
+    window.localStorage.setItem(
+      REPORTS_CONFIG_STORAGE_KEY,
+      JSON.stringify(config),
+    );
+
+    void saveStoredReportsPreferences({ config, filters }).catch((error) => {
+      console.error('No se pudieron guardar las preferencias del reporte.', error);
+    });
+  }, [config, filters, preferencesHydrated]);
+
+  useEffect(() => {
+    if (!preferencesHydrated || !monthlyGoalsQuery.data) {
+      return;
+    }
+
+    setConfig((current) => ({
+      ...current,
+      monthlySalesGoals: mergeMonthlySalesGoals(
+        current.monthlySalesGoals,
+        monthlyGoalsQuery.data,
+        monthlyGoalsYear,
+      ),
+    }));
+  }, [monthlyGoalsQuery.data, monthlyGoalsYear, preferencesHydrated]);
+
+  async function handleSaveReportsConfig(nextConfig: ReportsConfig) {
+    const goalsForConfiguredYears = nextConfig.monthlySalesGoals;
+    const savedGoals = goalsForConfiguredYears.length
+      ? await saveReportMonthlySalesGoals(goalsForConfiguredYears)
+      : [];
+    setConfig({
+      ...nextConfig,
+      monthlySalesGoals: savedGoals.length
+        ? mergeMonthlySalesGoals(nextConfig.monthlySalesGoals, savedGoals, monthlyGoalsYear)
+        : nextConfig.monthlySalesGoals,
+    });
+  }
+
+  const canUseSalesNotifications = canAccessSales;
+  const preparedSummaryQuery = useQuery({
+    queryKey: ['prepared-report-summary-v1', datasetCacheOwnerKey, filters, config],
+    queryFn: ({ signal }) => getPreparedExecutiveSummary(filters, config, forceDatasetRefresh.current, signal),
+    enabled: preferencesHydrated && usePreparedExecutive,
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+    retry: 1,
+    refetchOnWindowFocus: false,
+    refetchInterval: (query) => query.state.error || (query.state.data?.ready && !query.state.data.refreshing) ? false : 10_000,
+  });
+  const notificationDatasetQuery = useQuery({
+    queryKey: [
+      'commercial-dashboard-dataset',
+      datasetCacheOwnerKey,
+      'sales',
+      'agent-notifications',
+      'invoice-margin-v3',
+      notificationFetchFilters,
+    ],
+    queryFn: () => getCommercialDataset(notificationFetchFilters, 'sales', 'full', 'reports', forceDatasetRefresh.current),
+    enabled:
+      preferencesHydrated &&
+      canUseSalesNotifications &&
+      notificationsDatasetReady &&
+      !usePreparedExecutive &&
+      !usePartitionedReport,
+    staleTime: 15 * 60_000,
+    refetchOnMount: false,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: false,
+  });
+  const fastDatasetQuery = useQuery({
+    queryKey: ['commercial-dashboard-dataset', datasetCacheOwnerKey, requestedDatasetDomain, usePartitionedReport ? 'partitioned-v1' : 'fast', 'invoice-margin-v3', datasetFetchFilters],
+    queryFn: () => usePartitionedReport
+      ? fetchPartitionedCommercialDataset(datasetFetchFilters, requestedDatasetDomain, getCommercialDataset, forceDatasetRefresh.current)
+      : getCommercialDataset(datasetFetchFilters, requestedDatasetDomain, 'fast', 'reports', forceDatasetRefresh.current),
+    enabled: preferencesHydrated && !usePreparedExecutive,
+    initialData: () => !usePartitionedReport && cachedDataset && (visibilityScope !== 'own' || requestedDatasetDomain === 'purchases' || cachedDataset.invoiceAnalysisMargin)
+      ? cachedDataset : undefined,
+    staleTime: Number.POSITIVE_INFINITY,
+    retry: !usePartitionedReport,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    refetchOnWindowFocus: false,
+  });
+  const canRunFullDatasetQuery =
+    preferencesHydrated &&
+    !usePartitionedReport &&
+    Boolean(fastDatasetQuery.data) &&
+    !fastDatasetQuery.isFetching &&
+    (!cachedDataset || cachedDatasetMode === 'fast');
+  const lastMonthPrefetchQuery = useQuery({
+    queryKey: [
+      'commercial-dashboard-dataset',
+      datasetCacheOwnerKey,
+      requestedDatasetDomain,
+      'prefetch-last-30-days',
+      lastMonthPrefetchFilters,
+    ],
+    queryFn: () => getCommercialDataset(lastMonthPrefetchFilters, requestedDatasetDomain, 'fast'),
+    enabled:
+      preferencesHydrated &&
+      isDefaultSevenDayRange &&
+      Boolean(fastDatasetQuery.data) &&
+      !fastDatasetQuery.isFetching &&
+      !cachedLastMonthDataset &&
+      (visibilityScope === 'own' || (notificationsDatasetReady && !notificationDatasetQuery.isFetching)),
+    staleTime: Number.POSITIVE_INFINITY,
+    retry: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    refetchOnWindowFocus: false,
+  });
+  const fullDatasetQuery = useQuery({
+    queryKey: ['commercial-dashboard-dataset', datasetCacheOwnerKey, requestedDatasetDomain, 'full', 'invoice-margin-v3', datasetFetchFilters],
+    queryFn: () => getCommercialDataset(datasetFetchFilters, requestedDatasetDomain, 'full', 'reports', forceDatasetRefresh.current),
+    enabled:
+      canRunFullDatasetQuery &&
+      !usePartitionedReport &&
+      completeSectionsReady &&
+      activeSection !== 'executive' &&
+      (!isDefaultSevenDayRange || Boolean(cachedLastMonthDataset) || Boolean(lastMonthPrefetchQuery.data)),
+    staleTime: Number.POSITIVE_INFINITY,
+    retry: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    refetchOnWindowFocus: false,
+  });
+  const dailySummaryFilters = useMemo(() => {
+    const sellerOptionsDataset = notificationDatasetQuery.data ?? fullDatasetQuery.data ?? fastDatasetQuery.data;
+    return sellerOptionsDataset
+      ? omitSellerFilterWhenAllSelected(filters, sellerOptionsDataset)
+      : filters;
+  }, [fastDatasetQuery.data, filters, fullDatasetQuery.data, notificationDatasetQuery.data]);
+  const dailySalesComparisonQuery = useQuery({
+    queryKey: ['report-daily-sales-comparison', 'closed-month-annual-v3', datasetCacheOwnerKey, requestedDatasetDomain, dailySummaryFilters],
+    queryFn: () => getReportDailySalesComparison(dailySummaryFilters, forceDatasetRefresh.current),
+    enabled: preferencesHydrated && canAccessSales && requestedDatasetDomain === 'sales' && activeSection === 'executive',
+    staleTime: 30_000,
+    retry: false,
+    refetchOnMount: true,
+    refetchOnReconnect: false,
+    refetchOnWindowFocus: false,
+  });
+
+  useEffect(() => {
+    const lastSuccessfulSync = dailySalesComparisonQuery.data?.lastSuccessfulSync;
+    const syncAgeMs = lastSuccessfulSync ? Date.now() - Date.parse(lastSuccessfulSync) : Number.POSITIVE_INFINITY;
+    const analyticsAreFresh = Number.isFinite(syncAgeMs) && syncAgeMs >= 0 && syncAgeMs < 20 * 60 * 60_000;
+    if (
+      analyticsSyncStarted.current ||
+      !preferencesHydrated ||
+      !canAccessSales ||
+      requestedDatasetDomain !== 'sales' ||
+      visibilityScope !== 'all' ||
+      dailySalesComparisonQuery.isPending ||
+      dailySalesComparisonQuery.isFetching ||
+      analyticsAreFresh
+    ) {
+      return;
+    }
+
+    analyticsSyncStarted.current = true;
+    let active = true;
+    void (async () => {
+      for (let attempt = 0; active && attempt < 4; attempt += 1) {
+        try {
+          const result = await syncOdooReportAnalytics({
+            batchSize: attempt === 0 ? 300 : 500,
+            maxBatches: attempt === 0 ? 1 : 2,
+          });
+          if (!active || result.status === 'running') break;
+          if ((result.processed ?? 0) > 0) {
+            void dailySalesComparisonQuery.refetch();
+          }
+          if (!result.hasMore) break;
+        } catch (error) {
+          console.warn('No se pudo sincronizar el cache analítico de reportes.', error);
+          break;
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    canAccessSales,
+    dailySalesComparisonQuery,
+    dailySalesComparisonQuery.data,
+    dailySalesComparisonQuery.isFetching,
+    dailySalesComparisonQuery.isPending,
+    preferencesHydrated,
+    requestedDatasetDomain,
+    visibilityScope,
+  ]);
+
+  useEffect(() => {
+    if (!preferencesHydrated || !fastDatasetQuery.data || fastDatasetQuery.isFetching) {
+      return;
+    }
+
+    const notificationTimeout = window.setTimeout(() => {
+      setNotificationsDatasetReady(true);
+    }, 1100);
+
+    if (activeSection !== 'executive') {
+      queueMicrotask(() => setCompleteSectionsReady(true));
+      return () => window.clearTimeout(notificationTimeout);
+    }
+
+    if (
+      isDefaultSevenDayRange &&
+      !cachedLastMonthDataset &&
+      !lastMonthPrefetchQuery.data
+    ) {
+      return () => window.clearTimeout(notificationTimeout);
+    }
+
+    const cancelIdleWork = scheduleReportIdleWork(() => setCompleteSectionsReady(true));
+    return () => {
+      window.clearTimeout(notificationTimeout);
+      cancelIdleWork?.();
+    };
+  }, [
+    activeSection,
+    cachedLastMonthDataset,
+    fastDatasetQuery.data,
+    fastDatasetQuery.isFetching,
+    isDefaultSevenDayRange,
+    lastMonthPrefetchQuery.data,
+    preferencesHydrated,
+  ]);
+  const datasetQuery = fastDatasetQuery;
+  async function refreshCommercialDatasets() {
+    forceDatasetRefresh.current = true;
+    try {
+      if (usePreparedExecutive) {
+        await preparedSummaryQuery.refetch();
+        await dailySalesComparisonQuery.refetch();
+        return;
+      }
+      await datasetQuery.refetch();
+      if (canAccessSales && requestedDatasetDomain === 'sales') {
+        await dailySalesComparisonQuery.refetch();
+      }
+      if (usePartitionedReport) return;
+      if (activeSection === 'executive' && canUseSalesNotifications) {
+        await notificationDatasetQuery.refetch();
+      } else {
+        await fullDatasetQuery.refetch();
+      }
+    } finally {
+      forceDatasetRefresh.current = false;
+    }
+  }
+  const displayDataset = usePartitionedReport
+    ? datasetQuery.data ?? null
+    : usePreparedExecutive ? preparedSummaryQuery.data?.dataset ?? null : fullDatasetQuery.data ?? datasetQuery.data ?? null;
+  const agentComparisonRangeKey = quickRanges.find(({ key }) => {
+    const range = buildQuickRange(key);
+    return range.startDate === filters.startDate && range.endDate === filters.endDate;
+  })?.key ?? null;
+  const forceAgentContextRefresh = useRef(false);
+  const agentSummaryContextQuery = useQuery({
+    queryKey: ['agent-summary-context', datasetCacheOwnerKey, filters, agentComparisonRangeKey],
+    queryFn: () => {
+      const forceRefresh = forceAgentContextRefresh.current;
+      forceAgentContextRefresh.current = false;
+      return getAgentSummaryContext(filters, agentComparisonRangeKey, forceRefresh);
+    },
+    enabled: preferencesHydrated && activeSection === 'executive' && visibilityScope === 'own' &&
+      displayDataset?.viewerRole === 'sales_agent' && !fastDatasetQuery.isFetching,
+    staleTime: 3 * 60_000,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const datasetError = usePreparedExecutive ? preparedSummaryQuery.error : fullDatasetQuery.error ?? datasetQuery.error;
+  const isDatasetFetching = usePreparedExecutive ? preparedSummaryQuery.isFetching : datasetQuery.isFetching || fullDatasetQuery.isFetching;
+
+  useEffect(() => {
+    if (!preferencesHydrated || !displayDataset) {
+      return;
+    }
+
+    queueMicrotask(() => {
+      setFilters((current) => {
+        const nextFilters = alignFiltersWithDataset(current, displayDataset, companyDefaultPending);
+        return areFiltersEqual(current, nextFilters) ? current : nextFilters;
+      });
+      setDraftFilters((current) => {
+        const nextFilters = alignFiltersWithDataset(current, displayDataset, companyDefaultPending);
+        return areFiltersEqual(current, nextFilters) ? current : nextFilters;
+      });
+      setCompanyDefaultPending(false);
+      setSellerCatalog((current) => mergeSellerCatalog(current, displayDataset.availableFilters.sellers));
+    });
+  }, [companyDefaultPending, displayDataset, preferencesHydrated]);
+
+  useEffect(() => {
+    if (!preferencesHydrated || !displayDataset || usePartitionedReport || usePreparedExecutive) {
+      return;
+    }
+
+    saveStoredCommercialDataset(
+      datasetFetchFilters,
+      displayDataset,
+      requestedDatasetDomain,
+      datasetCacheOwnerKey,
+      fullDatasetQuery.data || usePartitionedReport ? 'full' : 'fast',
+    );
+  }, [
+    datasetFetchFilters,
+    displayDataset,
+    fullDatasetQuery.data,
+    usePartitionedReport,
+    preferencesHydrated,
+    requestedDatasetDomain,
+    datasetCacheOwnerKey,
+  ]);
+
+  useEffect(() => {
+    if (!preferencesHydrated || !lastMonthPrefetchQuery.data) {
+      return;
+    }
+
+    saveStoredCommercialDataset(
+      lastMonthPrefetchFilters,
+      lastMonthPrefetchQuery.data,
+      requestedDatasetDomain,
+      datasetCacheOwnerKey,
+      'fast',
+    );
+  }, [
+    datasetCacheOwnerKey,
+    lastMonthPrefetchFilters,
+    lastMonthPrefetchQuery.data,
+    preferencesHydrated,
+    requestedDatasetDomain,
+  ]);
+
+  const displayFilters = filters;
+  const sellerOptionsForDraft = useMemo(
+    () => displayDataset
+      ? getSellerOptionsForCompanies(displayDataset, draftFilters.companyIds ?? [], draftFilters)
+      : [],
+    [displayDataset, draftFilters],
+  );
+  const analysisDataset = activeSection === 'purchases' || usePartitionedReport
+    ? displayDataset
+    : usePreparedExecutive ? displayDataset : notificationDatasetQuery.data ?? displayDataset;
+  const baseSnapshot = useMemo<CommercialDashboardSnapshot | null>(() => {
+    if (!analysisDataset) return null;
+    return analysisDataset.executiveSummary?.snapshot ?? buildCommercialDashboard(analysisDataset, displayFilters, config);
+  }, [analysisDataset, config, displayFilters]);
+  const snapshot = useMemo<CommercialDashboardSnapshot | null>(() =>
+    baseSnapshot ? applyDailySalesComparisonFallback(baseSnapshot, dailySalesComparisonQuery.data ?? null) : null,
+  [baseSnapshot, dailySalesComparisonQuery.data]);
+  const purchaseSnapshot = useMemo<PurchaseDashboardSnapshot | null>(() => {
+    if (!displayDataset || activeSection !== 'purchases') return null;
+    return buildPurchaseDashboard(displayDataset, displayFilters);
+  }, [activeSection, displayDataset, displayFilters]);
+  const activeSectionMeta = reportSections.find((section) => section.id === activeSection);
+  const sellerSectionLabel = visibilityScope === 'own' ? 'Ventas' : 'Vendedores';
+  const lastUpdatedLabel = formatRelativeUpdate(displayDataset?.fetchedAt ?? null);
+  const showingPreview = Boolean(displayDataset && fullDatasetQuery.isFetching && !fullDatasetQuery.data);
+  const isAgentProfile = canAccessSales && activeSection !== 'purchases' &&
+    Boolean(snapshot?.agentProfile);
+  const isCompanyProfile = isAgentProfile && visibilityScope === 'all';
+  const companyPreviousQuoteCount = useMemo(
+    () => isCompanyProfile && activeSection === 'executive' && analysisDataset && snapshot
+      ? analysisDataset.executiveSummary?.abandonedQuoteBalance.previous ?? countAbandonedQuotesPreviousPeriod(analysisDataset, snapshot)
+      : null,
+    [activeSection, analysisDataset, isCompanyProfile, snapshot],
+  );
+  const comprehensiveReport = useMemo(
+    () => isAgentProfile && snapshot?.agentProfile
+      ? buildAgentComprehensiveReport(
+        snapshot,
+        buildAgentPerformanceScore(snapshot.agentProfile),
+        analysisDataset ?? undefined,
+        agentSummaryContextQuery.data ?? undefined,
+        isCompanyProfile,
+        companyPreviousQuoteCount,
+      )
+      : null,
+    [analysisDataset, agentSummaryContextQuery.data, companyPreviousQuoteCount, isAgentProfile, isCompanyProfile, snapshot],
+  );
+  const isPreparingVisibleReport = (usePreparedExecutive && !displayDataset && !preparedSummaryQuery.isError) || (!displayDataset && datasetQuery.isFetching) ||
+    (activeSection !== 'executive' && fullDatasetQuery.isFetching && !fullDatasetQuery.data) ||
+    (!usePreparedExecutive && isAgentProfile && activeSection === 'executive' && (
+      (visibilityScope === 'own' && agentSummaryContextQuery.isFetching && !agentSummaryContextQuery.data) ||
+      (visibilityScope === 'own' && !notificationDatasetQuery.data && !notificationDatasetQuery.isError &&
+        (!notificationsDatasetReady || notificationDatasetQuery.isFetching))
+    ));
+  const activeQuickRange = detectQuickRange(filters);
+  const visibleSalesSidebarNav = isAgentProfile
+    ? reportsSidebarSalesNav.filter((item) => !['clients', 'products', 'pareto', 'sellers'].includes(item.id))
+    : reportsSidebarSalesNav;
+  const notificationSourceDataset =
+    (usePreparedExecutive ? displayDataset : null) ?? (usePartitionedReport ? null : notificationDatasetQuery.data) ??
+    fullDatasetQuery.data ??
+    (activeSection === 'executive' ? fastDatasetQuery.data : undefined);
+  const notificationSourceIsPreliminary =
+    !usePartitionedReport &&
+    notificationSourceDataset === fastDatasetQuery.data &&
+    !notificationDatasetQuery.data &&
+    !fullDatasetQuery.data;
+  const notificationDrafts = useMemo(
+    () => (notificationSourceDataset?.executiveSummary?.notifications ?? (notificationSourceDataset ? buildSalesAgentNotifications(notificationSourceDataset) : [])),
+    [notificationSourceDataset],
+  );
+  const notificationSignature = useMemo(
+    () =>
+      notificationDrafts
+        .map((notification) => `${notification.fingerprint}:${notification.message}`)
+        .join('|'),
+    [notificationDrafts],
+  );
+  const notificationsQuery = useQuery({
+    queryKey: ['sales-agent-notifications', session.user.id],
+    queryFn: listSalesAgentNotifications,
+    enabled: canUseSalesNotifications,
+    staleTime: 60_000,
+  });
+  const visibleSalesNotifications = useMemo(
+    () =>
+      buildVisibleSalesAgentNotifications(
+        notificationsQuery.data ?? [],
+        notificationDrafts,
+        session.user.id,
+        session.user.email,
+      ),
+    [
+      notificationDrafts,
+      notificationsQuery.data,
+      session.user.email,
+      session.user.id,
+    ],
+  );
+  const refetchNotifications = notificationsQuery.refetch;
+
+  useEffect(() => {
+    if (!canUseSalesNotifications || !session.user.email || !notificationSourceDataset) return;
+    let active = true;
+    void syncSalesAgentNotifications(session.user.email, notificationDrafts, {
+      dismissStale: !notificationSourceIsPreliminary,
+    })
+      .then(() => {
+        if (active) void refetchNotifications();
+      })
+      .catch((error) => {
+        console.error('No se pudieron actualizar las alertas comerciales.', error);
+      });
+    return () => {
+      active = false;
+    };
+  }, [
+    canUseSalesNotifications,
+    notificationSourceDataset,
+    notificationSourceIsPreliminary,
+    notificationDrafts,
+    notificationSignature,
+    refetchNotifications,
+    session.user.email,
+  ]);
+
+  function openDetail(detailKey: DetailKey) {
+    startTransition(() => {
+      setSearchParams((currentParams) => {
+        const nextParams = new URLSearchParams(currentParams);
+        nextParams.set('reportsSection', 'details');
+        nextParams.set('reportDetail', detailKey);
+        return nextParams;
+      });
+    });
+  }
+
+  function handleSidebarSalesClick(sectionId: ReportsSection, detailKey?: DetailKey) {
+    startTransition(() => {
+      setSearchParams((currentParams) => {
+        const nextParams = new URLSearchParams(currentParams);
+        nextParams.set('reportsSection', sectionId);
+        if (detailKey) {
+          nextParams.set('reportDetail', detailKey);
+        } else if (sectionId !== 'details') {
+          nextParams.delete('reportDetail');
+        }
+        return nextParams;
+      });
+    });
+  }
+
+  return (
+    <div className="admin-shell reports-shell">
+      <OdooLoadingModal
+        open={isPreparingVisibleReport}
+        title={requestedDatasetDomain === 'purchases'
+          ? 'Preparando el análisis de compras'
+          : 'Preparando los reportes de ventas'}
+      />
+      <aside className="admin-sidebar reports-sidebar">
+        <div className="reports-sidebar-brand">
+          <button type="button" className="admin-module-back reports-brand-button" onClick={onOpenHub}>
+            <i className="bi bi-arrow-left"></i>
+            <span className="admin-module-back-label">Reportes</span>
+          </button>
+        </div>
+
+        <div className="reports-sidebar-scroll">
+          <nav className="admin-nav reports-nav-group" aria-label="Navegación principal">
+            {reportsSidebarPrimaryNav.map((item) => (
+              <button key={item.id} type="button">
+                {item.icon}
+                {item.label}
+              </button>
+            ))}
+          </nav>
+
+          {canAccessSales ? (
+            <>
+              <div className="reports-nav-divider"></div>
+              <section className="reports-nav-section">
+                <p>VENTAS</p>
+                <nav className="admin-nav reports-nav-group" aria-label="Ventas">
+                  {visibleSalesSidebarNav.map((item) => {
+                    const isActive =
+                      item.id === 'details'
+                        ? activeSection === 'details'
+                        : activeSection === item.id;
+
+                    return (
+                      <button
+                        key={item.label}
+                        type="button"
+                        className={isActive ? 'active' : undefined}
+                        onClick={() => handleSidebarSalesClick(item.id, item.detailKey)}
+                      >
+                        {item.icon}
+                        {item.id === 'sellers' && visibilityScope === 'own' ? 'Ventas' : item.label}
+                      </button>
+                    );
+                  })}
+                </nav>
+              </section>
+            </>
+          ) : null}
+
+          <div className="reports-nav-divider"></div>
+
+          <div className="reports-nav-divider"></div>
+
+          <section className="reports-nav-section">
+            <p>ADMINISTRACIÓN</p>
+            <nav className="admin-nav reports-nav-group" aria-label="Administración">
+              {reportsSidebarAdminNav.map((item) => (
+                <button key={item.id} type="button">
+                  {item.icon}
+                  {item.label}
+                </button>
+              ))}
+              <button type="button" onClick={() => openModuleDocs('reports')}>
+                <FileText size={18} />
+                Docs
+              </button>
+            </nav>
+          </section>
+        </div>
+
+        <SidebarUserFooter
+          email={session.user.email}
+          statusLabel="Sesión activa"
+          onSignOut={() => {
+            void supabase.auth.signOut();
+          }}
+        />
+      </aside>
+
+      <main className="admin-workspace reports-workspace">
+        <section className={`admin-section reports-screen reports-screen-${activeSection}`}>
+          <ReportsTopBar
+            isRefreshing={isDatasetFetching}
+            isAgentProfile={isAgentProfile}
+            agentProfileCenter={
+              isAgentProfile && snapshot?.agentProfile ? (
+                <AgentProfileTopBar profile={snapshot.agentProfile} companyScope={isCompanyProfile} />
+              ) : null
+            }
+            agentShareCenter={
+              comprehensiveReport ? (
+                <SectionReportActions
+                  report={comprehensiveReport}
+                  compact
+                />
+              ) : null
+            }
+            onOpenDocs={() => openModuleDocs('reports')}
+            notificationCenter={
+              canUseSalesNotifications ? (
+                <AgentNotificationsCenter
+                  notifications={visibleSalesNotifications}
+                  onDismiss={async (id) => {
+                    if (isLocalSalesNotificationId(id)) return;
+                    await dismissSalesAgentNotification(id);
+                    await refetchNotifications();
+                  }}
+                  onDismissMany={async (ids) => {
+                    const persistedIds = ids.filter((id) => !isLocalSalesNotificationId(id));
+                    if (!persistedIds.length) return;
+                    await dismissSalesAgentNotifications(persistedIds);
+                    await refetchNotifications();
+                  }}
+                  onRead={async (id) => {
+                    if (isLocalSalesNotificationId(id)) return;
+                    await markSalesAgentNotificationRead(id);
+                    await refetchNotifications();
+                  }}
+                  onReadAll={async () => {
+                    await markAllSalesAgentNotificationsRead();
+                    await refetchNotifications();
+                  }}
+                />
+              ) : null
+            }
+            onOpenSettings={() => {
+              if (canManageReportsSettings) setSettingsOpen(true);
+            }}
+            onRefresh={() => {
+              void refreshCommercialDatasets();
+              if (isAgentProfile) {
+                forceAgentContextRefresh.current = true;
+                void agentSummaryContextQuery.refetch();
+              }
+            }}
+            showSettings={canManageReportsSettings}
+            updatedLabel={lastUpdatedLabel}
+          />
+          {!isAgentProfile ? <div className="admin-section-head">
+            <div>
+              <p className="eyebrow">Análisis comercial Odoo</p>
+              <h2>{activeSection === 'sellers' ? sellerSectionLabel : activeSectionMeta?.label ?? 'Dashboard de análisis comercial'}</h2>
+              <p className="page-subtitle">
+                Un tablero ejecutivo, claro y accionable para explicar qué está ocurriendo
+                en ventas, facturación, margen, clientes y desempeño comercial.
+              </p>
+            </div>
+            <div className="header-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => openModuleDocs('reports')}
+              >
+                <FileText size={16} />
+                Docs
+              </button>
+              {canManageReportsSettings ? (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setSettingsOpen(true)}
+                >
+                  <Settings2 size={16} />
+                  Configuración
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => {
+                  void refreshCommercialDatasets();
+                }}
+                disabled={isDatasetFetching}
+              >
+                <RefreshCcw size={16} />
+                {isDatasetFetching ? 'Actualizando...' : 'Actualizar'}
+              </button>
+            </div>
+          </div> : null}
+
+          <FilterToolbar
+            activeFilters={draftFilters}
+            appliedFilters={filters}
+            companyLocked={visibilityScope === 'own'}
+            dataset={displayDataset ?? undefined}
+            hasPendingChanges={hasPendingFilterChanges}
+            quickRangeOptions={quickRanges}
+            sellerLocked={visibilityScope === 'own'}
+            sellerOptions={sellerOptionsForDraft}
+            showAdvancedFilters={false}
+            onApplyQuickRange={(key) =>
+              setDraftFilters((current) => {
+                const range = buildQuickRange(key);
+                return {
+                  ...current,
+                  ...range,
+                  grouping: recommendedGroupingForRange(range),
+                };
+              })
+            }
+            onApplyFilters={() => {
+              startTransition(() => {
+                setFilters((current) =>
+                  areFiltersEqual(current, draftFilters) ? current : draftFilters,
+                );
+              });
+            }}
+            onChange={setDraftFilters}
+          />
+
+          {showingPreview ? (
+            <article className="panel reports-static-panel">
+              <div className="reports-panel-body">
+                <strong>Vista rápida cargada</strong>
+                <p>
+                  Se muestra primero la última semana comparada contra la semana anterior mientras
+                  se actualiza el rango completo seleccionado.
+                </p>
+              </div>
+            </article>
+          ) : null}
+
+          {!displayDataset && datasetQuery.isLoading ? (
+            <div className="loading-grid">
+              <div className="skeleton-card"></div>
+              <div className="skeleton-card"></div>
+              <div className="skeleton-card"></div>
+              <div className="skeleton-card"></div>
+              <div className="skeleton-card wide"></div>
+              <div className="skeleton-card wide"></div>
+            </div>
+          ) : null}
+
+          {!displayDataset && datasetError ? (
+            <article className="panel reports-empty">
+              <EmptyState title="No se pudo cargar el dashboard comercial">
+                  {datasetError instanceof Error ? datasetError.message : 'No se pudo consultar Odoo.'}
+              </EmptyState>
+            </article>
+          ) : null}
+
+          {displayDataset && datasetError ? (
+            <article className="panel reports-static-panel">
+              <div className="reports-panel-body">
+                <strong>Seguimos mostrando información para que puedas continuar</strong>
+                <p>{datasetError instanceof Error ? datasetError.message : 'No fue posible completar la actualización completa en este momento. Puedes seguir trabajando con la información ya cargada.'}</p>
+              </div>
+            </article>
+          ) : null}
+
+          {displayDataset && snapshot && (activeSection !== 'purchases' || purchaseSnapshot) ? (
+            <div className={`reports-page reports-page-${activeSection}`}>
+              {activeSection === 'executive' ? (
+                isAgentProfile && snapshot.agentProfile ? (
+                  <AgentSummarySection
+                    profile={snapshot.agentProfile}
+                    snapshot={snapshot}
+                    dataset={analysisDataset ?? displayDataset}
+                    summaryContext={agentSummaryContextQuery.data ?? null}
+                    summaryContextError={Boolean(agentSummaryContextQuery.error)}
+                    companyScope={isCompanyProfile}
+                    comparisonReady={!isCompanyProfile || Boolean(analysisDataset?.executiveSummary) || usePartitionedReport || Boolean(notificationDatasetQuery.data) || Boolean(dailySalesComparisonQuery.data?.available)}
+                    comparisonError={!analysisDataset?.executiveSummary && isCompanyProfile && !usePartitionedReport && !dailySalesComparisonQuery.data?.available && (notificationDatasetQuery.isError || dailySalesComparisonQuery.isError)}
+                    marginReady={Boolean(analysisDataset?.executiveSummary) || visibilityScope === 'own' || usePartitionedReport || Boolean(notificationDatasetQuery.data)}
+                    marginLoading={!analysisDataset?.executiveSummary && isCompanyProfile && !usePartitionedReport && !notificationDatasetQuery.data && !notificationDatasetQuery.isError}
+                    previousQuoteCount={companyPreviousQuoteCount}
+                  />
+                ) : (
+                  <>
+                    <ReportsMetricDeck
+                      filters={filters}
+                      metrics={snapshot.summaryMetrics}
+                      onOpenDetail={openDetail}
+                    />
+                    <ExecutiveSectionV2
+                      hallazgos={snapshot.hallazgos}
+                      onOpenDetail={openDetail}
+                      showAnnualMonthlyComparison={activeQuickRange === 'current_year'}
+                      snapshot={snapshot}
+                    />
+                  </>
+                )
+              ) : null}
+
+              {activeSection === 'conversion' ? (
+                isAgentProfile && snapshot.agentProfile ? (
+                  <AgentProfileSection
+                    profile={snapshot.agentProfile}
+                    section="conversion"
+                    snapshot={snapshot}
+                    companyScope={isCompanyProfile}
+                  />
+                ) : (
+                  <ConversionSectionV2 snapshot={snapshot} />
+                )
+              ) : null}
+
+              {activeSection === 'clients' ? (
+                isAgentProfile && snapshot.agentProfile ? (
+                  <AgentProfileSection
+                    profile={snapshot.agentProfile}
+                    section="clients"
+                    snapshot={snapshot}
+                    companyScope={isCompanyProfile}
+                  />
+                ) : (
+                  <ClientsSectionV2 snapshot={snapshot} onOpenDetail={openDetail} />
+                )
+              ) : null}
+
+              {activeSection === 'products' ? (
+                isAgentProfile && snapshot.agentProfile ? (
+                  <AgentProfileSection
+                    profile={snapshot.agentProfile}
+                    section="products"
+                    snapshot={snapshot}
+                    companyScope={isCompanyProfile}
+                  />
+                ) : (
+                  <ProductsSectionV2 snapshot={snapshot} onOpenDetail={openDetail} />
+                )
+              ) : null}
+
+              {activeSection === 'sellers' ? (
+                isAgentProfile && snapshot.agentProfile ? (
+                  <AgentProfileSection
+                    profile={snapshot.agentProfile}
+                    section="sales"
+                    snapshot={snapshot}
+                    companyScope={isCompanyProfile}
+                  />
+                ) : (
+                  <SellersSectionV2
+                    snapshot={snapshot}
+                    sectionLabel={sellerSectionLabel}
+                    onOpenDetail={openDetail}
+                  />
+                )
+              ) : null}
+
+              {activeSection === 'purchases' && purchaseSnapshot ? (
+                <PurchasesSection snapshot={purchaseSnapshot} />
+              ) : null}
+
+              {activeSection === 'pareto' ? (
+                isAgentProfile && snapshot.agentProfile ? (
+                  <AgentProfileSection
+                    profile={snapshot.agentProfile}
+                    section="pareto"
+                    snapshot={snapshot}
+                    companyScope={isCompanyProfile}
+                  />
+                ) : (
+                  <ParetoSectionV2 snapshot={snapshot} />
+                )
+              ) : null}
+
+              {activeSection === 'abandonedCarts' ? (
+                <AbandonedCartsSection
+                  dataset={displayDataset}
+                  snapshot={snapshot}
+                  agentScope={visibilityScope === 'own'}
+                />
+              ) : null}
+
+              {activeSection === 'details' ? (
+                <DetailsSectionV2
+                  dataset={displayDataset}
+                  selectedDetailKey={selectedDetailKey}
+                  snapshot={snapshot}
+                  onChangeDetail={(detailKey) => {
+                    setSearchParams((currentParams) => {
+                      const nextParams = new URLSearchParams(currentParams);
+                      nextParams.set('reportsSection', 'details');
+                      nextParams.set('reportDetail', detailKey);
+                      return nextParams;
+                    });
+                  }}
+                />
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+      </main>
+
+      {settingsOpen && canManageReportsSettings ? (
+        <SettingsModal
+          config={config}
+          onClose={() => setSettingsOpen(false)}
+          onSave={handleSaveReportsConfig}
+          sellers={sellerCatalog}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function ExecutiveSection({
+  snapshot,
+  onOpenDetail,
+}: {
+  snapshot: CommercialDashboardSnapshot;
+  onOpenDetail: (detailKey: DetailKey) => void;
+}) {
+  return (
+    <div className="reports-grid">
+      <article className="panel reports-hero-card">
+        <div className="panel-header">
+          <strong>Evolución temporal</strong>
+          <span>
+            Agrupación actual: {groupingLabel(snapshot.filters.grouping)} · Comparación con
+            período anterior
+          </span>
+        </div>
+        <div className="reports-chart-card">
+          <TrendPanel points={snapshot.trend} />
+          <div className="reports-chart-summary">
+            <SummaryChip
+              label="Cotizaciones vencidas"
+              value={formatNumber(snapshot.quoteSummary.expiredQuotes)}
+              onClick={() => onOpenDetail('expiredQuotes')}
+            />
+            <SummaryChip
+              label="Clientes en riesgo"
+              value={formatNumber(snapshot.clientLifecycle.summary.atRiskCustomers)}
+              onClick={() => onOpenDetail('atRiskClients')}
+            />
+            <SummaryChip
+              label="Productos margen negativo"
+              value={formatNumber(snapshot.products.negativeMargin.length)}
+              onClick={() => onOpenDetail('negativeMarginProducts')}
+            />
+          </div>
+        </div>
+      </article>
+
+      <article className="panel">
+        <div className="panel-header">
+          <strong>Resumen comercial</strong>
+          <span>Separación entre cotización, venta y facturación</span>
+        </div>
+        <div className="reports-insights">
+          <ComparisonRow
+            label="Cotizaciones"
+            comparison={snapshot.quoteSummary.totalQuotes}
+            formatter={formatNumber}
+          />
+          <ComparisonRow
+            label="Conversión comercial"
+            comparison={snapshot.conversion.overall}
+            formatter={formatPercent}
+          />
+          <ComparisonRow
+            label="Órdenes de venta"
+            comparison={snapshot.sales.confirmedOrders}
+            formatter={formatNumber}
+          />
+          <ComparisonRow
+            label="Facturas publicadas"
+            comparison={snapshot.invoicing.invoiceCount}
+            formatter={formatNumber}
+          />
+          <ComparisonRow
+            label="Total sin impuestos"
+            comparison={snapshot.invoicing.invoicedAmount}
+            formatter={formatCurrency}
+          />
+          <ComparisonRow
+            label="Ticket promedio facturado"
+            comparison={snapshot.sales.averageTicket}
+            formatter={formatCurrency}
+          />
+          <ComparisonRow
+            label="Clientes nuevos"
+            comparison={snapshot.sales.newCustomers}
+            formatter={formatNumber}
+          />
+        </div>
+      </article>
+
+      <article className="panel">
+        <div className="panel-header">
+          <strong>Clientes</strong>
+          <span>Estados, retención y reactivación</span>
+        </div>
+        <div className="reports-panel-body">
+          <div className="policy-card-quick-facts">
+            <span>Nuevos: {formatNumber(snapshot.clientLifecycle.summary.newCustomers)}</span>
+            <span>Activos: {formatNumber(snapshot.clientLifecycle.summary.activeCustomers)}</span>
+            <span>En riesgo: {formatNumber(snapshot.clientLifecycle.summary.atRiskCustomers)}</span>
+            <span>Dormidos: {formatNumber(snapshot.clientLifecycle.summary.dormantCustomers)}</span>
+            <span>Perdidos: {formatNumber(snapshot.clientLifecycle.summary.lostCustomers)}</span>
+            <span>Reactivados: {formatNumber(snapshot.clientLifecycle.summary.reactivatedCustomers)}</span>
+          </div>
+        </div>
+      </article>
+
+      <article className="panel">
+        <div className="panel-header">
+          <strong>Vendedores</strong>
+          <span>Desempeño y conversión</span>
+        </div>
+        <div className="reports-panel-body">
+          <MiniRanking
+            rows={snapshot.sellers.rankingByRevenue.slice(0, 5)}
+            primary={(row) => row.sellerName}
+            secondary={(row) => `${formatPercent(row.conversionPct)} conversión`}
+            value={(row) => formatCurrency(row.invoicedAmount)}
+          />
+        </div>
+      </article>
+
+      <article className="panel">
+        <div className="panel-header">
+          <strong>Productos</strong>
+          <span>Rentabilidad y participación</span>
+        </div>
+        <div className="reports-panel-body">
+          <MiniRanking
+            rows={snapshot.products.topByRevenue.slice(0, 5)}
+            primary={(row) => row.productName}
+            secondary={(row) => `${formatPercent(row.marginPct ?? 0)} margen`}
+            value={(row) => formatCurrency(row.revenue)}
+          />
+        </div>
+      </article>
+    </div>
+  );
+}
+
+function ConversionSection({ snapshot }: { snapshot: CommercialDashboardSnapshot }) {
+  return (
+    <div className="reports-grid">
+      <article className="panel reports-hero-card">
+        <div className="panel-header">
+          <strong>Conversión comercial</strong>
+          <span>Numerador: órdenes confirmadas · Denominador: cotizaciones evaluables del período</span>
+        </div>
+        <div className="reports-panel-body">
+          <div className="inventory-stats reports-kpis">
+            <KpiBox label="Conversión general" value={formatPercent(snapshot.conversion.overall.current)} />
+            <KpiBox label="Cotizaciones pendientes" value={formatNumber(snapshot.quoteSummary.pendingQuotes)} />
+            <KpiBox label="Cotizaciones vencidas" value={formatNumber(snapshot.quoteSummary.expiredQuotes)} />
+            <KpiBox label="Tiempo prom. de conversión" value={`${snapshot.quoteSummary.averageConversionDays.current.toFixed(1)} días`} />
+          </div>
+        </div>
+      </article>
+
+      <ConversionTablePanel title="Conversión por vendedor" rows={snapshot.conversion.bySeller} />
+      <ConversionTablePanel title="Conversión por cliente" rows={snapshot.conversion.byCustomer.slice(0, 20)} />
+      <ConversionTeamPiePanel rows={snapshot.conversion.byTeam} />
+      <ConversionTablePanel title="Conversión por mes" rows={snapshot.conversion.byMonth} />
+      <ConversionTablePanel title="Conversión por rango de importe" rows={snapshot.conversion.byRange} />
+      <ConversionTablePanel title="Conversión por producto" rows={snapshot.conversion.byProduct} />
+    </div>
+  );
+}
+
+function ClientsSection({
+  snapshot,
+  onOpenDetail,
+}: {
+  snapshot: CommercialDashboardSnapshot;
+  onOpenDetail: (detailKey: DetailKey) => void;
+}) {
+  return (
+    <div className="reports-grid">
+      <article className="panel reports-hero-card">
+        <div className="panel-header">
+          <strong>Ciclo de vida y RFM</strong>
+          <span>Recencia, frecuencia, valor monetario, retención y abandono</span>
+        </div>
+        <div className="reports-panel-body">
+          <div className="inventory-stats reports-kpis">
+            <KpiBox label="Valor en riesgo" value={formatCurrency(snapshot.clientLifecycle.summary.valueAtRisk)} />
+            <KpiBox label="Retención" value={formatPercent(snapshot.clientLifecycle.summary.retentionPct)} />
+            <KpiBox label="Reactivación" value={formatPercent(snapshot.clientLifecycle.summary.reactivationPct)} />
+            <KpiBox label="Riesgo de abandono" value={formatPercent(snapshot.clientLifecycle.summary.churnRiskPct)} />
+          </div>
+          <div className="policy-card-quick-facts">
+            {snapshot.clientLifecycle.rfmSegments.map((segment) => (
+              <span key={segment.segment}>
+                {segment.segment}: {formatNumber(segment.customers)}
+              </span>
+            ))}
+          </div>
+        </div>
+      </article>
+
+      <article className="panel">
+        <div className="panel-header">
+          <strong>Clientes a priorizar</strong>
+          <span>Estados y riesgo</span>
+        </div>
+        <div className="reports-panel-body">
+          <div className="header-actions">
+            <button type="button" className="secondary-button" onClick={() => onOpenDetail('atRiskClients')}>
+              Ver en riesgo
+            </button>
+            <button type="button" className="secondary-button" onClick={() => onOpenDetail('reactivatedClients')}>
+              Ver reactivados
+            </button>
+          </div>
+          <DataTable
+            rows={snapshot.clientLifecycle.rows.slice(0, 40)}
+            storageKey="clients"
+            columns={[
+              column<ClientLifecycleRow>('customer', 'Cliente', (row) => row.customerName, (row) => row.customerName),
+              column<ClientLifecycleRow>('status', 'Estado', (row) => renderStatusPill(row.currentStatus, row.riskLevel), (row) => row.currentStatus),
+              column<ClientLifecycleRow>('previous', 'Estado anterior', (row) => row.previousStatus ?? '-', (row) => row.previousStatus ?? ''),
+              column<ClientLifecycleRow>('revenue', 'Facturación', (row) => formatCurrency(row.revenue), (row) => row.revenue),
+              column<ClientLifecycleRow>('margin', 'Margen', (row) => formatCurrency(row.margin), (row) => row.margin),
+              column<ClientLifecycleRow>('days', 'Días sin comprar', (row) => formatNullableNumber(row.daysSinceLastPurchase), (row) => row.daysSinceLastPurchase ?? 0),
+              column<ClientLifecycleRow>('rfm', 'RFM', (row) => `${row.rfmScore} - ${row.rfmSegment}`, (row) => row.rfmScore),
+              column<ClientLifecycleRow>('seller', 'Vendedor', (row) => row.sellerName, (row) => row.sellerName),
+            ]}
+          />
+        </div>
+      </article>
+    </div>
+  );
+}
+
+function ProductsSection({
+  snapshot,
+  onOpenDetail,
+}: {
+  snapshot: CommercialDashboardSnapshot;
+  onOpenDetail: (detailKey: DetailKey) => void;
+}) {
+  return (
+    <div className="reports-grid">
+      <article className="panel reports-hero-card">
+        <div className="panel-header">
+          <strong>Análisis de productos</strong>
+          <span>Venta, margen, matriz de rentabilidad y señales de deterioro</span>
+        </div>
+        <div className="reports-panel-body">
+          <div className="policy-card-quick-facts">
+            <span>Alta venta / alto margen: {snapshot.products.matrix.alta_venta_alto_margen}</span>
+            <span>Alta venta / bajo margen: {snapshot.products.matrix.alta_venta_bajo_margen}</span>
+            <span>Baja venta / alto margen: {snapshot.products.matrix.baja_venta_alto_margen}</span>
+            <span>Baja venta / bajo margen: {snapshot.products.matrix.baja_venta_bajo_margen}</span>
+          </div>
+          <div className="header-actions">
+            <button type="button" className="secondary-button" onClick={() => onOpenDetail('negativeMarginProducts')}>
+              Productos con margen negativo
+            </button>
+          </div>
+        </div>
+      </article>
+
+      <ProductTablePanel title="Productos más vendidos del período" rows={snapshot.products.topByUnits} />
+      <ProductTablePanel title="Top por facturación" rows={snapshot.products.topByRevenue} />
+      <ProductTablePanel title="Top por margen" rows={snapshot.products.topByMargin} />
+      <ProductTablePanel title="Alta facturación y bajo margen" rows={snapshot.products.highRevenueLowMargin} />
+      {snapshot.sellers.categoryBreakdown.map((category) => (
+        <SellerCategoryRankingPanel key={category.categoryName} category={category} />
+      ))}
+    </div>
+  );
+}
+
+function SellersSection({
+  snapshot,
+  onOpenDetail,
+}: {
+  snapshot: CommercialDashboardSnapshot;
+  onOpenDetail: (detailKey: DetailKey) => void;
+}) {
+  return (
+    <div className="reports-grid">
+      <article className="panel reports-hero-card">
+        <div className="panel-header">
+          <strong>Ranking de vendedores</strong>
+          <span>Facturación, margen, conversión, captación y ranking compuesto configurable</span>
+        </div>
+        <div className="reports-panel-body">
+          <div className="header-actions">
+            <button type="button" className="secondary-button" onClick={() => onOpenDetail('lowConversionSellers')}>
+              Vendedores con baja conversión
+            </button>
+          </div>
+        </div>
+      </article>
+
+      <SellerRankingTablePanel
+        title="Ranking por facturación"
+        subtitle="Vendedor y total facturado sin impuestos publicado en Contabilidad"
+        rows={snapshot.sellers.rankingByRevenue}
+        variant="revenue"
+      />
+      <SellerRankingTablePanel
+        title="Ranking por margen"
+        subtitle="Vendedor y margen bruto generado"
+        rows={snapshot.sellers.rankingByMargin}
+        variant="margin"
+      />
+      <SellerRankingTablePanel
+        title="Ranking por conversión"
+        subtitle="Vendedor y porcentaje de cierre comercial"
+        rows={snapshot.sellers.rankingByConversion}
+        variant="conversion"
+      />
+      <SellerRankingTablePanel
+        title="Ranking compuesto"
+        subtitle="Vendedor y score ponderado con la configuración actual"
+        rows={snapshot.sellers.weightedRanking}
+        variant="weightedScore"
+      />
+    </div>
+  );
+}
+
+function ParetoSection({ snapshot }: { snapshot: CommercialDashboardSnapshot }) {
+  return (
+    <div className="reports-grid">
+      <ParetoTablePanel summary={snapshot.pareto.customers} />
+      <ParetoTablePanel summary={snapshot.pareto.products} />
+      <ParetoTablePanel summary={snapshot.pareto.sellers} />
+    </div>
+  );
+}
+
+function DetailsSection({
+  dataset,
+  selectedDetailKey,
+  snapshot,
+  onChangeDetail,
+}: {
+  dataset: OdooCommercialDataset;
+  selectedDetailKey: DetailKey;
+  snapshot: CommercialDashboardSnapshot;
+  onChangeDetail: (detailKey: DetailKey) => void;
+}) {
+  const detailTabs: Array<{ key: DetailKey; label: string }> = [
+    { key: 'pendingQuotes', label: 'Cotizaciones pendientes' },
+    { key: 'expiredQuotes', label: 'Cotizaciones vencidas' },
+    { key: 'cancelledQuotes', label: 'Cotizaciones canceladas' },
+    { key: 'convertedQuotes', label: 'Cotizaciones convertidas' },
+    { key: 'confirmedOrders', label: 'Órdenes de venta' },
+    { key: 'postedInvoices', label: 'Facturas publicadas' },
+    { key: 'atRiskClients', label: 'Clientes en riesgo' },
+    { key: 'negativeMarginProducts', label: 'Productos con margen negativo' },
+    { key: 'lowConversionSellers', label: 'Vendedores con baja conversión' },
+  ];
+
+  const currentRows = snapshot.details[selectedDetailKey];
+
+  return (
+    <article className="panel reports-hero-card">
+      <div className="panel-header">
+        <strong>Detalle analítico y navegación a registros</strong>
+        <span>Abre el subconjunto de registros relacionado con cada hallazgo o indicador</span>
+      </div>
+      <div className="reports-panel-body">
+        <div className="policy-card-quick-facts">
+          {detailTabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              className={selectedDetailKey === tab.key ? 'secondary-button' : 'ghost-button'}
+              onClick={() => onChangeDetail(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {renderDetailTable(dataset, selectedDetailKey, currentRows)}
+      </div>
+    </article>
+  );
+}
+
+const legacyReportsLayoutReference = {
+  ExecutiveSection,
+  ConversionSection,
+  ClientsSection,
+  ProductsSection,
+  SellersSection,
+  ParetoSection,
+  DetailsSection,
+  buildFiltersSummary,
+  formatMetricChange,
+};
+
+void legacyReportsLayoutReference;
+
+function renderDetailTable(
+  dataset: OdooCommercialDataset,
+  selectedDetailKey: DetailKey,
+  rows:
+    | OdooOrderRecord[]
+    | OdooInvoiceRecord[]
+    | ClientLifecycleRow[]
+    | ProductAnalysisRow[]
+    | SellerPerformanceRow[],
+) {
+  if (
+    selectedDetailKey === 'pendingQuotes' ||
+    selectedDetailKey === 'expiredQuotes' ||
+    selectedDetailKey === 'cancelledQuotes' ||
+    selectedDetailKey === 'convertedQuotes' ||
+    selectedDetailKey === 'confirmedOrders'
+  ) {
+    const orderRows = rows as OdooOrderRecord[];
+    return (
+        <DataTable
+          rows={orderRows}
+          storageKey={`detail-${selectedDetailKey}`}
+          columns={[
+          column<OdooOrderRecord>(
+            'name',
+            'Documento',
+            (row) => renderOdooLink(dataset, 'sale.order', row.id, row.name),
+            (row) => row.name,
+          ),
+          column<OdooOrderRecord>('state', 'Estado', (row) => row.state, (row) => row.state),
+          column<OdooOrderRecord>('customer', 'Cliente', (row) => row.customerName, (row) => row.customerName),
+          column<OdooOrderRecord>('seller', 'Vendedor', (row) => row.sellerName, (row) => row.sellerName),
+          column<OdooOrderRecord>('quotation', 'Fecha de cotización', (row) => formatDate(row.quotationDate), (row) => row.quotationDate ?? ''),
+          column<OdooOrderRecord>('confirmation', 'Fecha de confirmación', (row) => formatDate(row.confirmationDate), (row) => row.confirmationDate ?? ''),
+          column<OdooOrderRecord>('amount', 'Importe', (row) => formatCurrency(row.amountUntaxed), (row) => row.amountUntaxed),
+        ]}
+      />
+    );
+  }
+
+  if (selectedDetailKey === 'postedInvoices') {
+    const invoiceRows = rows as OdooInvoiceRecord[];
+    return (
+        <DataTable
+          rows={invoiceRows}
+          storageKey="detail-postedInvoices"
+          columns={[
+          column<OdooInvoiceRecord>(
+            'name',
+            'Factura',
+            (row) => renderOdooLink(dataset, 'account.move', row.id, row.name),
+            (row) => row.name,
+          ),
+          column<OdooInvoiceRecord>('type', 'Tipo', (row) => row.moveType, (row) => row.moveType),
+          column<OdooInvoiceRecord>('customer', 'Cliente', (row) => row.customerName, (row) => row.customerName),
+          column<OdooInvoiceRecord>('seller', 'Vendedor', (row) => row.sellerName, (row) => row.sellerName),
+          column<OdooInvoiceRecord>('date', 'Fecha', (row) => formatDate(row.invoiceDate), (row) => row.invoiceDate ?? ''),
+          column<OdooInvoiceRecord>('amount', 'Importe', (row) => formatCurrency(row.untaxedAmountSigned), (row) => row.untaxedAmountSigned),
+          column<OdooInvoiceRecord>('payment', 'Pago', (row) => row.paymentState ?? '-', (row) => row.paymentState ?? ''),
+        ]}
+      />
+    );
+  }
+
+  if (
+    selectedDetailKey === 'atRiskClients' ||
+    selectedDetailKey === 'dormantClients' ||
+    selectedDetailKey === 'lostClients' ||
+    selectedDetailKey === 'reactivatedClients'
+  ) {
+    const clientRows = rows as ClientLifecycleRow[];
+    return (
+      <DataTable
+        rows={clientRows}
+        storageKey={`detail-${selectedDetailKey}`}
+        columns={[
+          column<ClientLifecycleRow>('customer', 'Cliente', (row) => row.customerName, (row) => row.customerName),
+          column<ClientLifecycleRow>('status', 'Estado', (row) => renderStatusPill(row.currentStatus, row.riskLevel), (row) => row.currentStatus),
+          column<ClientLifecycleRow>('revenue', 'Facturación', (row) => formatCurrency(row.revenue), (row) => row.revenue),
+          column<ClientLifecycleRow>('margin', 'Margen', (row) => formatCurrency(row.margin), (row) => row.margin),
+          column<ClientLifecycleRow>('days', 'Días sin compra', (row) => formatNullableNumber(row.daysSinceLastPurchase), (row) => row.daysSinceLastPurchase ?? 0),
+          column<ClientLifecycleRow>('seller', 'Vendedor', (row) => row.sellerName, (row) => row.sellerName),
+        ]}
+      />
+    );
+  }
+
+  if (selectedDetailKey === 'negativeMarginProducts') {
+    const productRows = rows as ProductAnalysisRow[];
+    return (
+      <ProductTable rows={productRows} storageKey="detail-negativeMarginProducts" />
+    );
+  }
+
+  const sellerRows = rows as SellerPerformanceRow[];
+  return <SellerTable rows={sellerRows} storageKey="detail-lowConversionSellers" />;
+}
+
+function ReportsTopBar({
+  agentShareCenter,
+  agentProfileCenter,
+  isAgentProfile = false,
+  isRefreshing,
+  notificationCenter,
+  onOpenDocs,
+  onOpenSettings,
+  onRefresh,
+  showSettings,
+  updatedLabel,
+}: {
+  agentShareCenter?: ReactNode;
+  agentProfileCenter?: ReactNode;
+  isAgentProfile?: boolean;
+  isRefreshing: boolean;
+  notificationCenter?: ReactNode;
+  onOpenDocs: () => void;
+  onOpenSettings: () => void;
+  onRefresh: () => void;
+  showSettings: boolean;
+  updatedLabel: string;
+}) {
+  return (
+    <header className="reports-topbar">
+      <div>
+        <h1>Reportes de ventas</h1>
+        <p>Análisis comercial y de desempeño</p>
+      </div>
+      <div className="reports-topbar-actions">
+        {agentProfileCenter}
+        {notificationCenter}
+        {agentShareCenter}
+        {isAgentProfile ? (
+          <>
+            <button type="button" className="reports-topbar-button reports-agent-topbar-action" onClick={onOpenDocs}>
+              <FileText size={15} />
+              Docs
+            </button>
+            <button type="button" className="reports-topbar-button reports-agent-topbar-action" onClick={onRefresh} disabled={isRefreshing}>
+              <RefreshCcw size={15} className={isRefreshing ? 'is-spinning' : undefined} />
+              {isRefreshing ? 'Actualizando...' : 'Actualizar'}
+            </button>
+          </>
+        ) : null}
+        {!isAgentProfile ? <button type="button" className="reports-refresh-status" onClick={onRefresh}>
+          <RefreshCcw size={15} className={isRefreshing ? 'is-spinning' : undefined} />
+          <span>{updatedLabel}</span>
+        </button> : null}
+        {showSettings ? (
+          <button
+            type="button"
+            className="reports-topbar-icon"
+            aria-label="Más opciones"
+            onClick={onOpenSettings}
+          >
+            <MoreVertical size={18} />
+          </button>
+        ) : null}
+      </div>
+    </header>
+  );
+}
+
+function buildVisibleSalesAgentNotifications(
+  persistedNotifications: SalesAgentNotification[],
+  notificationDrafts: SalesAgentNotificationDraft[],
+  userId: string,
+  sellerEmail: string | null | undefined,
+): VisibleSalesAgentNotification[] {
+  const persistedFingerprints = new Set(
+    persistedNotifications.map((notification) => notification.fingerprint),
+  );
+  const now = new Date().toISOString();
+  const localNotifications = notificationDrafts
+    .filter((notification) => !persistedFingerprints.has(notification.fingerprint))
+    // Show fresh operational signals immediately; Supabase persistence follows in the background.
+    .slice(0, 40)
+    .map((notification): VisibleSalesAgentNotification => ({
+      id: `local:${notification.fingerprint}`,
+      user_id: userId,
+      seller_email: sellerEmail?.trim().toLowerCase() ?? '',
+      fingerprint: notification.fingerprint,
+      category: notification.category,
+      severity: notification.severity,
+      title: notification.title,
+      message: notification.message,
+      recommendation: notification.recommendation,
+      entity_type: notification.entityType,
+      entity_key: notification.entityKey,
+      metadata: notification.metadata,
+      is_read: false,
+      dismissed_at: null,
+      first_detected_at: now,
+      last_detected_at: now,
+      created_at: now,
+      updated_at: now,
+      isLocal: true,
+    }));
+
+  const draftFingerprints = new Set(notificationDrafts.map((notification) => notification.fingerprint));
+  const relevantPersistedNotifications = persistedNotifications.filter((notification) => draftFingerprints.has(notification.fingerprint));
+  return [...relevantPersistedNotifications, ...localNotifications]
+    .sort(compareVisibleSalesNotifications)
+    .slice(0, 40);
+}
+
+function compareVisibleSalesNotifications(
+  left: VisibleSalesAgentNotification,
+  right: VisibleSalesAgentNotification,
+) {
+  if (left.is_read !== right.is_read) return left.is_read ? 1 : -1;
+  const categoryDifference =
+    getSalesNotificationCategoryRank(left.category) -
+    getSalesNotificationCategoryRank(right.category);
+  if (categoryDifference !== 0) return categoryDifference;
+  const severityDifference =
+    getSalesNotificationSeverityRank(left.severity) -
+    getSalesNotificationSeverityRank(right.severity);
+  if (severityDifference !== 0) return severityDifference;
+  return new Date(right.last_detected_at).getTime() - new Date(left.last_detected_at).getTime();
+}
+
+function getSalesNotificationCategoryRank(category: SalesAgentNotification['category']) {
+  if (category === 'crm_lead') return 0;
+  if (category === 'expired_quotes') return 1;
+  return 2;
+}
+
+function getSalesNotificationSeverityRank(severity: SalesNotificationSeverity) {
+  if (severity === 'critical') return 0;
+  if (severity === 'warning') return 1;
+  if (severity === 'opportunity') return 2;
+  return 3;
+}
+
+function isLocalSalesNotificationId(id: string) {
+  return id.startsWith('local:');
+}
+
+function AgentNotificationsCenter({
+  notifications,
+  onDismiss,
+  onDismissMany,
+  onRead,
+  onReadAll,
+}: {
+  notifications: VisibleSalesAgentNotification[];
+  onDismiss: (id: string) => Promise<void>;
+  onDismissMany: (ids: string[]) => Promise<void>;
+  onRead: (id: string) => Promise<void>;
+  onReadAll: () => Promise<void>;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const centerRef = useRef<HTMLDivElement>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const unreadCount = notifications.filter((notification) => !notification.is_read).length;
+  const persistedNotifications = notifications.filter((notification) => !notification.isLocal);
+  const visibleSelectedIds = persistedNotifications
+    .filter((notification) => selectedIds.has(notification.id))
+    .map((notification) => notification.id);
+  const allSelected =
+    persistedNotifications.length > 0 &&
+    visibleSelectedIds.length === persistedNotifications.length;
+  const unreadPersistedCount = persistedNotifications.filter((notification) => !notification.is_read).length;
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (centerRef.current && !centerRef.current.contains(event.target as Node)) setIsOpen(false);
+    };
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    return () => document.removeEventListener('mousedown', closeOnOutsideClick);
+  }, [isOpen]);
+
+  const runNotificationAction = async (key: string, action: () => Promise<void>) => {
+    setPendingAction(key);
+    try {
+      await action();
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAllSelection = () => {
+    setSelectedIds((current) => {
+      if (allSelected) return new Set();
+      const next = new Set(current);
+      persistedNotifications.forEach((notification) => next.add(notification.id));
+      return next;
+    });
+  };
+
+  const dismissSelected = async () => {
+    if (!visibleSelectedIds.length) return;
+    await onDismissMany(visibleSelectedIds);
+    setSelectedIds(new Set());
+  };
+
+  return (
+    <div className="sales-notification-center" ref={centerRef}>
+      <button
+        type="button"
+        className="reports-topbar-icon sales-notification-trigger"
+        aria-label={`Notificaciones comerciales${unreadCount ? `, ${unreadCount} sin leer` : ''}`}
+        onClick={() => setIsOpen((current) => !current)}
+      >
+        <Bell size={17} />
+        {unreadCount ? <span>{unreadCount > 9 ? '9+' : unreadCount}</span> : null}
+      </button>
+      {isOpen ? (
+        <section className="sales-notification-menu">
+          <header>
+            <div>
+              <strong>Oportunidades de seguimiento</strong>
+              <span>Prioridades detectadas en tu información comercial</span>
+            </div>
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Cerrar notificaciones"
+              onClick={() => setIsOpen(false)}
+            >
+              <X size={15} />
+            </button>
+          </header>
+          {notifications.length ? (
+            <div className="sales-notification-toolbar">
+              <button
+                type="button"
+                onClick={() => void runNotificationAction('read-all', onReadAll)}
+                disabled={!unreadPersistedCount || pendingAction !== null}
+              >
+                <CheckCheck size={14} />
+                Marcar todas como leídas
+              </button>
+              <button
+                type="button"
+                onClick={toggleAllSelection}
+                disabled={pendingAction !== null}
+              >
+                {allSelected ? 'Quitar selección' : 'Seleccionar todas'}
+              </button>
+              <button
+                type="button"
+                className="danger"
+                onClick={() => void runNotificationAction('dismiss-selected', dismissSelected)}
+                disabled={!visibleSelectedIds.length || pendingAction !== null}
+              >
+                <Trash2 size={14} />
+                Eliminar seleccionadas
+              </button>
+            </div>
+          ) : null}
+          <div className="sales-notification-list">
+            {notifications.length ? notifications.map((notification) => {
+              const isLocalNotification = Boolean(notification.isLocal);
+              return (
+                <article
+                  key={notification.id}
+                  className={`sales-notification-item severity-${notification.severity}${notification.is_read ? ' is-read' : ''}${isLocalNotification ? ' is-local' : ''}`}
+                >
+                  <div className="sales-notification-item-head">
+                    <label className="sales-notification-select">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(notification.id)}
+                        disabled={isLocalNotification}
+                        onChange={() => toggleSelection(notification.id)}
+                      />
+                      <span>
+                        {isLocalNotification
+                          ? 'Calculada'
+                          : notification.is_read
+                            ? 'Revisada'
+                            : 'Nueva'}
+                      </span>
+                    </label>
+                    <span>{notification.severity === 'critical' ? 'Prioridad alta' : notification.severity === 'warning' ? 'Atención' : 'Oportunidad'}</span>
+                    <button
+                      type="button"
+                      aria-label={`Eliminar ${notification.title}`}
+                      disabled={pendingAction !== null || isLocalNotification}
+                      onClick={() => void runNotificationAction(notification.id, () => onDismiss(notification.id))}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                  <strong>{notification.title}</strong>
+                  <p>{notification.message}</p>
+                  <small>{notification.recommendation}</small>
+                  {!notification.is_read && !isLocalNotification ? (
+                    <button
+                      type="button"
+                      className="sales-notification-read"
+                      disabled={pendingAction !== null}
+                      onClick={() => void runNotificationAction(notification.id, () => onRead(notification.id))}
+                    >
+                      Marcar como leída
+                    </button>
+                  ) : null}
+                </article>
+              );
+            }) : (
+              <div className="sales-notification-empty">
+                <CheckCircle2 size={22} />
+                <strong>Sin alertas pendientes</strong>
+                <span>Tu cartera no presenta prioridades nuevas con los filtros actuales.</span>
+              </div>
+            )}
+          </div>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+function ReportsMetricDeck({
+  filters,
+  metrics,
+  onOpenDetail,
+}: {
+  filters: ReportFilters;
+  metrics: ExecutiveMetric[];
+  onOpenDetail: (detailKey: DetailKey) => void;
+}) {
+  const [flippedCardId, setFlippedCardId] = useState<string | null>(null);
+  const metricMap = new Map(metrics.map((metric) => [metric.id, metric]));
+  const previousRange = buildPreviousPeriodRange(filters);
+  const previousLabel = formatReferenceComparisonRange(previousRange.startDate, previousRange.endDate);
+  const cards = [
+    {
+      id: 'quotes_count',
+      title: 'Cotizaciones',
+      icon: <FileText size={22} />,
+      tone: 'blue',
+    },
+    {
+      id: 'confirmed_sales',
+      title: 'Órdenes',
+      icon: <ShoppingCart size={22} />,
+      tone: 'sky',
+    },
+    {
+      id: 'average_ticket',
+      title: 'Ticket promedio',
+      icon: <DollarSign size={22} />,
+      tone: 'blue',
+    },
+    {
+      id: 'conversion',
+      title: 'Conversión comercial',
+      icon: <Target size={22} />,
+      tone: 'sky',
+    },
+    {
+      id: 'invoiced',
+      title: 'Facturas publicadas',
+      icon: <FileText size={22} />,
+      tone: 'amber',
+    },
+    {
+      id: 'margin',
+      title: 'Total sin impuestos',
+      icon: <PieChart size={22} />,
+      tone: 'mint',
+    },
+  ] as const;
+
+  return (
+    <div className="reports-kpi-reference-grid">
+      {cards.map((card) => {
+        const metric = metricMap.get(card.id);
+        if (!metric) return null;
+
+        return (
+          <article
+            key={card.id}
+            className={`reports-kpi-reference-card tone-${card.tone}${flippedCardId === card.id ? ' is-flipped' : ''}`}
+          >
+            <div className="reports-kpi-reference-inner">
+              <button
+                type="button"
+                className="reports-kpi-reference-face reports-kpi-reference-front"
+                onClick={() =>
+                  setFlippedCardId((current) => (current === card.id ? null : card.id))
+                }
+              >
+                <div className="reports-kpi-reference-head">
+                  <div className="reports-kpi-reference-title">
+                    <span>{card.title}</span>
+                    <Info size={14} />
+                  </div>
+                  <span className="reports-kpi-reference-icon">{card.icon}</span>
+                </div>
+                <strong>{metric.formattedCurrent}</strong>
+                <small className={`reports-kpi-reference-change trend-${metric.comparison.trend}`}>
+                  {formatMetricChangeChip(metric.comparison)} <span>vs. {previousLabel}</span>
+                </small>
+                <span className="reports-kpi-reference-cta">
+                  Haz clic para ver qué significa
+                  <ChevronRight size={14} />
+                </span>
+              </button>
+
+              <div className="reports-kpi-reference-face reports-kpi-reference-back">
+                <strong>{card.title}</strong>
+                <p>{metric.definition}</p>
+                <div className="reports-kpi-reference-back-actions">
+                  {metric.detailKey ? (
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => onOpenDetail(metric.detailKey as DetailKey)}
+                    >
+                      Abrir detalle
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="secondary-button reports-kpi-reference-return"
+                    onClick={() => setFlippedCardId(null)}
+                  >
+                    Volver al indicador
+                  </button>
+                </div>
+              </div>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+type AgentProfileSectionKey =
+  | 'summary'
+  | 'conversion'
+  | 'clients'
+  | 'products'
+  | 'sales'
+  | 'pareto';
+
+const agentProfileSectionMeta: Record<
+  AgentProfileSectionKey,
+  {
+    title: string;
+    description: string;
+    rowsTitle: string;
+    rowLabel: string;
+    rowFormat: AgentMetricFormat;
+  }
+> = {
+  summary: {
+    title: 'Mi resumen comercial',
+    description:
+      'Una lectura personal de resultados, ritmo de venta y señales que requieren acción inmediata.',
+    rowsTitle: 'Clientes que impulsan o frenan el resultado',
+    rowLabel: 'Cliente',
+    rowFormat: 'currency',
+  },
+  conversion: {
+    title: 'Mi conversión comercial',
+    description:
+      'Compara la capacidad de convertir cotizaciones en facturación frente al mismo periodo del año anterior.',
+    rowsTitle: 'Conversión comparada por cliente',
+    rowLabel: 'Cliente',
+    rowFormat: 'percent',
+  },
+  clients: {
+    title: 'Mi cartera de clientes',
+    description:
+      'Identifica captación, retención, reactivación, riesgo y cambios de facturación dentro de tu cartera.',
+    rowsTitle: 'Crecimiento y deterioro por cliente',
+    rowLabel: 'Cliente',
+    rowFormat: 'currency',
+  },
+  products: {
+    title: 'Mis productos',
+    description:
+      'Muestra qué productos ganaron tracción, cuáles retrocedieron y cómo cambió tu mezcla comercial.',
+    rowsTitle: 'Comparativo de facturación por producto',
+    rowLabel: 'Producto',
+    rowFormat: 'currency',
+  },
+  sales: {
+    title: 'Mis ventas',
+    description:
+      'Concentra facturación, órdenes, ticket y desempeño por categoría para explicar tu resultado.',
+    rowsTitle: 'Comparativo de ventas por categoría',
+    rowLabel: 'Categoría',
+    rowFormat: 'currency',
+  },
+  pareto: {
+    title: 'Mi concentración comercial',
+    description:
+      'Detecta cuánto dependes de pocos clientes o productos y dónde conviene diversificar.',
+    rowsTitle: 'Elementos que concentran el resultado',
+    rowLabel: 'Elemento',
+    rowFormat: 'currency',
+  },
+};
+
+function AgentProfileTopBar({ profile, companyScope = false }: { profile: AgentPerformanceProfile; companyScope?: boolean }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const score = buildAgentPerformanceScore(profile);
+  const scoreTone = getAgentScoreTone(score.total);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsOpen(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [isOpen]);
+
+  return (
+    <div className="agent-profile-topbar">
+      <button
+        type="button"
+        className="agent-profile-topbar-trigger"
+        aria-label={`Abrir ${companyScope ? 'desempeño comercial de la compañía' : 'perfil personal de ventas'}, calificación ${score.total} de 100`}
+        onClick={() => setIsOpen(true)}
+      >
+        <span
+          className={`agent-profile-topbar-ring score-${scoreTone}`}
+          style={{ '--agent-score': `${score.total * 3.6}deg` } as CSSProperties}
+        >
+          <strong>{score.total}</strong>
+        </span>
+        <span>
+          <small>{companyScope ? 'Desempeño global' : 'Mi desempeño'}</small>
+          <strong>{companyScope ? profile.companyName : profile.sellerName}</strong>
+        </span>
+      </button>
+      {isOpen ? (
+        <div
+          className="agent-profile-modal-backdrop"
+          role="presentation"
+          onMouseDown={() => setIsOpen(false)}
+        >
+          <section
+            className="agent-profile-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="agent-profile-modal-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header className="agent-profile-modal-head">
+              <div>
+                <span className="agent-profile-badge">{companyScope ? 'Perfil comercial de la compañía' : 'Perfil personal de ventas'}</span>
+                <h2 id="agent-profile-modal-title">{companyScope ? profile.companyName : profile.sellerName}</h2>
+                <p>{profile.currentPeriodLabel} frente a {profile.previousYearPeriodLabel}</p>
+              </div>
+              <button type="button" className="icon-button" aria-label="Cerrar perfil" onClick={() => setIsOpen(false)}>
+                <X size={17} />
+              </button>
+            </header>
+            <AgentPerformanceScoreCard score={score} />
+            <div className="agent-profile-modal-facts">
+              {profile.summary.metrics.slice(0, 6).map((metric) => (
+                <div key={metric.id}>
+                  <small>{metric.label}</small>
+                  <strong>{formatAgentMetricValueUi(metric.comparison.current, metric.format)}</strong>
+                  <span>{formatAgentComparisonDelta(metric.comparison)} vs. año anterior</span>
+                </div>
+              ))}
+            </div>
+            <div className="agent-profile-modal-insights">
+              <article>
+                <strong>Lo más positivo</strong>
+                {profile.summary.positives.map((item) => <p key={item.id}>• {item.title}: {item.detail}</p>)}
+              </article>
+              <article>
+                <strong>Áreas de atención</strong>
+                {profile.summary.attention.map((item) => <p key={item.id}>• {item.title}: {item.detail}</p>)}
+              </article>
+            </div>
+          </section>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function AgentSummarySection({
+  profile,
+  snapshot,
+  dataset,
+  summaryContext,
+  summaryContextError,
+  companyScope,
+  comparisonReady,
+  comparisonError,
+  marginReady,
+  marginLoading,
+  previousQuoteCount,
+}: {
+  profile: AgentPerformanceProfile;
+  snapshot: CommercialDashboardSnapshot;
+  dataset: OdooCommercialDataset;
+  summaryContext: AgentSummaryContext | null;
+  summaryContextError: boolean;
+  companyScope: boolean;
+  comparisonReady: boolean;
+  comparisonError: boolean;
+  marginReady: boolean;
+  marginLoading: boolean;
+  previousQuoteCount: number | null;
+}) {
+  const selectedMetrics = profile.summary.metrics.filter((metric) =>
+    ['revenue', 'conversion', 'billed_orders', 'new_customers'].includes(metric.id),
+  );
+  const revenueMetric = selectedMetrics.find((metric) => metric.id === 'revenue');
+  const growthComparison = snapshot.invoicing.invoicedAmount;
+  const summaryMetrics = companyScope && revenueMetric
+    ? selectedMetrics.map((metric) => {
+      if (metric.id === 'revenue') {
+        return metric;
+      }
+      if (metric.id === 'billed_orders') {
+        return {
+          ...revenueMetric,
+          id: 'growth',
+          label: 'Crecimiento',
+          comparison: {
+            ...growthComparison,
+            current: growthComparison.difference,
+          },
+        };
+      }
+      return metric;
+    })
+    : selectedMetrics;
+  const customerRows = profile.clients.rows;
+  const productRows = profile.products.rows;
+  const paretoRows = profile.pareto.rows;
+  const scopedSellerName = companyScope ? null : profile.sellerName;
+  const crmBalance = useMemo(
+    () => dataset.executiveSummary?.crmBalance ?? buildAgentCrmBalance(dataset, snapshot.filters, scopedSellerName),
+    [dataset, snapshot.filters, scopedSellerName],
+  );
+  const customerBalance = useMemo(
+    () => dataset.executiveSummary?.customerBalance ?? buildAgentCustomerBalance(snapshot.clientLifecycle.rows, snapshot.filters, customerRows, dataset.customerContacts),
+    [snapshot.clientLifecycle.rows, snapshot.filters, customerRows, dataset.customerContacts],
+  );
+  const leadAttention = useMemo(
+    () => dataset.executiveSummary?.leadAttention ?? buildAgentLeadAttention(dataset, snapshot.filters, scopedSellerName),
+    [dataset, snapshot.filters, scopedSellerName],
+  );
+  const crossSellOpportunities = useMemo(
+    () => dataset.executiveSummary?.crossSellOpportunities ?? buildAgentCrossSellOpportunities(dataset.invoiceLines, snapshot.filters, dataset.customerContacts),
+    [dataset.customerContacts, dataset.invoiceLines, snapshot.filters],
+  );
+  const abandonedQuoteBalance = useMemo(
+    () => dataset.executiveSummary?.abandonedQuoteBalance ?? buildAgentAbandonedQuoteBalance(
+      dataset,
+      snapshot,
+      scopedSellerName,
+      companyScope ? previousQuoteCount : summaryContext?.previousQuoteCount ?? null,
+    ),
+    [companyScope, dataset, previousQuoteCount, scopedSellerName, snapshot, summaryContext?.previousQuoteCount],
+  );
+  const customerHistoricalRows = useMemo(
+    () => summaryContext?.baselineAvailable
+      ? buildAgentHistoricalComparison(customerRows, dataset.invoiceLines, snapshot.filters, summaryContext.baselines, 'customer') : null,
+    [customerRows, dataset.invoiceLines, snapshot.filters, summaryContext],
+  );
+  const productHistoricalRows = useMemo(
+    () => summaryContext?.baselineAvailable
+      ? buildAgentHistoricalComparison(productRows, dataset.invoiceLines, snapshot.filters, summaryContext.baselines, 'product') : null,
+    [productRows, dataset.invoiceLines, snapshot.filters, summaryContext],
+  );
+  const customerComparisonRows = customerHistoricalRows?.some((row) => row.historicalPurchases > 0 && row.previous > 0)
+    ? customerHistoricalRows.filter((row) => row.historicalPurchases > 0 && row.previous > 0) : customerRows;
+  const productComparisonRows = productHistoricalRows?.some((row) => row.historicalPurchases > 0 && row.previous > 0)
+    ? productHistoricalRows.filter((row) => row.historicalPurchases > 0 && row.previous > 0) : productRows;
+  const customerComparisonMode = customerComparisonRows === customerRows ? 'period' : 'historical';
+  const productComparisonMode = productComparisonRows === productRows ? 'period' : 'historical';
+  const currentMargin = useMemo(
+    () => dataset.executiveSummary?.currentMargin ?? (marginReady
+      ? buildAgentInvoiceMargin(dataset.invoiceLines, snapshot.filters, dataset.invoiceAnalysisMargin)
+      : { ...buildAgentInvoiceMargin([], snapshot.filters), available: false }),
+    [dataset.invoiceAnalysisMargin, dataset.invoiceLines, marginReady, snapshot.filters],
+  );
+  const previousMargin = useMemo(() => {
+    if (dataset.executiveSummary) return dataset.executiveSummary.previousMargin;
+    if (!companyScope || !marginReady || !dataset.previousInvoiceAnalysisMargin) return null;
+    const previousRange = buildPreviousPeriodRange(snapshot.filters);
+    return buildAgentInvoiceMargin(
+      [],
+      { ...snapshot.filters, ...previousRange },
+      dataset.previousInvoiceAnalysisMargin,
+    );
+  }, [companyScope, dataset.previousInvoiceAnalysisMargin, marginReady, snapshot.filters]);
+  const [selectedPanel, setSelectedPanel] = useState<AgentSummaryPanelKey | null>(null);
+
+  useEffect(() => {
+    if (!selectedPanel) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSelectedPanel(null);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [selectedPanel]);
+
+  return (
+    <div className="reports-stack agent-summary-dashboard">
+
+      <AgentMetricDeck
+        comparisonLabel={profile.comparisonContext}
+        metrics={summaryMetrics}
+        comparisonReady={comparisonReady}
+        comparisonError={comparisonError}
+        onOpenMetric={() => undefined}
+      />
+
+      <AgentSummaryPanel
+        title="Evolución de total sin impuestos"
+        description="Compara la facturación acumulada del periodo actual contra el mismo tramo comparable. El cierre muestra con claridad la diferencia total."
+        wide
+        onOpen={() => setSelectedPanel('trend')}
+      >
+        <DailyInvoiceDifferenceChart points={snapshot.dailyInvoiceDifference} />
+      </AgentSummaryPanel>
+
+      <section className="agent-summary-chart-grid">
+        <AgentSummaryPanel
+          title="Balance de clientes"
+          description="Nuevos y perdidos, junto con el valor económico de cada movimiento."
+          onOpen={() => setSelectedPanel('customerBalance')}
+        >
+          <AgentCustomerBalanceChart balance={customerBalance} />
+        </AgentSummaryPanel>
+        <AgentSummaryPanel
+          title="Leads asignados vs. atendidos"
+          description="Atendido significa que el lead ya tiene cotización, está sin cotizar, ganado o perdido."
+          onOpen={() => setSelectedPanel('crmBalance')}
+        >
+          <AgentCrmBalanceChart balance={crmBalance} />
+        </AgentSummaryPanel>
+        <AgentSummaryPanel
+          title="Pareto comercial"
+          description="Muestra qué porcentaje de la facturación concentra el Top 5 y qué queda en el resto."
+          wide
+          onOpen={() => setSelectedPanel('pareto')}
+        >
+          <AgentParetoDonut customerRows={customerRows} productRows={productRows} />
+        </AgentSummaryPanel>
+        <AgentSummaryPanel
+          title="Leads abandonados o sin respuesta"
+          description="Antigüedad desde la asignación de leads pendientes; no equivale a días desde la última actividad."
+          wide
+          onOpen={() => setSelectedPanel('leadAttention')}
+        >
+          <AgentLeadAttentionChart leads={leadAttention} />
+        </AgentSummaryPanel>
+        <AgentSummaryPanel
+          title="Cotizaciones abandonadas vs. periodo anterior"
+          description="Compara las cotizaciones que no avanzaron en el periodo actual y el anterior."
+          onOpen={() => setSelectedPanel('abandonedQuotes')}
+        >
+          <AgentAbandonedQuoteBalanceChart balance={abandonedQuoteBalance} hasError={summaryContextError} />
+        </AgentSummaryPanel>
+        <AgentSummaryPanel
+          title="Comparativo de ventas por categoría"
+           description={companyScope ? 'Participación y facturación de las categorías en el alcance seleccionado.' : 'Participación y facturación de las categorías vendidas por ti.'}
+          onOpen={() => setSelectedPanel('categories')}
+        >
+          <AgentCategoryDonut rows={profile.sales.rows} />
+        </AgentSummaryPanel>
+        <AgentSummaryPanel
+          title="Recompra pendiente y cartera en riesgo"
+          description="Destaca la atención temprana entre 60–90 días cuando ya venció el ciclo habitual y mantiene visibles los retrasos mayores."
+          onOpen={() => setSelectedPanel('customerRisk')}
+        >
+          <AgentCustomerRiskChart details={customerBalance.repurchaseDetails} />
+        </AgentSummaryPanel>
+        <AgentSummaryPanel
+          title="Oportunidades de venta cruzada"
+          description="Detecta familias complementarias no observadas en las facturas del periodo; valida el parque instalado antes de ofertar."
+          onOpen={() => setSelectedPanel('crossSell')}
+        >
+          <AgentCrossSellChart opportunities={crossSellOpportunities} />
+        </AgentSummaryPanel>
+        <AgentSummaryPanel
+          title="Margen y % de margen por categoría"
+          description="Contabilidad · Análisis de facturas del periodo; margen sobre total sin impuestos."
+          onOpen={() => setSelectedPanel('marginCategory')}
+        >
+          {marginLoading
+            ? <div className="loading-grid"><div className="skeleton-card wide" /></div>
+            : <AgentMarginByCategoryChart result={currentMargin} />}
+        </AgentSummaryPanel>
+        {companyScope ? <AgentSummaryPanel
+          title="% de margen total vs. año anterior"
+          description="Análisis de facturas de Odoo para el mismo rango de fechas del año anterior."
+          onOpen={() => setSelectedPanel('marginComparison')}
+        >
+          {marginLoading
+            ? <div className="loading-grid"><div className="skeleton-card wide" /></div>
+            : <AgentMarginComparisonChart current={currentMargin} previous={previousMargin} />}
+        </AgentSummaryPanel> : null}
+      </section>
+
+      <section className="agent-summary-action-strip">
+        <div>
+          <strong>Qué revisar primero</strong>
+          <span>Usa las barras rojas para recuperar valor y las verdes para escalar lo que sí está funcionando.</span>
+        </div>
+        <div className="agent-summary-action-list">
+          {profile.summary.attention.slice(0, 3).map((item) => (
+            <span key={item.id}><CircleAlert size={15} />{item.title}</span>
+          ))}
+          {!profile.summary.attention.length ? <span><CheckCircle2 size={15} />Tu resumen no detecta alertas prioritarias.</span> : null}
+        </div>
+      </section>
+
+      {selectedPanel ? (
+        <AgentChartDetailModal
+          panel={selectedPanel}
+          customerBalance={customerBalance}
+          crmBalance={crmBalance}
+          leadAttention={leadAttention}
+          crossSellOpportunities={crossSellOpportunities}
+          abandonedQuoteBalance={abandonedQuoteBalance}
+          trend={snapshot.dailyInvoiceDifference}
+          customerRows={customerRows}
+          productRows={productRows}
+          categoryRows={profile.sales.rows}
+          paretoRows={paretoRows}
+          currentMargin={currentMargin}
+          previousMargin={previousMargin}
+          customerHistoricalRows={customerHistoricalRows}
+          productHistoricalRows={productHistoricalRows}
+          customerComparisonRows={customerComparisonRows}
+          productComparisonRows={productComparisonRows}
+          customerComparisonMode={customerComparisonMode}
+          productComparisonMode={productComparisonMode}
+          historicalSaved={summaryContext?.baselineSaved ?? false}
+          historicalError={summaryContextError}
+          onClose={() => setSelectedPanel(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function AgentSummaryPanel({
+  title,
+  description,
+  children,
+  onOpen,
+  wide = false,
+}: {
+  title: string;
+  description: string;
+  children: ReactNode;
+  onOpen?: () => void;
+  wide?: boolean;
+}) {
+  return (
+    <article
+      className={`panel agent-summary-panel${wide ? ' is-wide' : ''}`}
+    >
+      <div className="agent-summary-panel-head">
+        <strong>{title}</strong>
+        <span>{description}</span>
+      </div>
+      {children}
+      {onOpen ? <button type="button" className="agent-summary-panel-hint" onClick={onOpen}>Ver detalle</button> : null}
+    </article>
+  );
+}
+
+type AgentSummaryPanelKey = 'trend' | 'customerBalance' | 'customerRisk' | 'crossSell' | 'crmBalance' | 'leadAttention' | 'abandonedQuotes' | 'categories' | 'customerChange' | 'products' | 'pareto' | 'marginCategory' | 'marginComparison';
+
+function AgentChartDetailModal({
+  panel,
+  customerBalance,
+  crmBalance,
+  leadAttention,
+  crossSellOpportunities,
+  abandonedQuoteBalance,
+  trend,
+  customerRows,
+  productRows,
+  categoryRows,
+  paretoRows,
+  currentMargin,
+  previousMargin,
+  customerHistoricalRows,
+  productHistoricalRows,
+  customerComparisonRows,
+  productComparisonRows,
+  customerComparisonMode,
+  productComparisonMode,
+  historicalSaved,
+  historicalError,
+  onClose,
+}: {
+  panel: AgentSummaryPanelKey;
+  customerBalance: AgentCustomerBalance;
+  crmBalance: AgentCrmBalance;
+  leadAttention: AgentLeadAttention[];
+  crossSellOpportunities: AgentCrossSellOpportunity[];
+  abandonedQuoteBalance: AgentAbandonedQuoteBalance;
+  trend: DailyInvoiceDifferencePoint[];
+  customerRows: AgentYearDimensionRow[];
+  productRows: AgentYearDimensionRow[];
+  categoryRows: AgentYearDimensionRow[];
+  paretoRows: AgentYearDimensionRow[];
+  currentMargin: AgentInvoiceMarginResult;
+  previousMargin: AgentInvoiceMarginResult | null;
+  customerHistoricalRows: AgentHistoricalComparisonRow[] | null;
+  productHistoricalRows: AgentHistoricalComparisonRow[] | null;
+  customerComparisonRows: AgentYearDimensionRow[];
+  productComparisonRows: AgentYearDimensionRow[];
+  customerComparisonMode: 'period' | 'historical';
+  productComparisonMode: 'period' | 'historical';
+  historicalSaved: boolean;
+  historicalError: boolean;
+  onClose: () => void;
+}) {
+  const titles: Record<AgentSummaryPanelKey, string> = {
+    customerBalance: 'Detalle del balance de clientes',
+    customerRisk: 'Clientes con recompra pendiente',
+    crossSell: 'Oportunidades de venta cruzada',
+    crmBalance: 'Detalle de leads asignados y atendidos',
+    leadAttention: 'Leads abandonados o sin respuesta',
+    categories: 'Detalle de ventas por categoría',
+    customerChange: 'Detalle de crecimiento y deterioro por cliente',
+    products: 'Detalle de facturación por producto',
+    pareto: 'Detalle del Pareto comercial',
+    trend: 'Evolución de total sin impuestos',
+    abandonedQuotes: 'Cotizaciones abandonadas vs. periodo anterior',
+    marginCategory: 'Margen por categoría del periodo',
+    marginComparison: 'Comparativo de margen total',
+  };
+  const dimensionRows = panel === 'categories' ? categoryRows : panel === 'products' ? productRows : panel === 'pareto' ? paretoRows : customerRows;
+  return (
+    <div className="agent-chart-detail-backdrop" role="presentation" onMouseDown={onClose}>
+      <section className="agent-chart-detail-modal" role="dialog" aria-modal="true" aria-labelledby="agent-chart-detail-title" onMouseDown={(event) => event.stopPropagation()}>
+        <header className="agent-chart-detail-head">
+          <div>
+            <span className="agent-profile-badge">Detalle del resumen</span>
+            <h2 id="agent-chart-detail-title">{titles[panel]}</h2>
+            <p>Información utilizada para construir la gráfica y facilitar la acción comercial.</p>
+          </div>
+          <button type="button" className="icon-button" aria-label="Cerrar detalle" onClick={onClose}><X size={17} /></button>
+        </header>
+
+        {panel === 'customerBalance' ? (
+          <AgentDetailTable
+            headers={['Cliente', 'Estado', 'Correo', 'Teléfono', 'Última compra', 'Días', 'Prom. recompra', 'Umbral', 'Valor']}
+            rows={customerBalance.details.map((row) => [
+              row.customer, row.status,
+              row.status === 'Perdido' || row.status === 'A reactivar' ? <AgentContactValue value={row.email} type="email" /> : row.email || '-',
+              row.status === 'Perdido' || row.status === 'A reactivar' ? <AgentContactValue value={row.phone} type="phone" /> : row.phone || '-',
+              row.lastPurchaseDate, `${row.daysSincePurchase} días`, `${row.averageRepurchaseDays || '-'} días`, `${row.thresholdDays} días`, formatCurrency(row.value),
+            ])}
+          />
+        ) : null}
+        {panel === 'customerRisk' ? (
+          <>
+            <div className="agent-chart-detail-summary"><strong>{formatNumber(customerBalance.repurchaseDetails.filter((row) => row.priority === 'Atención temprana').length)} clientes en atención temprana</strong><span>Se destacan los que llevan 60–90 días sin comprar y ya superaron su ciclo promedio. Los retrasos menores y los de mayor antigüedad también se conservan; “Perdido” mantiene el umbral actual de más de 60 días sobre la ventana mínima de 90 días o el ciclo promedio, lo que resulte mayor. No es una predicción de venta.</span></div>
+            <AgentDetailTable
+              headers={['Cliente', 'Prioridad', 'Correo', 'Teléfono', 'Última compra', 'Días desde compra', 'Periodo promedio', 'Retraso vs. periodo', 'Base histórica']}
+              rows={customerBalance.repurchaseDetails
+                .map((row) => [row.customer, row.priority, <AgentContactValue value={row.email} type="email" />, <AgentContactValue value={row.phone} type="phone" />, row.lastPurchaseDate, `${row.daysSincePurchase} días`, `${row.averageRepurchaseDays} días`, `${row.overdueDays} días`, `${row.historyConfidence === 'suficiente' ? 'Historial amplio' : 'Base limitada'} (${formatNumber(row.historyRecords)} registros)`])}
+            />
+          </>
+        ) : null}
+        {panel === 'crossSell' ? (
+          <>
+            <div className="agent-chart-detail-summary"><strong>{formatNumber(crossSellOpportunities.length)} señales para validar</strong><span>Se identifican compras complementarias ausentes dentro del periodo seleccionado. La ausencia en este periodo no prueba que el cliente nunca haya comprado ese producto; confirma su parque instalado antes de contactar.</span></div>
+            <AgentDetailTable
+              headers={['Cliente', 'Correo', 'Teléfono', 'Compra observada', 'Último producto', 'Última factura', 'Venta del producto observado', 'Siguiente acción sugerida']}
+              rows={crossSellOpportunities.map((row) => [row.customer, <AgentContactValue value={row.email} type="email" />, <AgentContactValue value={row.phone} type="phone" />, row.purchased, row.latestProduct, row.latestDate, formatCurrency(row.revenue), row.recommendation])}
+            />
+          </>
+        ) : null}
+        {panel === 'marginCategory' ? (
+          currentMargin.available ? <AgentDetailTable
+            headers={['Categoría', 'Total sin impuestos', 'Margen', '% de margen']}
+            rows={currentMargin.categories.map((row) => [row.category, formatCurrency(row.untaxed), formatCurrency(row.margin), row.marginPct === null ? 'Sin base' : formatMarginPercent(row.marginPct)])}
+          /> : <EmptyState title="Margen no disponible">Odoo no devolvió todas las líneas del Análisis de facturas; no se muestra un total parcial.</EmptyState>
+        ) : null}
+        {panel === 'marginComparison' ? (
+          currentMargin.available && previousMargin?.available ? <AgentDetailTable
+            headers={['Periodo', 'Total sin impuestos', 'Margen', '% de margen']}
+            rows={[
+              ['Periodo actual', formatCurrency(currentMargin.untaxed), formatCurrency(currentMargin.margin), currentMargin.marginPct === null ? 'Sin base' : formatMarginPercent(currentMargin.marginPct)],
+              ['Mismo rango del año anterior', formatCurrency(previousMargin.untaxed), formatCurrency(previousMargin.margin), previousMargin.marginPct === null ? 'Sin base' : formatMarginPercent(previousMargin.marginPct)],
+            ]}
+          /> : <EmptyState title="Comparación no disponible">No se recibieron los dos periodos completos del Análisis de facturas de Odoo.</EmptyState>
+        ) : null}
+        {panel === 'trend' ? (
+          <>
+            <DailyInvoiceDifferenceChart points={trend} />
+            <AgentDetailTable headers={[trend[0]?.bucketKind === 'month' ? 'Mes actual' : 'Día actual', trend[0]?.bucketKind === 'month' ? 'Mes comparable' : 'Día comparable', 'Facturación actual', 'Facturación comparable', 'Diferencia del intervalo']} rows={trend.map((point) => [point.label, point.previousLabel, formatCurrency(point.invoicedAmount), formatCurrency(point.previousInvoicedAmount), `${point.invoicedAmount - point.previousInvoicedAmount >= 0 ? '+' : ''}${formatCurrency(point.invoicedAmount - point.previousInvoicedAmount)}`])} />
+          </>
+        ) : null}
+        {panel === 'crmBalance' ? (
+          <>
+            <div className="agent-chart-detail-summary"><strong>{formatNumber(crmBalance.attended)} atendidos de {formatNumber(crmBalance.assigned)} asignados</strong><span>{formatPercent(crmBalance.attentionRate)} de cobertura. Se consideran atendidos los estados cotizado, sin cotizar, ganado y perdido.</span></div>
+            <AgentDetailTable headers={['Lead', 'Cliente', 'Etapa', 'Estado de atención', 'Fecha de asignación']} rows={crmBalance.details.map((lead) => [lead.label, lead.customer, lead.stage, lead.attended ? 'Atendido' : 'Pendiente', lead.createdAt])} />
+          </>
+        ) : null}
+        {panel === 'leadAttention' ? (
+          <>
+            <div className="agent-chart-detail-summary"><strong>Antigüedad desde asignación</strong><span>Odoo no proporciona en este dataset una fecha fiable de última actividad para medir “días sin respuesta”. El rango seleccionado determina qué leads asignados entran; la antigüedad se calcula hasta hoy.</span></div>
+            <AgentDetailTable
+              headers={['Lead', 'Cliente', 'Etapa', 'Días desde asignación', 'Correo', 'Teléfono', 'Valor esperado']}
+              rows={leadAttention.map((lead) => [lead.label, lead.customer, lead.stage, `${lead.days} días`, <AgentContactValue value={lead.email} type="email" />, <AgentContactValue value={lead.phone} type="phone" />, formatCurrency(lead.expectedRevenue)])}
+            />
+          </>
+        ) : null}
+        {panel === 'abandonedQuotes' ? (
+          <AgentDetailTable headers={['Periodo', 'Cotizaciones abandonadas', 'Variación']} rows={[
+            ['Periodo actual', formatNumber(abandonedQuoteBalance.current), abandonedQuoteBalance.previous === null ? 'Calculando' : `${abandonedQuoteBalance.current - abandonedQuoteBalance.previous >= 0 ? '+' : ''}${formatNumber(abandonedQuoteBalance.current - abandonedQuoteBalance.previous)}`],
+            ['Periodo anterior', abandonedQuoteBalance.previous === null ? 'No disponible' : formatNumber(abandonedQuoteBalance.previous), '-'],
+          ]} />
+        ) : null}
+        {panel === 'customerChange' || panel === 'products' ? (
+          <>
+            {!historicalSaved && !historicalError && (customerHistoricalRows || productHistoricalRows) ? <p className="agent-growth-note">La media se calculó desde Odoo, pero no pudo confirmarse su guardado en Supabase.</p> : null}
+            {historicalError ? <p className="agent-growth-note">No fue posible consultar el historial de Odoo; se muestra la comparación entre periodos.</p> : null}
+            {(() => {
+              const isCustomer = panel === 'customerChange';
+              const mode = isCustomer ? customerComparisonMode : productComparisonMode;
+              const rows = isCustomer ? customerComparisonRows : productComparisonRows;
+              return mode === 'historical' ? <AgentDetailTable
+                headers={['Elemento', 'Total del periodo', 'Compras del periodo', 'Media por compra', 'Total histórico anterior', 'Compras históricas', 'Media histórica', 'Variación']}
+                rows={(rows as AgentHistoricalComparisonRow[]).map((row) => [
+                  row.label, formatCurrency(row.periodTotal), formatNumber(row.periodPurchases), formatCurrency(row.current),
+                  formatCurrency(row.historicalTotal), formatNumber(row.historicalPurchases), formatCurrency(row.previous),
+                  row.differencePct === null ? 'Sin base' : formatPercent(row.differencePct),
+                ])}
+              /> : <AgentDetailTable
+                headers={['Elemento', 'Periodo actual', 'Periodo anterior', 'Variación', 'Variación %']}
+                rows={rows.map((row) => [row.label, formatCurrency(row.current), formatCurrency(row.previous), formatCurrency(row.difference), row.differencePct === null ? 'Sin base' : formatPercent(row.differencePct)])}
+              />;
+            })()}
+          </>
+        ) : null}
+        {panel === 'categories' || panel === 'pareto' ? (
+          <AgentDetailTable
+            headers={['Elemento', 'Periodo actual', 'Periodo comparable', 'Variación', 'Participación']}
+            rows={dimensionRows
+              .map((row) => [
+                row.label,
+                formatCurrency(row.current),
+                formatCurrency(row.previous),
+                formatCurrency(row.difference),
+                formatPercent(row.currentSharePct),
+              ])}
+          />
+        ) : null}
+      </section>
+    </div>
+  );
+}
+
+function AgentDetailTable({ headers, rows }: { headers: string[]; rows: ReactNode[][] }) {
+  const pageSize = 50;
+  const [page, setPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+  const visiblePage = Math.min(page, pageCount - 1);
+  const visibleRows = rows.slice(visiblePage * pageSize, (visiblePage + 1) * pageSize);
+  return rows.length ? (
+    <>
+    <div className="agent-detail-table-wrap">
+      <table className="agent-detail-table">
+        <thead><tr>{headers.map((header) => <th key={header}>{header}</th>)}</tr></thead>
+        <tbody>{visibleRows.map((row, rowIndex) => <tr key={`${row[0]}-${visiblePage * pageSize + rowIndex}`}>{row.map((cell, cellIndex) => <td key={`${rowIndex}-${cellIndex}`}>{cell}</td>)}</tr>)}</tbody>
+      </table>
+    </div>
+    {rows.length > pageSize ? <div className="agent-detail-pagination"><span>{formatNumber(visiblePage * pageSize + 1)}–{formatNumber(Math.min(rows.length, (visiblePage + 1) * pageSize))} de {formatNumber(rows.length)}</span><button type="button" disabled={visiblePage === 0} onClick={() => setPage((current) => Math.max(0, current - 1))}>Anterior</button><button type="button" disabled={visiblePage + 1 >= pageCount} onClick={() => setPage((current) => Math.min(pageCount - 1, current + 1))}>Siguiente</button></div> : null}
+    </>
+  ) : <EmptyState title="Sin datos">No hay registros suficientes para mostrar este detalle.</EmptyState>;
+}
+
+function AgentContactValue({ value, type }: { value: string | null; type: 'email' | 'phone' }) {
+  if (!value) return '-';
+  const href = type === 'email' ? `mailto:${value}` : `tel:${value.replace(/[^\d+]/g, '')}`;
+  return <span className="agent-contact-value">
+    <a href={href}>{value}</a>
+    <button type="button" aria-label={`Copiar ${type === 'email' ? 'correo' : 'teléfono'} ${value}`} title="Copiar" onClick={() => {
+      void navigator.clipboard?.writeText(value).catch(() => undefined);
+    }}><Copy size={13} /></button>
+  </span>;
+}
+
+type AgentChangeRow = AgentYearDimensionRow;
+
+function AgentHorizontalBars({
+  rows,
+  currency = false,
+  signTone = false,
+  showPrevious = true,
+}: {
+  rows: AgentChangeRow[];
+  currency?: boolean;
+  signTone?: boolean;
+  showPrevious?: boolean;
+}) {
+  const visibleRows = rows.filter((row) => row.current !== 0 || row.previous !== 0).slice(0, 10);
+  if (!visibleRows.length) return <EmptyState title="Sin datos">No hay datos suficientes para esta comparación.</EmptyState>;
+  const max = Math.max(1, ...visibleRows.flatMap((row) => [Math.abs(row.current), Math.abs(row.previous)]));
+  return (
+    <div className="agent-summary-bars">
+      <div className="agent-summary-legend">
+        <span><i className="current" />Actual</span>
+        {showPrevious ? <span><i className="previous" />Año anterior</span> : null}
+      </div>
+      {visibleRows.map((row) => (
+        <div className="agent-summary-bar-row" key={row.label}>
+          <div className="agent-summary-bar-label" title={row.label}>{row.label}</div>
+          <div className="agent-summary-bar-track">
+            <span className={`agent-summary-bar-fill current${row.current < 0 ? ' negative' : signTone ? ' positive' : ''}`} style={{ width: `${Math.max(3, Math.min(100, Math.abs(row.current) / max * 100))}%` }} />
+            {showPrevious ? <span className={`agent-summary-bar-fill previous${row.previous < 0 ? ' negative' : ''}`} style={{ width: `${Math.max(3, Math.min(100, Math.abs(row.previous) / max * 100))}%` }} /> : null}
+          </div>
+          <strong>{currency ? formatCurrency(row.current) : formatNumber(row.current)}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AgentGrowthBars({ rows, comparisonMode = 'historical' }: { rows: AgentChangeRow[]; comparisonMode?: 'historical' | 'period' }) {
+  const visibleRows = rows
+    .filter((row) => row.difference !== 0)
+    .slice()
+    .sort((left, right) => Math.abs(right.differencePct ?? (right.current > 0 ? 100 : 0)) - Math.abs(left.differencePct ?? (left.current > 0 ? 100 : 0)))
+    .slice(0, 10);
+  if (!visibleRows.length) return <EmptyState title="Sin cambios comparables">No hay compras con una variación medible frente a {comparisonMode === 'historical' ? 'la media histórica' : 'el periodo anterior'}.</EmptyState>;
+  const max = Math.max(
+    1,
+    ...visibleRows.map((row) => Math.abs(row.differencePct ?? (row.current > 0 ? 100 : 0))),
+  );
+  return (
+    <div className="agent-growth-bars">
+      <div className="agent-summary-legend">
+        <span><i className="growth-positive" />Creció</span>
+        <span><i className="growth-negative" />Disminuyó</span>
+        <span><i className="growth-new" />Sin base {comparisonMode === 'historical' ? 'histórica' : 'anterior'}</span>
+      </div>
+      {visibleRows.map((row) => {
+        const change = row.differencePct;
+        const isNew = change === null && row.current !== 0;
+        const isPositive = isNew || (change ?? 0) > 0;
+        const label = change === null ? (isNew ? 'Nuevo' : 'Sin base') : `${change >= 0 ? '+' : ''}${change.toFixed(1)}%`;
+        return (
+          <div className="agent-growth-row" key={row.key}>
+            <div className="agent-growth-label" title={row.label}>{row.label}</div>
+            <div className="agent-growth-track">
+              <i className={isNew ? 'new' : isPositive ? 'positive' : 'negative'} style={{ width: `${Math.max(5, Math.min(100, Math.abs(change ?? 100) / max * 100))}%` }} />
+            </div>
+            <strong className={isNew ? 'new' : isPositive ? 'positive' : 'negative'}>{label}</strong>
+          </div>
+        );
+      })}
+      <small className="agent-growth-note">{comparisonMode === 'historical' ? 'Variación = (media por compra del periodo - media histórica previa) / media histórica previa. La media histórica usa la suma neta facturada dividida entre facturas de compra, sin contar notas de crédito como compras nuevas.' : 'Variación = (facturación del periodo - facturación del periodo anterior) / facturación del periodo anterior.'}</small>
+    </div>
+  );
+}
+
+type AgentParetoSegment = { label: string; value: number; share: number; cumulative: number; color: string };
+
+function buildAgentParetoSegments(rows: AgentYearDimensionRow[]): { segments: AgentParetoSegment[]; total: number; topShare: number } {
+  const sorted = rows
+    .filter((row) => row.current > 0)
+    .slice()
+    .sort((left, right) => right.current - left.current);
+  const total = sorted.reduce((sum, row) => sum + row.current, 0);
+  if (!total) return { segments: [], total: 0, topShare: 0 };
+  const top = sorted.slice(0, 5);
+  const topValue = top.reduce((sum, row) => sum + row.current, 0);
+  const othersValue = Math.max(0, total - topValue);
+  const source = [...top.map((row) => ({ label: row.label, value: row.current })), ...(othersValue > 0 ? [{ label: 'Otros', value: othersValue }] : [])];
+  let accumulated = 0;
+  const colors = ['#9a5139', '#39715a', '#6f87a8', '#a0836d', '#b26a5c', '#d6c6ba'];
+  const segments = source.map((item, index) => {
+    const share = item.value / total * 100;
+    accumulated += share;
+    return { ...item, share, cumulative: accumulated, color: colors[index % colors.length] };
+  });
+  return { segments, total, topShare: topValue / total * 100 };
+}
+
+function AgentParetoDonut({ customerRows, productRows }: { customerRows: AgentYearDimensionRow[]; productRows: AgentYearDimensionRow[] }) {
+  const cards = [
+    { title: 'Clientes', data: buildAgentParetoSegments(customerRows) },
+    { title: 'Productos', data: buildAgentParetoSegments(productRows) },
+  ];
+  const available = cards.filter((card) => card.data.segments.length);
+  if (!available.length) return <EmptyState title="Sin concentración disponible">No hay facturación suficiente para construir el Pareto.</EmptyState>;
+  return (
+    <div className="agent-pareto-grid">
+      {available.map((card) => {
+        const gradient = card.data.segments.map((segment, index, segments) => {
+          const start = segments.slice(0, index).reduce((sum, item) => sum + item.share, 0);
+          return `${segment.color} ${start}% ${start + segment.share}%`;
+        }).join(', ');
+        return (
+          <div className="agent-pareto-card" key={card.title}>
+            <div className="agent-pareto-card-head"><strong>{card.title}</strong><span>Concentración comercial</span></div>
+            <div className="agent-pareto-card-body">
+              <div className="agent-donut agent-pareto-donut" style={{ background: `conic-gradient(${gradient})` }}>
+                <div><strong>{formatPercent(card.data.topShare)}</strong><span>Top 5</span></div>
+              </div>
+              <div className="agent-donut-legend">
+                {card.data.segments.map((segment) => <div key={segment.label}><i style={{ background: segment.color }} /><span title={segment.label}>{segment.label}</span><strong>{formatPercent(segment.share)}</strong></div>)}
+                <small>Facturación representada: <b>{formatCurrency(card.data.total)}</b>. El acumulado del Top 5 permite identificar concentración y dependencia comercial.</small>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+      <p className="agent-pareto-explanation">Lectura: un porcentaje alto en Top 5 indica dependencia de pocos clientes o productos; un porcentaje más distribuido sugiere una cartera menos concentrada y más resiliente.</p>
+    </div>
+  );
+}
+
+function AgentMarginByCategoryChart({ result }: { result: AgentInvoiceMarginResult }) {
+  if (!result.available) return <EmptyState title="Margen no disponible">No se pudo completar el Análisis de facturas de Odoo para este periodo. Actualiza el reporte para consultar el margen contable.</EmptyState>;
+  if (!result.categories.length) return <EmptyState title="Sin facturas">No hay líneas de factura publicadas para los filtros aplicados.</EmptyState>;
+  const maxMargin = Math.max(1, ...result.categories.map((category) => Math.abs(category.margin)));
+  return (
+    <div className="agent-margin-chart">
+      <div className="agent-margin-chart-total"><span>Margen total</span><strong>{formatCurrency(result.margin)}</strong><span>{result.marginPct === null ? 'Sin base porcentual' : `${formatMarginPercent(result.marginPct)} sobre total sin impuestos`}</span></div>
+      <div className="agent-margin-category-list">
+        {result.categories.map((category) => <div className="agent-margin-category-row" key={category.category}>
+          <div><span title={category.category}>{category.category}</span><strong>{formatCurrency(category.margin)}</strong></div>
+          <div className="agent-margin-track"><i className={category.margin < 0 ? 'negative' : 'positive'} style={{ width: `${Math.max(2, Math.abs(category.margin) / maxMargin * 100)}%` }} /></div>
+          <small>{category.marginPct === null ? 'Sin base' : formatMarginPercent(category.marginPct)} de margen · {formatCurrency(category.untaxed)} sin impuestos</small>
+        </div>)}
+      </div>
+    </div>
+  );
+}
+
+function AgentMarginComparisonChart({
+  current,
+  previous,
+}: {
+  current: AgentInvoiceMarginResult;
+  previous: AgentInvoiceMarginResult | null;
+}) {
+  if (!current.available || !previous?.available) {
+    return <EmptyState title="Comparación no disponible">No se recibieron los dos periodos completos del Análisis de facturas de Odoo.</EmptyState>;
+  }
+  const currentPct = current.marginPct;
+  const previousPct = previous.marginPct;
+  if (currentPct === null || previousPct === null) {
+    return <EmptyState title="Sin base para porcentaje">Uno de los periodos no tiene total sin impuestos para calcular el margen porcentual.</EmptyState>;
+  }
+  const max = Math.max(100, Math.abs(currentPct), Math.abs(previousPct));
+  const change = currentPct - previousPct;
+  return (
+    <div className="agent-compare-bars agent-margin-compare-bars">
+      <div><span>Actual</span><i className={currentPct < 0 ? 'negative' : 'positive'} style={{ width: `${Math.max(2, Math.abs(currentPct) / max * 100)}%` }} /><strong>{formatMarginPercent(currentPct)}</strong></div>
+      <div><span>Año anterior</span><i className="previous" style={{ width: `${Math.max(2, Math.abs(previousPct) / max * 100)}%` }} /><strong>{formatMarginPercent(previousPct)}</strong></div>
+      <small>{change >= 0 ? '+' : ''}{change.toFixed(2)} puntos porcentuales frente al mismo rango del año anterior.</small>
+    </div>
+  );
+}
+
+function AgentCustomerBalanceChart({ balance }: { balance: AgentCustomerBalance }) {
+  const segments = [
+    { label: 'Nuevos', value: balance.newCount, color: '#5f9975' },
+    { label: 'Perdidos', value: balance.lostCount, color: '#bd685d' },
+    { label: 'Reactivados', value: balance.reactivatedCount, color: '#a0836d' },
+    { label: 'A reactivar', value: balance.toReactivateCount, color: '#c39a4a' },
+  ];
+  const total = Math.max(segments.reduce((sum, item) => sum + item.value, 0), 1);
+  let offset = 0;
+  const gradient = segments.map((item) => {
+    const start = offset / total * 100;
+    offset += item.value;
+    return `${item.color} ${start}% ${offset / total * 100}%`;
+  }).join(', ');
+  return (
+    <div className="agent-donut-layout">
+      <div className="agent-donut" style={{ background: `conic-gradient(${gradient})` }}>
+        <div><strong>{formatNumber(total === 1 && !segments.some((item) => item.value) ? 0 : total)}</strong><span>clientes</span></div>
+      </div>
+      <div className="agent-donut-legend">
+        {segments.map((item) => <div key={item.label}><i style={{ background: item.color }} /><span>{item.label}</span><strong>{formatNumber(item.value)}</strong></div>)}
+        <small>Balance neto: <b className={balance.netCount >= 0 ? 'positive' : 'negative'}>{balance.netCount >= 0 ? '+' : ''}{formatNumber(balance.netCount)}</b> · {formatCurrency(balance.netValue)}</small>
+      </div>
+    </div>
+  );
+}
+
+function AgentCrmBalanceChart({ balance }: { balance: AgentCrmBalance }) {
+  const pending = Math.max(balance.assigned - balance.attended, 0);
+  const total = Math.max(balance.assigned, 1);
+  const attendedPct = balance.assigned ? balance.attended / balance.assigned * 100 : 0;
+  return (
+    <div className="agent-donut-layout">
+      <div className="agent-donut agent-donut-crm" style={{ background: `conic-gradient(#5f9975 0 ${attendedPct}%, #d9dfdc ${attendedPct}% 100%)` }}>
+        <div><strong>{formatNumber(balance.attended)}</strong><span>atendidos</span></div>
+      </div>
+      <div className="agent-donut-legend">
+        <div><i className="is-attended" /><span>Atendidos</span><strong>{formatNumber(balance.attended)}</strong></div>
+        <div><i className="is-pending" /><span>Sin atención</span><strong>{formatNumber(pending)}</strong></div>
+        <small>{formatPercent(balance.attentionRate)} de cobertura · {balance.note}</small>
+      </div>
+    </div>
+  );
+}
+
+
+
+
+
+function AgentAbandonedQuoteBalanceChart({ balance, hasError }: { balance: AgentAbandonedQuoteBalance; hasError: boolean }) {
+  const max = Math.max(balance.current, balance.previous ?? 0, 1);
+  return (
+    <div className="agent-compare-bars">
+      <div><span>Actual</span><i className={balance.previous !== null && balance.current > balance.previous ? 'negative' : 'positive'} style={{ width: `${Math.max(5, balance.current / max * 100)}%` }} /><strong>{formatNumber(balance.current)}</strong></div>
+      <div><span>Anterior</span><i className="previous" style={{ width: `${Math.max(5, (balance.previous ?? 0) / max * 100)}%` }} /><strong>{balance.previous === null ? hasError ? 'N/D' : '...' : formatNumber(balance.previous)}</strong></div>
+      <small>{balance.previous === null ? hasError ? 'No fue posible consultar las cotizaciones anteriores' : 'Consultando cotizaciones del periodo anterior' : balance.differencePct === null ? 'No hubo cotizaciones abandonadas en el periodo anterior' : `${balance.differencePct >= 0 ? '+' : ''}${balance.differencePct.toFixed(1)}% vs. periodo anterior`}</small>
+    </div>
+  );
+}
+
+function AgentCategoryDonut({ rows }: { rows: AgentYearDimensionRow[] }) {
+  const items = rows.filter((row) => row.current > 0).sort((a, b) => b.current - a.current).slice(0, 8);
+  const total = items.reduce((sum, row) => sum + row.current, 0);
+  if (!items.length || !total) return <EmptyState title="Sin ventas por categoría">No hay categorías facturadas en el periodo.</EmptyState>;
+  const colors = ['#9a5139', '#39715a', '#6f87a8', '#a0836d', '#b26a5c', '#557b73', '#c58a4f', '#7b6f9f'];
+  let offset = 0;
+  const gradient = items.map((row, index) => {
+    const start = offset / total * 100;
+    offset += row.current;
+    return `${colors[index % colors.length]} ${start}% ${offset / total * 100}%`;
+  }).join(', ');
+  return (
+    <div className="agent-donut-layout">
+      <div className="agent-donut" style={{ background: `conic-gradient(${gradient})` }}>
+        <div><strong>{formatCurrency(total)}</strong><span>facturado</span></div>
+      </div>
+      <div className="agent-donut-legend">
+        {items.map((row, index) => <div key={row.key}><i style={{ background: colors[index % colors.length] }} /><span title={row.label}>{row.label}</span><strong>{formatPercent(row.current / total * 100)}</strong></div>)}
+      </div>
+    </div>
+  );
+}
+
+
+function AgentLeadAttentionChart({ leads }: { leads: AgentLeadAttention[] }) {
+  const bands = buildLeadAgeBands(leads.map((lead) => lead.days));
+  if (!leads.length) return <EmptyState title="Sin leads pendientes">No hay leads pendientes asignados en el periodo.</EmptyState>;
+  return (
+    <div className="agent-lead-attention-chart">
+      <div className="agent-lead-age-note">Antigüedad desde asignación · {formatNumber(leads.length)} pendientes</div>
+      <div className="agent-lead-age-bands">
+        {bands.map((band) => <div className="agent-lead-age-band" key={band.id}>
+          <div><span><i className={band.id} />{band.label} · {band.rangeLabel}</span><strong>{formatNumber(band.count)} <small>({formatPercent(band.sharePct)})</small></strong></div>
+          <div className="agent-lead-age-track"><i className={band.id} style={{ width: `${band.sharePct}%` }} /></div>
+        </div>)}
+      </div>
+    </div>
+  );
+}
+
+function AgentCustomerRiskChart({ details }: { details: RepurchaseAttentionRow[] }) {
+  const rows = details.slice(0, 6);
+  if (!rows.length) return <EmptyState title="Sin recompras vencidas">No hay clientes cuyo ciclo promedio de recompra haya vencido con los filtros actuales.</EmptyState>;
+  const maxDays = Math.max(...rows.map((row) => row.overdueDays), 1);
+  const earlyCount = details.filter((row) => row.priority === 'Atención temprana').length;
+  const laterCount = details.length - earlyCount;
+  return <div className="agent-customer-risk-chart">
+    <div className="agent-customer-risk-summary"><strong>{formatNumber(earlyCount)}</strong><span>atención temprana · 60–90 días</span><small>{formatNumber(laterCount)} con retrasos fuera de esa ventana</small></div>
+    {rows.map((row) => <div className="agent-customer-risk-row" key={`${row.customer}-${row.priority}`}>
+      <span title={row.customer}>{row.customer}</span>
+      <small className={`agent-repurchase-priority ${row.priority === 'Perdido' ? 'lost' : row.priority === 'Atención temprana' ? 'early' : 'due'}`}>{row.priority}</small>
+      <div><i className={row.priority === 'Perdido' ? 'lost' : row.priority === 'Atención temprana' ? 'early' : 'due'} style={{ width: `${Math.max(4, row.overdueDays / maxDays * 100)}%` }} /></div>
+      <strong><span>{formatNumber(row.daysSincePurchase)} d</span><small>Ciclo prom. {formatNumber(row.averageRepurchaseDays)} d</small></strong>
+    </div>)}
+    <small>Ordena primero los casos de 60–90 días; consulta Ver detalle para contactos, retraso exacto e historial de compra.</small>
+  </div>;
+}
+
+function AgentCrossSellChart({ opportunities }: { opportunities: AgentCrossSellOpportunity[] }) {
+  const rows = opportunities.slice(0, 6);
+  if (!rows.length) return <EmptyState title="Sin señales de venta cruzada">No hay compras de familias identificables con una brecha complementaria en este periodo.</EmptyState>;
+  const max = Math.max(...rows.map((row) => row.revenue), 1);
+  return <div className="agent-cross-sell-chart">
+    <div className="agent-cross-sell-summary"><strong>{formatNumber(opportunities.length)}</strong><span>clientes para validar</span></div>
+    {rows.map((row) => <div className="agent-cross-sell-row" key={`${row.customer}-${row.purchased}-${row.latestDate}`}>
+      <div><strong title={row.customer}>{row.customer}</strong><span>{row.purchased} · sugerir complemento</span></div>
+      <div className="agent-cross-sell-track"><i style={{ width: `${Math.max(5, row.revenue / max * 100)}%` }} /></div>
+      <b>{formatCurrency(row.revenue)}</b>
+    </div>)}
+    <small>Importe observado en la familia comprada durante el periodo; validar necesidad y compatibilidad antes de ofertar.</small>
+  </div>;
+}
+
+
+
+
+function buildAgentChangeRows(rows: AgentYearDimensionRow[]): AgentChangeRow[] {
+  return rows
+    .filter((row) => row.difference !== 0)
+    .sort((left, right) => Math.abs(right.differencePct ?? (right.current > 0 ? 100 : 0)) - Math.abs(left.differencePct ?? (left.current > 0 ? 100 : 0)))
+    .slice(0, 10);
+}
+
+
+
+
+
+
+function AgentProfileSection({
+  profile,
+  section,
+  snapshot,
+  companyScope = false,
+}: {
+  profile: AgentPerformanceProfile;
+  section: AgentProfileSectionKey;
+  snapshot: CommercialDashboardSnapshot;
+  companyScope?: boolean;
+}) {
+  const analysis = profile[section] as AgentYearSection;
+  const meta = agentProfileSectionMeta[section];
+  const sectionTitle = companyScope ? meta.title.replace(/^(Mi|Mis)\s/, '') : meta.title;
+  const [selectedMetric, setSelectedMetric] = useState<AgentYearSection['metrics'][number] | null>(null);
+  const performanceScore = buildAgentPerformanceScore(profile);
+  const report =
+    section === 'summary'
+      ? buildAgentComprehensiveReport(snapshot, performanceScore)
+      : buildAgentProfileSectionReport(snapshot, section);
+  const columns: Array<TableColumn<AgentYearDimensionRow>> = [
+    column<AgentYearDimensionRow>(
+      'label',
+      meta.rowLabel,
+      (row) => row.label,
+      (row) => row.label,
+    ),
+    column<AgentYearDimensionRow>(
+      'current',
+      'Periodo actual',
+      (row) => formatAgentDimensionValue(row.current, meta.rowFormat),
+      (row) => row.current,
+    ),
+    column<AgentYearDimensionRow>(
+      'previous',
+      'Mismo periodo año anterior',
+      (row) => formatAgentDimensionValue(row.previous, meta.rowFormat),
+      (row) => row.previous,
+    ),
+    column<AgentYearDimensionRow>(
+      'change',
+      'Variación',
+      (row) => renderAgentChange(row.differencePct, row.difference),
+      (row) => row.differencePct ?? row.difference,
+    ),
+  ];
+  if (section !== 'conversion') {
+    columns.push(
+      column<AgentYearDimensionRow>(
+        'share',
+        'Participación actual',
+        (row) => formatPercent(row.currentSharePct),
+        (row) => row.currentSharePct,
+      ),
+    );
+  }
+
+  return (
+    <div className="reports-stack agent-profile-dashboard">
+      <section className="agent-profile-hero">
+        <div>
+          <span className="agent-profile-badge">{companyScope ? 'Perfil comercial de la compañía' : 'Perfil personal de ventas'}</span>
+          <h3>{sectionTitle}</h3>
+          <p>{meta.description}</p>
+        </div>
+        <div className="agent-profile-hero-side">
+          <AgentPerformanceScoreSummary score={performanceScore} />
+          <SectionReportActions report={report} />
+        </div>
+        <div className="agent-profile-identity">
+          <span>
+            <UserRound size={16} />
+            {profile.sellerName}
+          </span>
+          <span>
+            <Boxes size={16} />
+            {profile.companyName}
+          </span>
+        </div>
+        <div className="agent-profile-periods">
+          <div>
+            <small>Periodo analizado</small>
+            <strong>{profile.currentPeriodLabel}</strong>
+          </div>
+          <div>
+            <small>{profile.comparisonContext}</small>
+            <strong>{profile.previousYearPeriodLabel}</strong>
+          </div>
+        </div>
+      </section>
+
+      {section === 'summary' ? <AgentPerformanceScoreCard score={performanceScore} /> : null}
+
+      {section === 'summary' && detectQuickRange(snapshot.filters) === 'current_year' ? (
+        <AnnualMonthlyComparisonPanel comparison={snapshot.annualMonthlyComparison} />
+      ) : null}
+
+      <AgentMetricDeck
+        comparisonLabel={profile.comparisonContext}
+        metrics={analysis.metrics}
+        onOpenMetric={setSelectedMetric}
+      />
+
+      {selectedMetric ? (
+        <StaticPanel
+          title={`Detalle de ${selectedMetric.label}`}
+          subtitle={`${profile.currentPeriodLabel} frente a ${profile.previousYearPeriodLabel}`}
+        >
+          <div className="policy-card-quick-facts">
+            <span>Actual: {formatAgentMetricValueUi(selectedMetric.comparison.current, selectedMetric.format)}</span>
+            <span>Anterior: {formatAgentMetricValueUi(selectedMetric.comparison.previous, selectedMetric.format)}</span>
+            <span>Variación: {formatAgentComparisonDelta(selectedMetric.comparison)}</span>
+          </div>
+          {analysis.rows.length ? (
+            <DataTable
+              rows={analysis.rows}
+              storageKey={`agent-${section}-${selectedMetric.id}-detail`}
+              columns={columns}
+            />
+          ) : (
+            <EmptyState title="Sin detalle disponible">
+              No hay registros suficientes para abrir un detalle de este indicador.
+            </EmptyState>
+          )}
+        </StaticPanel>
+      ) : null}
+
+      {section === 'summary' ? (
+        <StaticPanel
+          title="Ritmo de ventas acumulado"
+          subtitle="Actual y periodo comparable avanzan por el mismo día o mes; el saldo final corresponde a la diferencia total"
+        >
+          <DailyInvoiceDifferenceChart points={snapshot.dailyInvoiceDifference} />
+        </StaticPanel>
+      ) : null}
+
+      <section className="agent-insight-grid">
+        <article className="agent-insight-column positive">
+          <header>
+            <CheckCircle2 size={20} />
+            <div>
+              <strong>Lo más positivo</strong>
+              <span>Señales que conviene sostener o escalar</span>
+            </div>
+          </header>
+          {analysis.positives.map((insight) => (
+            <div key={insight.id} className={`agent-insight-item tone-${insight.tone}`}>
+              <TrendingUp size={17} />
+              <div>
+                <strong>{insight.title}</strong>
+                <p>{insight.detail}</p>
+              </div>
+            </div>
+          ))}
+        </article>
+
+        <article className="agent-insight-column attention">
+          <header>
+            <CircleAlert size={20} />
+            <div>
+              <strong>Áreas de atención</strong>
+              <span>Retrocesos o riesgos que necesitan seguimiento</span>
+            </div>
+          </header>
+          {analysis.attention.map((insight) => (
+            <div key={insight.id} className={`agent-insight-item tone-${insight.tone}`}>
+              <TrendingDown size={17} />
+              <div>
+                <strong>{insight.title}</strong>
+                <p>{insight.detail}</p>
+              </div>
+            </div>
+          ))}
+        </article>
+      </section>
+
+      <StaticPanel
+        title={meta.rowsTitle}
+        subtitle={`${profile.currentPeriodLabel} frente a ${profile.previousYearPeriodLabel}`}
+      >
+        {analysis.rows.length ? (
+          <DataTable
+            rows={analysis.rows}
+            storageKey={`agent-${section}-year-comparison`}
+            columns={columns}
+          />
+        ) : (
+          <EmptyState title="Sin datos comparables">
+            No hay registros suficientes en alguno de los dos periodos para construir esta comparación.
+          </EmptyState>
+        )}
+      </StaticPanel>
+    </div>
+  );
+}
+
+function AgentMetricDeck({
+  comparisonLabel,
+  metrics,
+  comparisonReady = true,
+  comparisonError = false,
+  onOpenMetric,
+}: {
+  comparisonLabel: string;
+  metrics: AgentYearSection['metrics'];
+  comparisonReady?: boolean;
+  comparisonError?: boolean;
+  onOpenMetric: (metric: AgentYearSection['metrics'][number]) => void;
+}) {
+  const [flippedCardId, setFlippedCardId] = useState<string | null>(null);
+
+  return (
+    <section className="reports-kpi-reference-grid agent-year-kpi-reference-grid" aria-label="Indicadores comparativos">
+      {metrics.map((metric) => {
+        const tone = getAgentReferenceMetricTone(metric);
+        return (
+          <article
+            key={metric.id}
+            className={`reports-kpi-reference-card agent-year-kpi-reference-card tone-${tone}${flippedCardId === metric.id ? ' is-flipped' : ''}`}
+          >
+            <div className="reports-kpi-reference-inner">
+              <button
+                type="button"
+                className="reports-kpi-reference-face reports-kpi-reference-front"
+                onClick={() => setFlippedCardId((current) => (current === metric.id ? null : metric.id))}
+              >
+                <div className="reports-kpi-reference-head">
+                  <div className="reports-kpi-reference-title">
+                    <span>{metric.label}</span>
+                    <Info size={14} />
+                  </div>
+                  <span className="reports-kpi-reference-icon">{getAgentMetricIcon(metric)}</span>
+                </div>
+                <strong>{!comparisonReady && metric.id === 'growth'
+                  ? comparisonError ? 'No disponible' : 'Calculando...'
+                  : formatAgentMetricValueUi(metric.comparison.current, metric.format)}</strong>
+                <small className={`reports-kpi-reference-change trend-${metric.comparison.trend}`}>
+                  {comparisonReady ? formatAgentComparisonDelta(metric.comparison) : comparisonError ? 'No se pudo comparar' : 'Cargando comparación'} <span>vs. {comparisonLabel}</span>
+                </small>
+                <span className="reports-kpi-reference-cta">
+                  Haz clic para ver qué significa
+                  <ChevronRight size={14} />
+                </span>
+              </button>
+
+              <div className="reports-kpi-reference-face reports-kpi-reference-back">
+                <strong>{metric.label}</strong>
+                <p>{getAgentMetricDefinition(metric)}</p>
+                <div className="reports-kpi-reference-back-actions">
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => onOpenMetric(metric)}
+                  >
+                    Abrir detalle
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-button reports-kpi-reference-return"
+                    onClick={() => setFlippedCardId(null)}
+                  >
+                    Volver al indicador
+                  </button>
+                </div>
+              </div>
+            </div>
+          </article>
+        );
+      })}
+    </section>
+  );
+}
+
+function AgentPerformanceScoreCard({ score }: { score: AgentPerformanceScore }) {
+  const scoreTone = getAgentScoreTone(score.total);
+
+  return (
+    <section className={`agent-performance-score score-${scoreTone}`}>
+      <div
+        className={`agent-performance-score-ring score-${scoreTone}`}
+        style={{ '--agent-score': `${score.total * 3.6}deg` } as CSSProperties}
+        aria-label={`Calificación comercial ${score.total} de 100`}
+      >
+        <div>
+          <strong>{score.total}</strong>
+          <span>de 100</span>
+        </div>
+      </div>
+      <div className="agent-performance-score-copy">
+        <span>Calificación de desempeño comercial</span>
+        <h3>{score.rating}</h3>
+        <p>{score.summary}</p>
+        <small>{score.methodologyNote}</small>
+      </div>
+      <div className="agent-performance-score-dimensions">
+        {score.dimensions.map((dimension) => (
+          <div key={dimension.id}>
+            <span>
+              {dimension.label}
+              <b>{dimension.score}</b>
+            </span>
+            <i><em style={{ width: `${dimension.score}%` }} /></i>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function AgentPerformanceScoreSummary({ score }: { score: AgentPerformanceScore }) {
+  const scoreTone = getAgentScoreTone(score.total);
+
+  return (
+    <aside className="agent-performance-score-summary">
+      <div
+        className={`agent-performance-score-summary-ring score-${scoreTone}`}
+        style={{ '--agent-score': `${score.total * 3.6}deg` } as CSSProperties}
+        aria-label={`Calificación global del periodo ${score.total} de 100`}
+      >
+        <strong>{score.total}</strong>
+      </div>
+      <div>
+        <span>Calificación global del periodo</span>
+        <strong>{score.total}/100</strong>
+        <small>{score.rating}</small>
+      </div>
+    </aside>
+  );
+}
+
+function getAgentMetricTone(metric: AgentYearSection['metrics'][number]) {
+  if (metric.comparison.difference === 0 || metric.lowerIsBetter === null) return 'neutral';
+  const favorable =
+    metric.lowerIsBetter
+      ? metric.comparison.difference < 0
+      : metric.comparison.difference > 0;
+  return favorable ? 'positive' : 'attention';
+}
+
+function getAgentReferenceMetricTone(metric: AgentYearSection['metrics'][number]) {
+  const tone = getAgentMetricTone(metric);
+  if (tone === 'attention') return 'amber';
+  if (metric.format === 'currency') return 'mint';
+  if (metric.format === 'percent') return 'sky';
+  return 'blue';
+}
+
+function getAgentMetricIcon(metric: AgentYearSection['metrics'][number]) {
+  if (metric.id === 'growth') return <TrendingUp size={22} />;
+  if (metric.id.includes('quote')) return <FileText size={22} />;
+  if (metric.id.includes('order')) return <ShoppingCart size={22} />;
+  if (metric.id.includes('ticket') || metric.id.includes('revenue') || metric.id.includes('refund')) {
+    return <DollarSign size={22} />;
+  }
+  if (metric.id.includes('conversion') || metric.id.includes('retention') || metric.id.includes('repurchase')) {
+    return <Target size={22} />;
+  }
+  if (metric.id.includes('product') || metric.id.includes('unit')) return <Boxes size={22} />;
+  if (metric.id.includes('client') || metric.id.includes('customer')) return <Users size={22} />;
+  if (metric.id.includes('invoice')) return <FileText size={22} />;
+  return <PieChart size={22} />;
+}
+
+function getAgentMetricDefinition(metric: AgentYearSection['metrics'][number]) {
+  const definitions: Record<string, string> = {
+    growth: 'Total sin impuestos del periodo seleccionado menos el total sin impuestos del mismo rango del año anterior. Un importe negativo indica contracción.',
+    quotes: 'Cotizaciones creadas en Ventas durante el período seleccionado, filtradas para este vendedor.',
+    revenue: 'Total sin impuestos neto tomado de Contabilidad > Análisis de facturas, incluyendo facturas y notas de crédito publicadas.',
+    billed_orders: 'Órdenes de venta confirmadas del período, filtradas por este vendedor.',
+    average_ticket: 'Total sin impuestos neto dividido entre pedidos únicos facturados del período.',
+    conversion: 'Cotizaciones del período que terminaron en facturación publicada frente al total de cotizaciones evaluables.',
+    invoice_count: 'Número de documentos contables publicados del período, incluyendo facturas de cliente y notas de crédito.',
+    new_customers: 'Clientes cuya primera compra histórica ocurre dentro del período analizado.',
+    refunds: 'Notas de crédito publicadas del período. Se muestran como indicador separado y también reducen el total neto facturado.',
+    product_revenue: 'Total sin impuestos por productos facturados en Contabilidad para este vendedor.',
+    units: 'Unidades netas facturadas; las notas de crédito descuentan unidades cuando corresponda.',
+    active_products: 'Productos con facturación neta distinta de cero en el período.',
+    average_product_revenue: 'Promedio de facturación neta por producto activo.',
+    sales_revenue: 'Total sin impuestos neto para explicar ventas por categoría y mezcla comercial.',
+    sales_orders: 'Órdenes de venta confirmadas para este vendedor dentro del período.',
+    sales_ticket: 'Total sin impuestos neto dividido entre pedidos únicos facturados del período.',
+    sales_refunds: 'Importe de notas de crédito publicadas asociado al vendedor.',
+    invoice_count_sales: 'Documentos contables publicados asociados al vendedor.',
+  };
+
+  return definitions[metric.id] ?? 'Indicador comparativo del vendedor frente al mismo período del año anterior, respetando filtros de fecha, vendedor y compañía.';
+}
+
+function formatAgentMetricValueUi(value: number, format: AgentMetricFormat) {
+  if (format === 'currency') return formatCurrency(value);
+  if (format === 'percent') return formatPercent(value);
+  if (format === 'days') return `${value.toFixed(1)} días`;
+  return formatNumber(value);
+}
+
+function formatAgentDimensionValue(value: number, format: AgentMetricFormat) {
+  return formatAgentMetricValueUi(value, format);
+}
+
+function formatAgentComparisonDelta(comparison: ExecutiveMetric['comparison']) {
+  if (comparison.differencePct === null) {
+    return comparison.current === 0 ? 'Sin cambio' : 'Sin base anterior';
+  }
+  return `${comparison.differencePct >= 0 ? '+' : ''}${comparison.differencePct.toFixed(1)}%`;
+}
+
+function renderAgentChange(differencePct: number | null, difference: number) {
+  const tone = difference > 0 ? 'positive' : difference < 0 ? 'attention' : 'neutral';
+  const label =
+    differencePct === null
+      ? difference === 0
+        ? 'Sin cambio'
+        : 'Sin base anterior'
+      : `${differencePct >= 0 ? '+' : ''}${differencePct.toFixed(1)}%`;
+  return <span className={`agent-table-change tone-${tone}`}>{label}</span>;
+}
+
+function ExecutiveSectionV2({
+  hallazgos,
+  snapshot,
+  onOpenDetail,
+  showAnnualMonthlyComparison,
+}: {
+  hallazgos: Hallazgo[];
+  snapshot: CommercialDashboardSnapshot;
+  onOpenDetail: (detailKey: DetailKey) => void;
+  showAnnualMonthlyComparison: boolean;
+}) {
+  const report = buildExecutiveSectionReport(snapshot, hallazgos);
+  const previousRange = buildPreviousPeriodRange(snapshot.filters);
+  const currentRangeLabel = formatReferenceComparisonRange(
+    snapshot.filters.startDate,
+    snapshot.filters.endDate,
+  );
+  const previousRangeLabel = formatReferenceComparisonRange(
+    previousRange.startDate,
+    previousRange.endDate,
+  );
+
+  return (
+    <div className="reports-stack">
+      <SectionReportActions report={report} />
+
+      <AccordionPanel
+        defaultOpen
+        title="Evolución del período"
+        subtitle={`Agrupación actual: ${groupingLabelEs(snapshot.filters.grouping)} y comparación contra el período anterior`}
+      >
+        <TrendPanel points={snapshot.trend} />
+        <div className="reports-stack-compact">
+          <SummaryChip
+            label="Cotizaciones vencidas"
+            value={formatNumber(snapshot.quoteSummary.expiredQuotes)}
+            onClick={() => onOpenDetail('expiredQuotes')}
+          />
+          <SummaryChip
+            label="Clientes en riesgo"
+            value={formatNumber(snapshot.clientLifecycle.summary.atRiskCustomers)}
+            onClick={() => onOpenDetail('atRiskClients')}
+          />
+          <SummaryChip
+            label="Productos con margen negativo"
+            value={formatNumber(snapshot.products.negativeMargin.length)}
+            onClick={() => onOpenDetail('negativeMarginProducts')}
+          />
+        </div>
+      </AccordionPanel>
+
+      <AccordionPanel
+        defaultOpen
+        title="Lectura ejecutiva"
+        subtitle="Qué está ocurriendo en ventas, facturación y rentabilidad"
+      >
+        <div className="reports-period-context">
+          <span>
+            <strong>PerÃ­odo analizado:</strong> {currentRangeLabel}
+          </span>
+          <span>
+            <strong>ComparaciÃ³n:</strong> {previousRangeLabel}
+          </span>
+        </div>
+        <div className="reports-stack-compact">
+          <ComparisonRow label="Cotizaciones" comparison={snapshot.quoteSummary.totalQuotes} comparisonLabel={previousRangeLabel} formatter={formatNumber} />
+          <ComparisonRow label="Conversión comercial" comparison={snapshot.conversion.overall} formatter={formatPercent} />
+          <ComparisonRow label="Órdenes de venta" comparison={snapshot.sales.confirmedOrders} formatter={formatNumber} />
+          <ComparisonRow label="Facturas publicadas" comparison={snapshot.invoicing.invoiceCount} formatter={formatNumber} />
+          <ComparisonRow label="Total sin impuestos" comparison={snapshot.invoicing.invoicedAmount} formatter={formatCurrency} />
+          <ComparisonRow label="Ticket promedio facturado" comparison={snapshot.sales.averageTicket} formatter={formatCurrency} />
+          <ComparisonRow label="Clientes nuevos" comparison={snapshot.sales.newCustomers} formatter={formatNumber} />
+        </div>
+        <GaugePanel
+          title="Margen comercial del período"
+          value={snapshot.sales.marginPct.current}
+          max={60}
+          warning={12}
+          good={24}
+          description="Mide la rentabilidad del período con base en el margen bruto sobre la venta sin impuestos."
+        />
+      </AccordionPanel>
+
+      <AccordionPanel
+        title="Crecimiento vs año anterior"
+        subtitle={`${snapshot.annualGrowth.currentLabel} comparado contra ${snapshot.annualGrowth.previousLabel}`}
+      >
+        <AnnualGrowthPanel growth={snapshot.annualGrowth} />
+      </AccordionPanel>
+
+      {showAnnualMonthlyComparison ? (
+        <AnnualMonthlyComparisonPanel comparison={snapshot.annualMonthlyComparison} />
+      ) : null}
+
+      <HallazgosPanel hallazgos={hallazgos} onOpenDetail={onOpenDetail} />
+
+      <AccordionPanel
+        title="Enfoque inmediato"
+        subtitle="Resumen puntual para priorizar seguimiento comercial"
+      >
+        <SectionInfoCard
+          title="Clientes"
+          description="Estados principales de la cartera para detectar riesgos y reactivaciones."
+        >
+          <div className="policy-card-quick-facts">
+            <span>Nuevos: {formatNumber(snapshot.clientLifecycle.summary.newCustomers)}</span>
+            <span>Activos: {formatNumber(snapshot.clientLifecycle.summary.activeCustomers)}</span>
+            <span>En riesgo: {formatNumber(snapshot.clientLifecycle.summary.atRiskCustomers)}</span>
+          </div>
+        </SectionInfoCard>
+
+        <SectionInfoCard
+          title="Vendedores con mayor facturación"
+          description="Ranking rápido para identificar quién sostiene el período actual."
+        >
+          <MiniRanking
+            rows={snapshot.sellers.rankingByRevenue.slice(0, 5)}
+            primary={(row) => row.sellerName}
+            secondary={(row) => `${formatPercent(row.conversionPct)} de conversión`}
+            value={(row) => formatCurrency(row.invoicedAmount)}
+          />
+        </SectionInfoCard>
+
+        <SectionInfoCard
+          title="Productos con mayor facturación"
+          description="Productos que más aportan al valor vendido en el período."
+        >
+          <MiniRanking
+            rows={snapshot.products.topByRevenue.slice(0, 5)}
+            primary={(row) => row.productName}
+            secondary={(row) => `${formatPercent(row.marginPct ?? 0)} de margen`}
+            value={(row) => formatCurrency(row.revenue)}
+          />
+        </SectionInfoCard>
+      </AccordionPanel>
+    </div>
+  );
+}
+
+function ConversionSectionV2({ snapshot }: { snapshot: CommercialDashboardSnapshot }) {
+  const report = buildConversionSectionReport(snapshot);
+
+  return (
+    <div className="reports-stack">
+      <SectionLead
+        title="Conversión comercial"
+        actions={<SectionReportActions report={report} />}
+      />
+
+      <AccordionPanel
+        defaultOpen
+        title="Resumen de conversión"
+        subtitle="Numerador: órdenes confirmadas. Denominador: cotizaciones evaluables del período."
+      >
+        <div className="reports-kpi-list">
+          <KpiBox label="Conversión general" value={formatPercent(snapshot.conversion.overall.current)} />
+          <KpiBox label="Cotizaciones pendientes" value={formatNumber(snapshot.quoteSummary.pendingQuotes)} />
+          <KpiBox label="Cotizaciones vencidas" value={formatNumber(snapshot.quoteSummary.expiredQuotes)} />
+          <KpiBox
+            label="Tiempo promedio de conversión"
+            value={`${snapshot.quoteSummary.averageConversionDays.current.toFixed(1)} días`}
+          />
+        </div>
+        <GaugePanel
+          title="Nivel de conversión"
+          value={snapshot.conversion.overall.current}
+          max={100}
+          warning={25}
+          good={45}
+          description="Indica qué tan eficientemente se convierten las cotizaciones en órdenes confirmadas."
+        />
+      </AccordionPanel>
+
+      <AccordionPanel
+        title="Lectura por mes"
+        subtitle="Panorama rápido para ubicar dónde mejora o cae el cierre comercial"
+      >
+        <MiniRanking
+          rows={snapshot.conversion.byMonth}
+          primary={(row) => row.label}
+          secondary={(row) => `${formatNumber(row.converted)} órdenes convertidas`}
+          value={(row) => formatPercent(row.conversionPct)}
+        />
+      </AccordionPanel>
+
+      <ConversionTablePanel title="Conversión por vendedor" rows={snapshot.conversion.bySeller} />
+      <ConversionTablePanel title="Conversión por cliente" rows={snapshot.conversion.byCustomer.slice(0, 20)} />
+      <ConversionTablePanel title="Conversión por equipo" rows={snapshot.conversion.byTeam} />
+      <ConversionTablePanel title="Conversión por mes" rows={snapshot.conversion.byMonth} />
+      <ConversionTablePanel title="Conversión por rango de importe" rows={snapshot.conversion.byRange} />
+      <ConversionTablePanel title="Conversión por producto" rows={snapshot.conversion.byProduct} />
+    </div>
+  );
+}
+
+function ClientsSectionV2({
+  snapshot,
+  onOpenDetail,
+}: {
+  snapshot: CommercialDashboardSnapshot;
+  onOpenDetail: (detailKey: DetailKey) => void;
+}) {
+  const [selectedRfmSegment, setSelectedRfmSegment] = useState<string | null>(null);
+  const activeRfmSegment = selectedRfmSegment ?? snapshot.clientLifecycle.rfmSegments[0]?.segment ?? null;
+  const activeRfmRows = useMemo(
+    () =>
+      activeRfmSegment
+        ? snapshot.clientLifecycle.rows.filter((row) => row.rfmSegment === activeRfmSegment)
+        : [],
+    [activeRfmSegment, snapshot.clientLifecycle.rows],
+  );
+  const activeRfmRevenue = activeRfmRows.reduce((total, row) => total + row.revenue, 0);
+  const activeRfmMargin = activeRfmRows.reduce((total, row) => total + row.margin, 0);
+  const report = buildClientsSectionReport(snapshot);
+
+  return (
+    <div className="reports-stack">
+      <SectionLead
+        title="Clientes"
+        description="Clasifica la cartera por recencia, frecuencia, valor y señales de abandono o reactivación."
+        actions={<SectionReportActions report={report} />}
+      />
+
+      <StaticPanel
+        title="Estado de la cartera"
+        subtitle="Estados ejecutivos basados en recencia y frecuencia histórica adaptativa de compra"
+      >
+        <div className="reports-kpi-list">
+          <KpiBox label="Clientes nuevos" value={formatNumber(snapshot.clientLifecycle.summary.newCustomers)} />
+          <KpiBox label="Clientes activos" value={formatNumber(snapshot.clientLifecycle.summary.activeCustomers)} />
+          <KpiBox label="Clientes en riesgo" value={formatNumber(snapshot.clientLifecycle.summary.atRiskCustomers)} />
+        </div>
+        <GaugePanel
+          title="Riesgo de abandono"
+          value={snapshot.clientLifecycle.summary.churnRiskPct}
+          max={100}
+          warning={20}
+          good={10}
+          inverse
+          description="Mientras más alto sea este indicador, mayor es la probabilidad de fuga de ingresos futuros."
+        />
+        <div className="policy-card-quick-facts">
+          <span>Valor en riesgo: {formatCurrency(snapshot.clientLifecycle.summary.valueAtRisk)}</span>
+          <span>Retención: {formatPercent(snapshot.clientLifecycle.summary.retentionPct)}</span>
+        </div>
+      </StaticPanel>
+
+      <StaticPanel
+        title="Segmentos RFM"
+        subtitle="Haz clic en un segmento para ver clientes, estadísticas y vendedor responsable"
+      >
+        <div className="reports-chip-list">
+          {snapshot.clientLifecycle.rfmSegments.map((segment) => (
+            <button
+              key={segment.segment}
+              type="button"
+              className={activeRfmSegment === segment.segment ? 'secondary-button' : 'ghost-button'}
+              onClick={() => setSelectedRfmSegment(segment.segment)}
+            >
+              {segment.segment}: {formatNumber(segment.customers)}
+            </button>
+          ))}
+        </div>
+        {activeRfmSegment ? (
+          <div className="reports-stack-compact">
+            <div className="reports-kpi-list">
+              <KpiBox label="Clientes del segmento" value={formatNumber(activeRfmRows.length)} />
+              <KpiBox label="Facturación acumulada" value={formatCurrency(activeRfmRevenue)} />
+              <KpiBox
+                label="Ticket promedio"
+                value={formatCurrency(activeRfmRows.length > 0 ? activeRfmRevenue / activeRfmRows.length : 0)}
+              />
+              <KpiBox label="Margen acumulado" value={formatCurrency(activeRfmMargin)} />
+            </div>
+            <DataTable
+              rows={activeRfmRows}
+              storageKey={`rfm-${activeRfmSegment}`}
+              columns={[
+                column<ClientLifecycleRow>('customer', 'Cliente', (row) => row.customerName, (row) => row.customerName),
+                column<ClientLifecycleRow>('seller', 'Vendedor', (row) => row.sellerName, (row) => row.sellerName),
+                column<ClientLifecycleRow>('status', 'Estado', (row) => renderStatusPill(row.currentStatus, row.riskLevel), (row) => row.currentStatus),
+                column<ClientLifecycleRow>('orders', 'Órdenes', (row) => formatNumber(row.totalOrders), (row) => row.totalOrders),
+                column<ClientLifecycleRow>('revenue', 'Facturación', (row) => formatCurrency(row.revenue), (row) => row.revenue),
+                column<ClientLifecycleRow>('ticket', 'Ticket promedio', (row) => formatCurrency(row.averageTicket), (row) => row.averageTicket),
+                column<ClientLifecycleRow>('lastPurchase', 'Última compra', (row) => formatDate(row.lastPurchaseDate), (row) => row.lastPurchaseDate ?? ''),
+              ]}
+            />
+          </div>
+        ) : null}
+      </StaticPanel>
+
+      <StaticPanel
+        title="Clientes a priorizar"
+        subtitle="Acciones directas para seguimiento comercial"
+      >
+        <div className="header-actions">
+          <button type="button" className="secondary-button" onClick={() => onOpenDetail('atRiskClients')}>
+            Ver clientes en riesgo
+          </button>
+        </div>
+        <DataTable
+          rows={snapshot.clientLifecycle.rows.slice(0, 40)}
+          storageKey="clients-v2"
+          columns={[
+            column<ClientLifecycleRow>('customer', 'Cliente', (row) => row.customerName, (row) => row.customerName),
+            column<ClientLifecycleRow>('status', 'Estado', (row) => renderStatusPill(row.currentStatus, row.riskLevel), (row) => row.currentStatus),
+            column<ClientLifecycleRow>('previous', 'Estado anterior', (row) => row.previousStatus ?? '-', (row) => row.previousStatus ?? ''),
+            column<ClientLifecycleRow>('revenue', 'Facturación', (row) => formatCurrency(row.revenue), (row) => row.revenue),
+            column<ClientLifecycleRow>('margin', 'Margen', (row) => formatCurrency(row.margin), (row) => row.margin),
+            column<ClientLifecycleRow>('days', 'Días sin comprar', (row) => formatNullableNumber(row.daysSinceLastPurchase), (row) => row.daysSinceLastPurchase ?? 0),
+            column<ClientLifecycleRow>('rfm', 'RFM', (row) => `${row.rfmScore} - ${row.rfmSegment}`, (row) => row.rfmScore),
+            column<ClientLifecycleRow>('seller', 'Vendedor', (row) => row.sellerName, (row) => row.sellerName),
+          ]}
+        />
+      </StaticPanel>
+    </div>
+  );
+}
+
+function ProductsSectionV2({
+  snapshot,
+  onOpenDetail,
+}: {
+  snapshot: CommercialDashboardSnapshot;
+  onOpenDetail: (detailKey: DetailKey) => void;
+}) {
+  const report = buildProductsSectionReport(snapshot);
+
+  return (
+    <div className="reports-stack">
+      <SectionLead
+        title="Productos"
+        description="Ubica qué productos venden, cuáles dejan mejor margen y dónde hay deterioro comercial."
+        actions={<SectionReportActions report={report} />}
+      />
+
+      <StaticPanel
+        title="Radar de rentabilidad"
+        subtitle="Matriz ejecutiva para detectar combinaciones de volumen y rentabilidad"
+      >
+        <div className="policy-card-quick-facts">
+          <span>Alta venta / alto margen: {snapshot.products.matrix.alta_venta_alto_margen}</span>
+          <span>Alta venta / bajo margen: {snapshot.products.matrix.alta_venta_bajo_margen}</span>
+          <span>Baja venta / alto margen: {snapshot.products.matrix.baja_venta_alto_margen}</span>
+          <span>Baja venta / bajo margen: {snapshot.products.matrix.baja_venta_bajo_margen}</span>
+        </div>
+        <button type="button" className="secondary-button" onClick={() => onOpenDetail('negativeMarginProducts')}>
+          Ver productos con margen negativo
+        </button>
+      </StaticPanel>
+
+      <ProductTablePanel title="Productos más vendidos del período" rows={snapshot.products.topByUnits} />
+      <ProductTablePanel title="Top por facturación" rows={snapshot.products.topByRevenue} />
+      <ProductTablePanel title="Top por margen" rows={snapshot.products.topByMargin} />
+      <ProductTablePanel title="Alta facturación y bajo margen" rows={snapshot.products.highRevenueLowMargin} />
+      {snapshot.sellers.categoryBreakdown.map((category) => (
+        <SellerCategoryRankingPanel key={category.categoryName} category={category} />
+      ))}
+    </div>
+  );
+}
+
+function SellersSectionV2({
+  snapshot,
+  sectionLabel,
+  onOpenDetail,
+}: {
+  snapshot: CommercialDashboardSnapshot;
+  sectionLabel: string;
+  onOpenDetail: (detailKey: DetailKey) => void;
+}) {
+  const lowConversionRows = snapshot.details.lowConversionSellers
+    .slice()
+    .sort((a, b) => a.conversionPct - b.conversionPct);
+  const report = buildSellersSectionReport(snapshot);
+  const [selectedTimeline, setSelectedTimeline] = useState<SellerTimelineSummary | null>(null);
+
+  return (
+    <div className="reports-stack">
+      <SectionLead
+        title={sectionLabel}
+        description="Compara desempeño por valor vendido, margen, conversión, captación y peso por categoría de producto."
+        actions={<SectionReportActions report={report} />}
+      />
+
+      <StaticPanel
+        title="Vendedores con baja conversión"
+        subtitle="Se muestran vendedores con menos de 50% de conversión y suficientes cotizaciones, ordenados del menor al mayor."
+      >
+        <button type="button" className="secondary-button" onClick={() => onOpenDetail('lowConversionSellers')}>
+          Ver vendedores con baja conversión
+        </button>
+        {lowConversionRows.length > 0 ? (
+          <MiniRanking
+            rows={lowConversionRows}
+            primary={(row) => row.sellerName}
+            secondary={(row) => `${formatNumber(row.quotes)} cotizaciones · ${formatNumber(row.confirmedOrders)} órdenes`}
+            value={(row) => formatPercent(row.conversionPct)}
+          />
+        ) : (
+          <EmptyState title="Sin vendedores con baja conversión">
+            No hay vendedores por debajo del 50% con el volumen mínimo de cotizaciones.
+          </EmptyState>
+        )}
+      </StaticPanel>
+
+      <StaticPanel
+        title="Ventas por categoría de producto"
+        subtitle="Muestra qué porcentaje de las ventas representa cada categoría y qué vendedores la sostienen."
+      >
+        {snapshot.sellers.categoryBreakdown.length > 0 ? (
+          <div className="reports-stack-compact">
+            <SellerCategoryMixPanel rows={snapshot.sellers.categoryBreakdown} />
+            <SellerCategoryOverviewPanel rows={snapshot.sellers.categoryBreakdown} />
+          </div>
+        ) : (
+          <EmptyState title="Sin ventas por categoría">
+            No hay líneas confirmadas con categoría dentro del período seleccionado.
+          </EmptyState>
+        )}
+      </StaticPanel>
+
+      <StaticPanel
+        title="Metas y seguimiento por vendedor"
+        subtitle="Programa metas por vendedor y abre su evolución mes a mes comparada contra el año anterior."
+      >
+        <SellerGoalsOverviewPanel
+          rows={snapshot.sellers.goalProgress}
+          onViewSeller={(sellerName) =>
+            setSelectedTimeline(
+              snapshot.sellers.timelines.find((timeline) => timeline.sellerName === sellerName) ?? null,
+            )
+          }
+        />
+      </StaticPanel>
+
+      <SellerRankingTablePanel
+        title="Ranking por facturación"
+        subtitle="Vendedor y total facturado sin impuestos publicado en Contabilidad"
+        rows={snapshot.sellers.rankingByRevenue}
+        variant="revenue"
+      />
+      <SellerRankingTablePanel
+        title="Ranking por margen"
+        subtitle="Vendedor y margen bruto generado"
+        rows={snapshot.sellers.rankingByMargin}
+        variant="margin"
+      />
+      <SellerRankingTablePanel
+        title="Ranking por conversión"
+        subtitle="Vendedor y porcentaje de cierre comercial"
+        rows={snapshot.sellers.rankingByConversion}
+        variant="conversion"
+      />
+      <SellerRankingTablePanel
+        title="Ranking por clientes nuevos"
+        subtitle="Vendedor y clientes captados en el período"
+        rows={snapshot.sellers.rankingByNewCustomers}
+        variant="newCustomers"
+      />
+      <SellerRankingTablePanel
+        title="Ranking por clientes en riesgo"
+        subtitle="Vendedor, clientes en riesgo y porcentaje sobre su cartera"
+        rows={snapshot.sellers.rankingByAtRiskCustomers}
+        variant="atRiskCustomers"
+      />
+      <SellerRankingTablePanel
+        title="Ranking por clientes rescatados"
+        subtitle="Vendedor y clientes reactivados durante el período"
+        rows={snapshot.sellers.rankingByReactivatedCustomers}
+        variant="reactivatedCustomers"
+      />
+      <SellerRankingTablePanel
+        title="Ranking compuesto"
+        subtitle="Vendedor y score ponderado con la configuración actual"
+        rows={snapshot.sellers.weightedRanking}
+        variant="weightedScore"
+      />
+      {selectedTimeline ? (
+        <SellerTimelineModal seller={selectedTimeline} onClose={() => setSelectedTimeline(null)} />
+      ) : null}
+    </div>
+  );
+}
+
+function PurchasesSection({ snapshot }: { snapshot: PurchaseDashboardSnapshot }) {
+  const report = buildPurchasesSectionReport(snapshot);
+  const previousRange = buildPreviousPeriodRange(snapshot.filters);
+  const currentRangeLabel = formatReferenceComparisonRange(
+    snapshot.filters.startDate,
+    snapshot.filters.endDate,
+  );
+  const previousRangeLabel = formatReferenceComparisonRange(
+    previousRange.startDate,
+    previousRange.endDate,
+  );
+  const topProduct = snapshot.products.topBySpend[0] ?? null;
+  const leastProduct = snapshot.products.leastBySpend[0] ?? null;
+  const topSupplier = snapshot.suppliers.topBySpend[0] ?? null;
+  const topBuyer = snapshot.buyers.topBySpend[0] ?? null;
+
+  return (
+    <div className="reports-stack">
+      <SectionLead
+        title="Compras"
+        description="Concentra la lectura de abastecimiento para ver qué se compra, a quién se compra, quién compra y cómo cambia el gasto contra el período anterior."
+        actions={<SectionReportActions report={report} />}
+      />
+
+      <StaticPanel
+        title="Resumen de abastecimiento"
+        subtitle={`${currentRangeLabel} comparado contra ${previousRangeLabel}`}
+      >
+        <div className="reports-kpi-list reports-kpi-list-roomy">
+          <KpiBox label="Compra ordenada" value={formatCurrency(snapshot.summary.orderedAmount.current)} />
+          <KpiBox label="Facturación proveedor" value={formatCurrency(snapshot.summary.billedAmount.current)} />
+          <KpiBox label="Proveedores activos" value={formatNumber(snapshot.summary.supplierCount.current)} />
+          <KpiBox label="Compradores activos" value={formatNumber(snapshot.summary.buyerCount.current)} />
+          <KpiBox label="Orden promedio" value={formatCurrency(snapshot.summary.averageOrderValue.current)} />
+          <KpiBox label="Notas de crédito" value={formatCurrency(snapshot.summary.refundAmount.current)} />
+        </div>
+        <div className="reports-kpi-list reports-kpi-list-roomy">
+          <ComparisonRow label="Compra ordenada" comparison={snapshot.summary.orderedAmount} comparisonLabel={previousRangeLabel} formatter={formatCurrency} />
+          <ComparisonRow label="Facturación proveedor" comparison={snapshot.summary.billedAmount} comparisonLabel={previousRangeLabel} formatter={formatCurrency} />
+          <ComparisonRow label="Proveedores activos" comparison={snapshot.summary.supplierCount} comparisonLabel={previousRangeLabel} formatter={formatNumber} />
+          <ComparisonRow label="Compradores activos" comparison={snapshot.summary.buyerCount} comparisonLabel={previousRangeLabel} formatter={formatNumber} />
+        </div>
+      </StaticPanel>
+
+      <StaticPanel
+        title="Evolución de compras"
+        subtitle="Compara compras ordenadas, compras facturadas y el mismo período anterior en un solo vistazo"
+      >
+        <PurchaseTrendPanel points={snapshot.trend} />
+      </StaticPanel>
+
+      <StaticPanel
+        title="Lectura inmediata"
+        subtitle="Señales rápidas para ubicar concentración, categorías dominantes y focos de gasto"
+      >
+        <div className="reports-stack-compact">
+          <SectionInfoCard
+            title="Producto más comprado"
+            description="Producto que más gasto facturado concentra dentro del período."
+          >
+            <MiniRanking
+              rows={topProduct ? [topProduct] : []}
+              primary={(row) => row.productName}
+              secondary={(row) => `${row.categoryName || 'Sin categoría'} · ${formatPercent(row.spendSharePct)} del gasto`}
+              value={(row) => formatCurrency(row.billedAmount)}
+            />
+          </SectionInfoCard>
+
+          <SectionInfoCard
+            title="Producto con menor compra"
+            description="Producto con compra facturada más baja dentro de los registros visibles."
+          >
+            <MiniRanking
+              rows={leastProduct ? [leastProduct] : []}
+              primary={(row) => row.productName}
+              secondary={(row) => `${row.categoryName || 'Sin categoría'} · ${formatNumber(row.billCount)} facturas`}
+              value={(row) => formatCurrency(row.billedAmount)}
+            />
+          </SectionInfoCard>
+
+          <SectionInfoCard
+            title="Proveedor con mayor gasto"
+            description="Proveedor que absorbe la mayor parte del gasto facturado en el período."
+          >
+            <MiniRanking
+              rows={topSupplier ? [topSupplier] : []}
+              primary={(row) => row.supplierName}
+              secondary={(row) => `${formatPercent(row.spendSharePct)} del gasto · ${formatNumber(row.billCount)} facturas`}
+              value={(row) => formatCurrency(row.billedAmount)}
+            />
+          </SectionInfoCard>
+
+          <SectionInfoCard
+            title="Comprador con mayor ejecución"
+            description="Responsable interno con mayor gasto comprado o facturado visible."
+          >
+            <MiniRanking
+              rows={topBuyer ? [topBuyer] : []}
+              primary={(row) => row.buyerName}
+              secondary={(row) => `${formatNumber(row.orderCount)} órdenes · ${formatNumber(row.supplierCount)} proveedores`}
+              value={(row) => formatCurrency(row.billedAmount)}
+            />
+          </SectionInfoCard>
+        </div>
+      </StaticPanel>
+
+      <StaticPanel
+        title="Participación por categoría"
+        subtitle="Muestra qué porcentaje del gasto representa cada categoría y cuánto se pidió u ordenó"
+      >
+        <PurchaseCategoryMixPanel rows={snapshot.categories.topBySpend} />
+      </StaticPanel>
+
+      <PurchaseProductsTablePanel
+        title="Productos con mayor compra facturada"
+        rows={snapshot.products.topBySpend}
+      />
+      <PurchaseProductsTablePanel
+        title="Productos con menor compra facturada"
+        rows={snapshot.products.leastBySpend}
+      />
+      <PurchaseProductsTablePanel
+        title="Productos con mayor volumen comprado"
+        rows={snapshot.products.topByQuantity}
+      />
+      <PurchaseSuppliersTablePanel
+        title="Proveedores con mayor gasto"
+        rows={snapshot.suppliers.topBySpend}
+      />
+      <PurchaseBuyersTablePanel
+        title="Compradores con mayor ejecución"
+        rows={snapshot.buyers.topBySpend}
+      />
+      <PurchaseCategoriesTablePanel
+        title="Categorías con mayor compra facturada"
+        rows={snapshot.categories.topBySpend}
+      />
+    </div>
+  );
+}
+
+function ParetoSectionV2({ snapshot }: { snapshot: CommercialDashboardSnapshot }) {
+  const report = buildParetoSectionReport(snapshot);
+  const customerInsight = buildParetoInsight(snapshot.pareto.customers, 'customers');
+  const productInsight = buildParetoInsight(snapshot.pareto.products, 'products');
+  const sellerInsight = buildParetoInsight(snapshot.pareto.sellers, 'sellers');
+
+  return (
+    <div className="reports-stack">
+      <SectionLead
+        title="Pareto"
+        description="Explica dónde se concentra el resultado, qué es saludable, qué implica riesgo y qué acciones conviene tomar por clientes y productos."
+        actions={<SectionReportActions report={report} />}
+      />
+
+      <ParetoExecutiveReadout
+        customerInsight={customerInsight}
+        productInsight={productInsight}
+      />
+
+      <ParetoDecisionPanel
+        summary={snapshot.pareto.customers}
+        insight={customerInsight}
+        dimension="customers"
+      />
+      <ParetoDecisionPanel
+        summary={snapshot.pareto.products}
+        insight={productInsight}
+        dimension="products"
+      />
+      <ParetoDecisionPanel
+        summary={snapshot.pareto.sellers}
+        insight={sellerInsight}
+        dimension="sellers"
+      />
+    </div>
+  );
+}
+
+type AbandonedCartSummary = {
+  abandonedQuotes: OdooOrderRecord[];
+  quoteLines: OdooOrderLineRecord[];
+  productRows: AbandonedCartProductRow[];
+  sellerRows: AbandonedCartSellerRow[];
+  customerRows: AbandonedCartCustomerRow[];
+  priceRows: AbandonedCartPriceRow[];
+  totalAmount: number;
+  abandonmentRate: number;
+  expiredRate: number;
+  averageAgeDays: number;
+  pricePressureCount: number;
+  deliveryAmount: number;
+  deliveryQuoteCount: number;
+  withoutDeliveryQuoteCount: number;
+  findings: Array<{ title: string; body: string; tone: 'good' | 'risk' | 'action' }>;
+};
+
+type AbandonedCartProductRow = {
+  key: string;
+  productId: number | null;
+  productName: string;
+  categoryName: string | null;
+  quotes: number;
+  quoteIds: number[];
+  amount: number;
+  units: number;
+  averageUnitsPerQuote: number;
+  averageQuotedUnitPrice: number;
+  historicalAverageUnitPrice: number | null;
+  priceGapPct: number | null;
+  relatedProductsSummary: string;
+  equipmentCorrelationSummary: string;
+};
+
+type AbandonedCartSellerRow = {
+  key: string;
+  sellerId: number | null;
+  sellerName: string;
+  quotes: number;
+  quoteIds: number[];
+  amount: number;
+  expiredQuotes: number;
+  abandonmentSharePct: number;
+  averageAgeDays: number;
+};
+
+type AbandonedCartCustomerRow = {
+  key: string;
+  customerId: number | null;
+  customerName: string;
+  sellerName: string;
+  quotes: number;
+  quoteIds: number[];
+  amount: number;
+  latestQuotationDate: string | null;
+  averageAgeDays: number;
+  topProductsSummary: string;
+};
+
+type AbandonedCartPriceRow = AbandonedCartProductRow & {
+  interpretation: string;
+};
+
+type AbandonedCartDrilldown = {
+  title: string;
+  subtitle: string;
+  quoteIds: number[];
+};
+
+
+function AbandonedCartsSection({
+  agentScope,
+  dataset,
+  snapshot,
+}: {
+  agentScope: boolean;
+  dataset: OdooCommercialDataset;
+  snapshot: CommercialDashboardSnapshot;
+}) {
+  const summary = useMemo(
+    () => buildAbandonedCartSummary(dataset, snapshot),
+    [dataset, snapshot],
+  );
+  const [drilldown, setDrilldown] = useState<AbandonedCartDrilldown | null>(null);
+  const quotesById = useMemo(
+    () => new Map(summary.abandonedQuotes.map((quote) => [quote.id, quote])),
+    [summary.abandonedQuotes],
+  );
+  const linesByOrderId = useMemo(
+    () => groupOrderLinesByOrderId(summary.quoteLines),
+    [summary.quoteLines],
+  );
+  const topProduct = summary.productRows[0] ?? null;
+  const topSeller = summary.sellerRows[0] ?? null;
+  const topCustomer = summary.customerRows[0] ?? null;
+  const openTopProductDetail = () => {
+    if (!topProduct) return;
+    setDrilldown({
+      title: topProduct.productName,
+      subtitle: `Este producto aparece en ${formatNumber(topProduct.quotes)} cotizaciones no cerradas, con ${formatCurrency(topProduct.amount)} detenido y un precio unitario promedio de ${formatCurrency(topProduct.averageQuotedUnitPrice)}. ${
+        topSeller ? `El vendedor con mayor monto detenido es ${topSeller.sellerName}.` : ''
+      } ${
+        topCustomer
+          ? `El cliente con mayor recurrencia económica es ${topCustomer.customerName}, principalmente en ${topCustomer.topProductsSummary}.`
+          : ''
+      }`,
+      quoteIds: topProduct.quoteIds,
+    });
+  };
+
+  return (
+    <div className="reports-stack reports-abandoned-carts">
+      <SectionLead
+        title={agentScope ? 'Mis cotizaciones abandonadas' : 'Cotizaciones abandonadas'}
+        description={agentScope
+          ? 'Prioriza tus cotizaciones que no avanzaron a orden de venta, identifica productos con fricción y define seguimientos concretos con cada cliente.'
+          : 'Analiza cotizaciones que no avanzaron a orden de venta para detectar pérdidas de flujo comercial, presión de precio, concentración por vendedor, productos con fricción y oportunidades de seguimiento.'}
+      />
+
+      <AbandonedExecutiveSummary summary={summary} onOpenTopProduct={openTopProductDetail} />
+
+      <div className="abandoned-kpi-grid">
+        <AbandonedKpiCard
+          label="Cotizaciones abandonadas"
+          value={formatNumber(summary.abandonedQuotes.length)}
+          helper={`${formatCurrency(summary.totalAmount)} sin impuestos en flujo comercial detenido.`}
+          tone="risk"
+        />
+        <AbandonedKpiCard
+          label="Presión de precio"
+          value={formatNumber(summary.pricePressureCount)}
+          helper="Productos cotizados por encima de su precio medio facturado histórico."
+          tone={summary.pricePressureCount > 0 ? 'warning' : 'good'}
+        />
+        <AbandonedKpiCard
+          label="Entrega en cotización"
+          value={`${formatNumber(summary.deliveryQuoteCount)} con entrega`}
+          helper={`${formatNumber(summary.withoutDeliveryQuoteCount)} cotizaciones no tienen producto Entrega. Monto detectado en entrega: ${formatCurrency(summary.deliveryAmount)}.`}
+          tone={summary.withoutDeliveryQuoteCount > summary.deliveryQuoteCount ? 'warning' : 'good'}
+        />
+      </div>
+
+      <StaticPanel
+        title="Lectura ejecutiva"
+        subtitle="Qué está pasando, dónde se puede estar perdiendo venta y cómo actuar."
+      >
+        <AbandonedFindingsCarousel findings={summary.findings} />
+      </StaticPanel>
+
+      <div className="reports-grid two">
+        <StaticPanel
+          title="Top productos abandonados"
+          subtitle="Ordenado por cantidad de cotizaciones donde aparece cada producto."
+        >
+          <AbandonedBarList
+            rows={summary.productRows.slice(0, 8).map((row) => ({
+              key: row.key,
+              label: row.productName,
+              value: row.quotes,
+              helper: `${formatCurrency(row.amount)} detenido · ${formatNumber(row.units)} unidades`,
+              onClick: () => setDrilldown({
+                title: row.productName,
+                subtitle: `${formatNumber(row.quotes)} cotizaciones abandonadas con este producto · ${formatCurrency(row.amount)} detenido`,
+                quoteIds: row.quoteIds,
+              }),
+            }))}
+            formatter={(value) => `${formatNumber(value)} cotizaciones`}
+          />
+        </StaticPanel>
+        <StaticPanel
+          title={agentScope ? 'Clientes con cotizaciones abandonadas' : 'Top vendedores con cotizaciones abandonadas'}
+          subtitle={agentScope
+            ? 'Prioriza los clientes con más cotizaciones sin cerrar y prepara el siguiente contacto.'
+            : 'Útil para priorizar seguimiento, cierre y revisión de objeciones.'}
+        >
+          <AbandonedBarList
+            rows={(agentScope ? summary.customerRows : summary.sellerRows).slice(0, 8).map((row) => ({
+              key: row.key,
+              label: agentScope ? (row as AbandonedCartCustomerRow).customerName : (row as AbandonedCartSellerRow).sellerName,
+              value: row.quotes,
+              helper: agentScope
+                ? `${formatCurrency((row as AbandonedCartCustomerRow).amount)} detenido · ${(row as AbandonedCartCustomerRow).topProductsSummary}`
+                : `${formatCurrency((row as AbandonedCartSellerRow).amount)} detenido · ${formatPercent((row as AbandonedCartSellerRow).abandonmentSharePct)} del monto abandonado`,
+              onClick: () => setDrilldown({
+                title: agentScope
+                  ? (row as AbandonedCartCustomerRow).customerName
+                  : (row as AbandonedCartSellerRow).sellerName,
+                subtitle: agentScope
+                  ? `${formatNumber(row.quotes)} cotizaciones sin cerrar · ${formatCurrency((row as AbandonedCartCustomerRow).amount)} detenido`
+                  : `${formatNumber(row.quotes)} cotizaciones abandonadas asignadas · ${formatCurrency((row as AbandonedCartSellerRow).amount)} detenido`,
+                quoteIds: row.quoteIds,
+              }),
+            }))}
+            formatter={(value) => `${formatNumber(value)} cotizaciones`}
+          />
+        </StaticPanel>
+      </div>
+
+      <StaticPanel
+        title="Brecha de precio contra facturación histórica"
+        subtitle="Compara precio unitario cotizado, frecuencia de abandono y productos/equipos que aparecen juntos en la misma cotización."
+      >
+        {summary.priceRows.length ? (
+          <div className="abandoned-price-table">
+            <DataTable
+              rows={summary.priceRows}
+              storageKey="abandoned-carts-price-gap"
+              columns={[
+                column<AbandonedCartPriceRow>(
+                  'product',
+                  'Producto',
+                  (row) => (
+                    <div className="abandoned-product-cell">
+                      <strong>{row.productName}</strong>
+                      <span>{row.categoryName ?? 'Sin categoría'} · {formatNumber(row.units)} unidades</span>
+                    </div>
+                  ),
+                  (row) => row.productName,
+                ),
+                column<AbandonedCartPriceRow>('quotes', 'Veces cotizado', (row) => formatNumber(row.quotes), (row) => row.quotes),
+                column<AbandonedCartPriceRow>('quantity', 'Cantidad prom.', (row) => formatNumber(row.averageUnitsPerQuote), (row) => row.averageUnitsPerQuote),
+                column<AbandonedCartPriceRow>('quotePrice', 'Unitario cotizado', (row) => formatCurrency(row.averageQuotedUnitPrice), (row) => row.averageQuotedUnitPrice),
+                column<AbandonedCartPriceRow>('invoicePrice', 'Unitario histórico', (row) => row.historicalAverageUnitPrice === null ? '-' : formatCurrency(row.historicalAverageUnitPrice), (row) => row.historicalAverageUnitPrice ?? 0),
+                column<AbandonedCartPriceRow>(
+                  'gap',
+                  'Brecha',
+                  (row) => (
+                    <span className={`abandoned-price-gap ${getAbandonedPriceGapTone(row.priceGapPct)}`}>
+                      {row.priceGapPct === null ? '-' : formatPercent(row.priceGapPct)}
+                    </span>
+                  ),
+                  (row) => row.priceGapPct ?? 0,
+                ),
+                column<AbandonedCartPriceRow>(
+                  'related',
+                  'Relación en la orden',
+                  (row) => (
+                    <div className="abandoned-related-cell">
+                      <span>{row.equipmentCorrelationSummary}</span>
+                      <small data-full={row.relatedProductsSummary} title={row.relatedProductsSummary}>
+                        {row.relatedProductsSummary}
+                      </small>
+                    </div>
+                  ),
+                  (row) => `${row.equipmentCorrelationSummary} ${row.relatedProductsSummary}`,
+                ),
+                column<AbandonedCartPriceRow>(
+                  'interpretation',
+                  'Acción sugerida',
+                  (row) => (
+                    <span className="abandoned-action-cell" data-full={row.interpretation} title={row.interpretation}>
+                      {row.interpretation}
+                    </span>
+                  ),
+                  (row) => row.interpretation,
+                ),
+              ]}
+            />
+          </div>
+        ) : (
+          <EmptyState title="Sin brechas calculables">
+            No hay suficientes facturas históricas del mismo producto para comparar precios.
+          </EmptyState>
+        )}
+      </StaticPanel>
+
+      <div className="reports-grid two">
+        <StaticPanel
+          title="Clientes con más cotizaciones abandonadas"
+          subtitle="Cuentas con mayor repetición de cotizaciones no cerradas."
+        >
+          <div className="abandoned-customer-table">
+            <DataTable
+              rows={summary.customerRows}
+              storageKey="abandoned-carts-customers"
+              columns={[
+                column<AbandonedCartCustomerRow>(
+                  'customer',
+                  'Cliente',
+                  (row) => <span className="abandoned-table-strong">{row.customerName}</span>,
+                  (row) => row.customerName,
+                ),
+                column<AbandonedCartCustomerRow>('seller', 'Vendedor', (row) => row.sellerName, (row) => row.sellerName),
+                column<AbandonedCartCustomerRow>('quotes', 'Cotizaciones', (row) => formatNumber(row.quotes), (row) => row.quotes),
+                column<AbandonedCartCustomerRow>('amount', 'Monto detenido', (row) => formatCurrency(row.amount), (row) => row.amount),
+                column<AbandonedCartCustomerRow>(
+                  'products',
+                  'Productos recurrentes',
+                  (row) => (
+                    <span className="abandoned-action-cell" data-full={row.topProductsSummary} title={row.topProductsSummary}>
+                      {row.topProductsSummary}
+                    </span>
+                  ),
+                  (row) => row.topProductsSummary,
+                ),
+                column<AbandonedCartCustomerRow>('latest', 'Última cotización', (row) => formatDate(row.latestQuotationDate), (row) => row.latestQuotationDate ?? ''),
+              ]}
+            />
+          </div>
+        </StaticPanel>
+      </div>
+
+      {drilldown ? (
+        <AbandonedQuotesModal
+          dataset={dataset}
+          drilldown={drilldown}
+          linesByOrderId={linesByOrderId}
+          quotesById={quotesById}
+          referenceEndDate={snapshot.filters.endDate}
+          onClose={() => setDrilldown(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function AbandonedExecutiveSummary({
+  onOpenTopProduct,
+  summary,
+}: {
+  onOpenTopProduct: () => void;
+  summary: AbandonedCartSummary;
+}) {
+  const topProduct = summary.productRows[0];
+  const topSeller = summary.sellerRows[0];
+  const topCustomer = summary.customerRows[0];
+  const productShare = ratioPercent(topProduct?.amount ?? 0, summary.totalAmount);
+  const sellerShare = ratioPercent(topSeller?.amount ?? 0, summary.totalAmount);
+  const deliveryShare = ratioPercent(summary.deliveryQuoteCount, summary.abandonedQuotes.length);
+  return (
+    <article className="abandoned-executive-card">
+      <div className="abandoned-executive-copy">
+        <span>Resumen principal</span>
+        <h3>
+          {topProduct
+            ? `${topProduct.productName} concentra la mayor fricción comercial.`
+            : 'No hay concentración clara de productos abandonados.'}
+        </h3>
+        <p>
+          {topProduct
+            ? 'Haz clic en el producto foco para ver las cotizaciones que originan esta señal, sus clientes, precios unitarios, productos relacionados y situación de entrega.'
+            : 'No se detectan cotizaciones abandonadas con líneas de producto suficientes para explicar acumulación por producto, vendedor o cliente.'}
+        </p>
+        <div className="abandoned-executive-bars" aria-label="Indicadores principales de concentración">
+          <div>
+            <span>Producto foco</span>
+            <i><b style={{ width: `${Math.min(100, productShare)}%` }} /></i>
+            <strong>{formatPercent(productShare)}</strong>
+          </div>
+          <div>
+            <span>Vendedor foco</span>
+            <i><b style={{ width: `${Math.min(100, sellerShare)}%` }} /></i>
+            <strong>{formatPercent(sellerShare)}</strong>
+          </div>
+          <div>
+            <span>Con entrega</span>
+            <i><b style={{ width: `${Math.min(100, deliveryShare)}%` }} /></i>
+            <strong>{formatPercent(deliveryShare)}</strong>
+          </div>
+        </div>
+      </div>
+      <div className="abandoned-executive-metrics">
+        <button type="button" onClick={onOpenTopProduct} disabled={!topProduct}>
+          <small>Producto foco</small>
+          <strong>{topProduct?.productName ?? '-'}</strong>
+          <span>{topProduct ? `${formatNumber(topProduct.quotes)} cotizaciones · ${formatCurrency(topProduct.amount)}` : 'Sin producto foco'}</span>
+        </button>
+        <article>
+          <small>Vendedor foco</small>
+          <strong>{topSeller?.sellerName ?? '-'}</strong>
+          <span>{topSeller ? `${formatCurrency(topSeller.amount)} detenido` : 'Sin vendedor foco'}</span>
+        </article>
+        <article>
+          <small>Cliente foco</small>
+          <strong>{topCustomer?.customerName ?? '-'}</strong>
+          <span>{topCustomer ? topCustomer.topProductsSummary : 'Sin cliente foco'}</span>
+        </article>
+      </div>
+    </article>
+  );
+}
+
+function AbandonedFindingsCarousel({
+  findings,
+}: {
+  findings: AbandonedCartSummary['findings'];
+}) {
+  const [page, setPage] = useState(0);
+  const pageSize = 2;
+  const pageCount = Math.max(1, Math.ceil(findings.length / pageSize));
+  const safePage = Math.min(page, pageCount - 1);
+  const visibleFindings = findings.slice(safePage * pageSize, safePage * pageSize + pageSize);
+
+  return (
+    <div className="abandoned-findings-carousel">
+      <div className="abandoned-findings-track">
+        {visibleFindings.map((finding) => (
+          <ParetoFindingCard
+            key={finding.title}
+            title={finding.title}
+            body={finding.body}
+            tone={finding.tone}
+          />
+        ))}
+      </div>
+      <div className="abandoned-carousel-controls">
+        <button
+          type="button"
+          onClick={() => setPage((current) => Math.max(0, current - 1))}
+          disabled={safePage <= 0}
+        >
+          <ChevronLeft size={16} />
+          Anterior
+        </button>
+        <span>{safePage + 1} / {pageCount}</span>
+        <button
+          type="button"
+          onClick={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
+          disabled={safePage >= pageCount - 1}
+        >
+          Siguiente
+          <ChevronRight size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AbandonedKpiCard({
+  helper,
+  label,
+  tone,
+  value,
+}: {
+  helper: string;
+  label: string;
+  tone: 'good' | 'warning' | 'risk';
+  value: string;
+}) {
+  return (
+    <article className={`abandoned-kpi-card tone-${tone}`}>
+      <small>{label}</small>
+      <strong>{value}</strong>
+      <p>{helper}</p>
+    </article>
+  );
+}
+
+function AbandonedBarList({
+  formatter,
+  rows,
+}: {
+  formatter: (value: number) => string;
+  rows: Array<{ key: string; label: string; value: number; helper: string; onClick?: () => void }>;
+}) {
+  if (!rows.length) {
+    return <EmptyState title="Sin datos">No hay cotizaciones abandonadas para graficar.</EmptyState>;
+  }
+
+  const maxValue = Math.max(...rows.map((row) => row.value), 1);
+  return (
+    <div className="abandoned-bar-list">
+      {rows.map((row) => (
+        <button
+          key={row.key}
+          type="button"
+          className="abandoned-bar-row"
+          onClick={row.onClick}
+        >
+          <div>
+            <strong>{row.label}</strong>
+            <small>{row.helper}</small>
+          </div>
+          <span>{formatter(row.value)}</span>
+          <div className="abandoned-bar-track">
+            <i style={{ width: `${Math.max(4, (row.value / maxValue) * 100)}%` }} />
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function AbandonedQuotesModal({
+  dataset,
+  drilldown,
+  linesByOrderId,
+  onClose,
+  quotesById,
+  referenceEndDate,
+}: {
+  dataset: OdooCommercialDataset;
+  drilldown: AbandonedCartDrilldown;
+  linesByOrderId: Map<number, OdooOrderLineRecord[]>;
+  onClose: () => void;
+  quotesById: Map<number, OdooOrderRecord>;
+  referenceEndDate: string;
+}) {
+  const quotes = drilldown.quoteIds
+    .map((quoteId) => quotesById.get(quoteId))
+    .filter((quote): quote is OdooOrderRecord => Boolean(quote))
+    .sort((left, right) => right.amountUntaxed - left.amountUntaxed);
+
+  return (
+    <div className="modal-backdrop abandoned-detail-backdrop" role="dialog" aria-modal="true">
+      <section className="modal-card modal-wide abandoned-detail-modal">
+        <header className="modal-head">
+          <div>
+            <h2>{drilldown.title}</h2>
+            <p>{drilldown.subtitle}</p>
+          </div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Cerrar">
+            <X size={18} />
+          </button>
+        </header>
+        <div className="abandoned-detail-list">
+          {quotes.map((quote) => {
+            const lines = linesByOrderId.get(quote.id) ?? [];
+            const hasDelivery = lines.some(isDeliveryOrderLine);
+            const productSummary = summarizeQuoteProducts(lines);
+            const adjustedAmount = calculateAbandonedQuoteAnalysisAmount(lines);
+            return (
+              <article key={quote.id} className="abandoned-detail-quote">
+                <div>
+                  <strong>{renderOdooLink(dataset, 'sale.order', quote.id, quote.name)}</strong>
+                  <span>{quote.customerName} · {quote.sellerName || 'Sin vendedor'}</span>
+                </div>
+                <div>
+                  <small>Fecha</small>
+                  <span>{formatDate(quote.quotationDate ?? quote.createDate)}</span>
+                </div>
+                <div>
+                  <small>Total sin producto genérico</small>
+                  <span>{formatCurrency(adjustedAmount.amount)}</span>
+                </div>
+                <div>
+                  <small>Entrega</small>
+                  <span>{hasDelivery ? 'Incluye Entrega' : 'Sin producto Entrega'}</span>
+                </div>
+                <div>
+                  <small>Días abierta</small>
+                  <span>{formatNumber(calculateQuoteAgeDays(quote, referenceEndDate))}</span>
+                </div>
+                <p>{productSummary}</p>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function buildAbandonedCartSummary(
+  dataset: OdooCommercialDataset,
+  snapshot: CommercialDashboardSnapshot,
+): AbandonedCartSummary {
+  const rawAbandonedQuotes = [...snapshot.details.pendingQuotes]
+    .sort((left, right) => right.amountUntaxed - left.amountUntaxed);
+  const quoteIds = new Set(rawAbandonedQuotes.map((quote) => quote.id));
+  const quoteLines = dataset.orderLines.filter((line) => quoteIds.has(line.orderId));
+  const linesByOrderId = groupOrderLinesByOrderId(quoteLines);
+  const quoteAnalysisById = buildAbandonedQuoteAnalysisIndex(rawAbandonedQuotes, linesByOrderId);
+  const abandonedQuotes = rawAbandonedQuotes.filter((quote) => {
+    const analysis = quoteAnalysisById.get(quote.id);
+    return Boolean(analysis && analysis.amount > 0);
+  });
+  const effectiveQuoteIds = new Set(abandonedQuotes.map((quote) => quote.id));
+  const effectiveQuoteLines = quoteLines.filter((line) => effectiveQuoteIds.has(line.orderId));
+  const effectiveLinesByOrderId = groupOrderLinesByOrderId(effectiveQuoteLines);
+  const totalAmount = [...quoteAnalysisById.values()].reduce((total, quote) => total + quote.amount, 0);
+  const totalQuotes = Math.max(snapshot.quoteSummary.totalQuotes.current, 0);
+  const expiredQuoteIds = new Set(snapshot.details.expiredQuotes.map((quote) => quote.id));
+  const referenceEndDate = parseReportDate(snapshot.filters.endDate) ?? new Date();
+  const startDate = parseReportDate(snapshot.filters.startDate);
+  const historicalInvoiceLines = buildHistoricalInvoiceLineSet(
+    dataset.invoiceLines,
+    startDate,
+  );
+  const historicalProductPrices = buildHistoricalProductPriceIndex(historicalInvoiceLines);
+  const analyzableQuoteLines = effectiveQuoteLines.filter((line) => !isIgnoredAbandonedAnalysisLine(line));
+  const productRows = buildAbandonedProductRows(analyzableQuoteLines, historicalProductPrices);
+  const sellerRows = buildAbandonedSellerRows(abandonedQuotes, totalAmount, expiredQuoteIds, referenceEndDate, quoteAnalysisById);
+  const customerRows = buildAbandonedCustomerRows(abandonedQuotes, referenceEndDate, effectiveLinesByOrderId, quoteAnalysisById);
+  const priceRows = productRows
+    .filter((row) => row.historicalAverageUnitPrice !== null)
+    .map((row): AbandonedCartPriceRow => ({
+      ...row,
+      interpretation: interpretAbandonedPriceGap(row.priceGapPct),
+    }))
+    .sort((left, right) => Math.abs(right.priceGapPct ?? 0) - Math.abs(left.priceGapPct ?? 0))
+    .slice(0, 20);
+  const pricePressureCount = productRows.filter((row) => (row.priceGapPct ?? 0) >= 15).length;
+  const averageAgeDays = averageNumber(
+    abandonedQuotes.map((quote) => calculateQuoteAgeDays(quote, snapshot.filters.endDate)),
+  );
+  const expiredRate = ratioPercent(expiredQuoteIds.size, abandonedQuotes.length);
+  const abandonmentRate = ratioPercent(abandonedQuotes.length, totalQuotes);
+  const deliveryQuoteIds = new Set(
+    effectiveQuoteLines.filter(isDeliveryOrderLine).map((line) => line.orderId),
+  );
+  const deliveryAmount = effectiveQuoteLines
+    .filter(isDeliveryOrderLine)
+    .reduce((total, line) => total + Math.max(line.untaxedAmount, 0), 0);
+
+  return {
+    abandonedQuotes,
+    quoteLines: effectiveQuoteLines,
+    productRows,
+    sellerRows,
+    customerRows,
+    priceRows,
+    totalAmount,
+    abandonmentRate,
+    expiredRate,
+    averageAgeDays,
+    pricePressureCount,
+    deliveryAmount,
+    deliveryQuoteCount: deliveryQuoteIds.size,
+    withoutDeliveryQuoteCount: Math.max(0, abandonedQuotes.length - deliveryQuoteIds.size),
+    findings: buildAbandonedCartFindings({
+      abandonmentRate,
+      deliveryQuoteCount: deliveryQuoteIds.size,
+      expiredRate,
+      pricePressureCount,
+      productRows,
+      sellerRows,
+      totalAmount,
+      withoutDeliveryQuoteCount: Math.max(0, abandonedQuotes.length - deliveryQuoteIds.size),
+    }),
+  };
+}
+
+function buildAbandonedProductRows(
+  quoteLines: OdooOrderLineRecord[],
+  historicalProductPrices: Map<string, { amount: number; quantity: number }>,
+): AbandonedCartProductRow[] {
+  const linesByOrderId = new Map<number, OdooOrderLineRecord[]>();
+  quoteLines.forEach((line) => {
+    const current = linesByOrderId.get(line.orderId) ?? [];
+    current.push(line);
+    linesByOrderId.set(line.orderId, current);
+  });
+
+  const buckets = new Map<
+    string,
+    AbandonedCartProductRow & {
+      equipmentCorrelations: Map<string, number>;
+      quoteIdSet: Set<number>;
+      relatedProducts: Map<string, number>;
+    }
+  >();
+
+  quoteLines.forEach((line) => {
+    const key = productBucketKey(line.productId, line.productName);
+    const bucket = buckets.get(key) ?? {
+      key,
+      productId: line.productId,
+      productName: line.productName || 'Producto sin nombre',
+      categoryName: line.categoryName,
+      quotes: 0,
+      amount: 0,
+      units: 0,
+      averageUnitsPerQuote: 0,
+      averageQuotedUnitPrice: 0,
+      historicalAverageUnitPrice: null,
+      priceGapPct: null,
+      equipmentCorrelationSummary: 'Sin equipo relacionado',
+      relatedProductsSummary: 'Sin productos relacionados',
+      equipmentCorrelations: new Map<string, number>(),
+      quoteIds: [],
+      quoteIdSet: new Set<number>(),
+      relatedProducts: new Map<string, number>(),
+    };
+    const siblingLines = linesByOrderId.get(line.orderId) ?? [];
+    bucket.quoteIdSet.add(line.orderId);
+    bucket.amount += Math.max(line.untaxedAmount, 0);
+    bucket.units += Math.max(line.quantity, 0);
+    if (!bucket.categoryName && line.categoryName) bucket.categoryName = line.categoryName;
+    siblingLines.forEach((sibling) => {
+      const siblingKey = productBucketKey(sibling.productId, sibling.productName);
+      if (siblingKey === key) return;
+      const siblingName = sibling.productName || 'Producto sin nombre';
+      bucket.relatedProducts.set(
+        siblingName,
+        (bucket.relatedProducts.get(siblingName) ?? 0) + 1,
+      );
+      if (isEquipmentLikeOrderLine(sibling)) {
+        bucket.equipmentCorrelations.set(
+          siblingName,
+          (bucket.equipmentCorrelations.get(siblingName) ?? 0) + 1,
+        );
+      }
+    });
+    buckets.set(key, bucket);
+  });
+
+  return [...buckets.values()]
+    .map((bucket) => {
+      const historical = historicalProductPrices.get(bucket.key);
+      const quotedAverage = bucket.units > 0 ? bucket.amount / bucket.units : 0;
+      const historicalAverage = historical && historical.quantity > 0
+        ? historical.amount / historical.quantity
+        : null;
+      const priceGapPct = historicalAverage && historicalAverage > 0
+        ? ((quotedAverage - historicalAverage) / historicalAverage) * 100
+        : null;
+
+      return {
+        key: bucket.key,
+        productId: bucket.productId,
+        productName: bucket.productName,
+        categoryName: bucket.categoryName,
+        quotes: bucket.quoteIdSet.size,
+        quoteIds: [...bucket.quoteIdSet],
+        amount: bucket.amount,
+        units: bucket.units,
+        averageUnitsPerQuote: bucket.quoteIdSet.size > 0 ? bucket.units / bucket.quoteIdSet.size : 0,
+        averageQuotedUnitPrice: quotedAverage,
+        historicalAverageUnitPrice: historicalAverage,
+        priceGapPct,
+        equipmentCorrelationSummary: formatAbandonedAssociationSummary(
+          bucket.equipmentCorrelations,
+          'Sin equipo relacionado',
+        ),
+        relatedProductsSummary: formatAbandonedAssociationSummary(
+          bucket.relatedProducts,
+          'Sin productos relacionados',
+        ),
+      };
+    })
+    .sort((left, right) => right.quotes - left.quotes || right.amount - left.amount);
+}
+
+function buildAbandonedSellerRows(
+  abandonedQuotes: OdooOrderRecord[],
+  totalAmount: number,
+  expiredQuoteIds: Set<number>,
+  referenceEndDate: Date,
+  quoteAnalysisById: Map<number, AbandonedQuoteAnalysisLine>,
+): AbandonedCartSellerRow[] {
+  const buckets = new Map<string, AbandonedCartSellerRow & { ages: number[] }>();
+
+  abandonedQuotes.forEach((quote) => {
+    const adjustedAmount = quoteAnalysisById.get(quote.id)?.amount ?? 0;
+    if (adjustedAmount <= 0) return;
+    const key = sellerBucketKey(quote.sellerId, quote.sellerName);
+    const bucket = buckets.get(key) ?? {
+      key,
+      sellerId: quote.sellerId,
+      sellerName: quote.sellerName || 'Sin vendedor',
+      quotes: 0,
+      quoteIds: [],
+      amount: 0,
+      expiredQuotes: 0,
+      abandonmentSharePct: 0,
+      averageAgeDays: 0,
+      ages: [],
+    };
+    bucket.quotes += 1;
+    bucket.quoteIds.push(quote.id);
+    bucket.amount += adjustedAmount;
+    if (expiredQuoteIds.has(quote.id)) bucket.expiredQuotes += 1;
+    bucket.ages.push(calculateQuoteAgeDays(quote, dateInputFromDate(referenceEndDate)));
+    buckets.set(key, bucket);
+  });
+
+  return [...buckets.values()]
+    .map((bucket) => ({
+      key: bucket.key,
+      sellerId: bucket.sellerId,
+      sellerName: bucket.sellerName,
+      quotes: bucket.quotes,
+      quoteIds: bucket.quoteIds,
+      amount: bucket.amount,
+      expiredQuotes: bucket.expiredQuotes,
+      abandonmentSharePct: ratioPercent(bucket.amount, totalAmount),
+      averageAgeDays: averageNumber(bucket.ages),
+    }))
+    .sort((left, right) => right.quotes - left.quotes || right.amount - left.amount);
+}
+
+function buildAbandonedCustomerRows(
+  abandonedQuotes: OdooOrderRecord[],
+  referenceEndDate: Date,
+  linesByOrderId: Map<number, OdooOrderLineRecord[]>,
+  quoteAnalysisById: Map<number, AbandonedQuoteAnalysisLine>,
+): AbandonedCartCustomerRow[] {
+  const buckets = new Map<
+    string,
+    AbandonedCartCustomerRow & {
+      ages: number[];
+      latestDateValue: number;
+      productCounts: Map<string, number>;
+    }
+  >();
+
+  abandonedQuotes.forEach((quote) => {
+    const adjustedAmount = quoteAnalysisById.get(quote.id)?.amount ?? 0;
+    if (adjustedAmount <= 0) return;
+    const key = customerBucketKey(quote.customerId, quote.customerName);
+    const quoteDate = parseReportDate(quote.quotationDate ?? quote.createDate);
+    const quoteDateValue = quoteDate?.getTime() ?? 0;
+    const bucket = buckets.get(key) ?? {
+      key,
+      customerId: quote.customerId,
+      customerName: quote.customerName || 'Cliente sin nombre',
+      sellerName: quote.sellerName || 'Sin vendedor',
+      quotes: 0,
+      quoteIds: [],
+      amount: 0,
+      latestQuotationDate: quote.quotationDate ?? quote.createDate,
+      averageAgeDays: 0,
+      topProductsSummary: 'Sin productos',
+      ages: [],
+      latestDateValue: quoteDateValue,
+      productCounts: new Map<string, number>(),
+    };
+    bucket.quotes += 1;
+    bucket.quoteIds.push(quote.id);
+    bucket.amount += adjustedAmount;
+    bucket.ages.push(calculateQuoteAgeDays(quote, dateInputFromDate(referenceEndDate)));
+    (linesByOrderId.get(quote.id) ?? [])
+      .filter((line) => !isIgnoredAbandonedAnalysisLine(line))
+      .forEach((line) => {
+        const productName = line.productName || 'Producto sin nombre';
+        bucket.productCounts.set(productName, (bucket.productCounts.get(productName) ?? 0) + 1);
+      });
+    if (quoteDateValue >= bucket.latestDateValue) {
+      bucket.latestDateValue = quoteDateValue;
+      bucket.latestQuotationDate = quote.quotationDate ?? quote.createDate;
+      bucket.sellerName = quote.sellerName || bucket.sellerName;
+    }
+    buckets.set(key, bucket);
+  });
+
+  return [...buckets.values()]
+    .map((bucket) => ({
+      key: bucket.key,
+      customerId: bucket.customerId,
+      customerName: bucket.customerName,
+      sellerName: bucket.sellerName,
+      quotes: bucket.quotes,
+      quoteIds: bucket.quoteIds,
+      amount: bucket.amount,
+      latestQuotationDate: bucket.latestQuotationDate,
+      averageAgeDays: averageNumber(bucket.ages),
+      topProductsSummary: formatAbandonedAssociationSummary(bucket.productCounts, 'Sin productos'),
+    }))
+    .sort((left, right) => right.quotes - left.quotes || right.amount - left.amount)
+    .slice(0, 50);
+}
+
+function buildHistoricalInvoiceLineSet(
+  invoiceLines: OdooInvoiceLineRecord[],
+  startDate: Date | null,
+) {
+  const historical = invoiceLines.filter((line) => {
+    if (line.moveType !== 'out_invoice' || line.invoiceState === 'draft' || line.invoiceState === 'cancel') return false;
+    if (line.untaxedAmount <= 0 || line.quantity <= 0) return false;
+    const invoiceDate = parseReportDate(line.invoiceDate);
+    if (!invoiceDate) return false;
+    return startDate ? invoiceDate < startDate : true;
+  });
+
+  return historical.length
+    ? historical
+    : invoiceLines.filter((line) =>
+        line.moveType === 'out_invoice' &&
+        line.invoiceState !== 'draft' &&
+        line.invoiceState !== 'cancel' &&
+        line.untaxedAmount > 0 &&
+        line.quantity > 0,
+      );
+}
+
+function buildHistoricalProductPriceIndex(invoiceLines: OdooInvoiceLineRecord[]) {
+  const buckets = new Map<string, { amount: number; quantity: number }>();
+  invoiceLines
+    .filter((line) => !isPlaceholderQuoteProductName(line.productName))
+    .forEach((line) => {
+    const key = productBucketKey(line.productId, line.productName);
+    const bucket = buckets.get(key) ?? { amount: 0, quantity: 0 };
+    bucket.amount += line.untaxedAmount;
+    bucket.quantity += line.quantity;
+    buckets.set(key, bucket);
+  });
+  return buckets;
+}
+
+function buildAbandonedCartFindings({
+  abandonmentRate,
+  deliveryQuoteCount,
+  expiredRate,
+  pricePressureCount,
+  productRows,
+  sellerRows,
+  totalAmount,
+  withoutDeliveryQuoteCount,
+}: {
+  abandonmentRate: number;
+  deliveryQuoteCount: number;
+  expiredRate: number;
+  pricePressureCount: number;
+  productRows: AbandonedCartProductRow[];
+  sellerRows: AbandonedCartSellerRow[];
+  totalAmount: number;
+  withoutDeliveryQuoteCount: number;
+}): AbandonedCartSummary['findings'] {
+  const topProduct = productRows[0];
+  const topSeller = sellerRows[0];
+  return [
+    {
+      title: 'Qué está bien',
+      tone: 'good',
+      body: totalAmount > 0
+        ? `Hay ${formatCurrency(totalAmount)} en oportunidades todavía recuperables porque siguen como cotización. Esto permite priorizar seguimiento antes de declararlas perdidas.`
+        : 'No se detectan cotizaciones abandonadas en el periodo seleccionado; el flujo comercial no muestra cartera detenida bajo este criterio.',
+    },
+    {
+      title: 'Qué puede estar frenando el cierre',
+      tone: abandonmentRate >= 35 || expiredRate >= 25 ? 'risk' : 'action',
+      body: topProduct
+        ? `${topProduct.productName} se repite en ${formatNumber(topProduct.quotes)} cotizaciones no cerradas. Si aparece varias veces con cantidades similares, revisa precio unitario, disponibilidad, entrega, aprobación interna del cliente y claridad del valor ofertado.`
+        : `La cartera detenida suma ${formatCurrency(totalAmount)}. Revisa primero cotizaciones con productos repetidos, montos altos y clientes con más de una solicitud sin cierre.`,
+    },
+    {
+      title: 'Dónde enfocar la revisión',
+      tone: 'action',
+      body: topProduct || topSeller
+        ? `Producto principal: ${topProduct?.productName ?? 'sin dato'}. Vendedor con mayor monto detenido: ${topSeller?.sellerName ?? 'sin dato'}. Revisa primero estas cuentas y detecta si la causa fue precio, tiempos, entrega, autorización interna o falta de seguimiento.`
+        : 'No hay concentración suficiente para recomendar un foco específico.',
+    },
+    {
+      title: 'Entrega como posible fricción',
+      tone: withoutDeliveryQuoteCount > deliveryQuoteCount ? 'risk' : 'action',
+      body: `${formatNumber(deliveryQuoteCount)} cotizaciones abandonadas incluyen producto Entrega y ${formatNumber(withoutDeliveryQuoteCount)} no lo incluyen. Si el cierre depende de flete, instalación o logística, conviene separar el seguimiento entre precio del producto y costo/alcance de entrega.`,
+    },
+    {
+      title: 'Señal de precio',
+      tone: pricePressureCount > 0 ? 'risk' : 'good',
+      body: pricePressureCount > 0
+        ? `${formatNumber(pricePressureCount)} productos tienen precio unitario cotizado por encima del promedio unitario facturado histórico. Revisa cantidades, descuentos, configuración del equipo y valor agregado antes de renegociar.`
+        : 'No se detecta presión de precio relevante contra el histórico unitario disponible del mismo producto.',
+    },
+  ];
+}
+
+function interpretAbandonedPriceGap(priceGapPct: number | null) {
+  if (priceGapPct === null) return 'Sin histórico comparable';
+  if (priceGapPct >= 20) return 'Precio cotizado muy por encima del histórico; revisar objeción de precio.';
+  if (priceGapPct >= 8) return 'Precio cotizado arriba del histórico; validar si el valor adicional está explicado.';
+  if (priceGapPct <= -15) return 'Precio cotizado debajo del histórico; revisar margen o condiciones especiales.';
+  return 'Precio cercano al histórico; buscar causa en seguimiento, necesidad, tiempos o entrega.';
+}
+
+function getAbandonedPriceGapTone(priceGapPct: number | null) {
+  if (priceGapPct === null) return 'neutral';
+  if (priceGapPct >= 8) return 'risk';
+  if (priceGapPct <= -15) return 'warning';
+  return 'good';
+}
+
+function isEquipmentLikeOrderLine(line: OdooOrderLineRecord) {
+  const text = normalizeText(`${line.categoryName ?? ''} ${line.productName}`);
+  return [
+    'equipo',
+    'impresora',
+    'printer',
+    'bascula',
+    'indicador',
+    'terminal',
+    'aplicador',
+  ].some((keyword) => text.includes(keyword));
+}
+
+
+function isIgnoredAbandonedAnalysisLine(line: OdooOrderLineRecord) {
+  return isDeliveryOrderLine(line) || isPlaceholderQuoteProductName(line.productName);
+}
+
+
+
+
+
+function summarizeQuoteProducts(lines: OdooOrderLineRecord[]) {
+  const summary = lines
+    .filter((line) => !isIgnoredAbandonedAnalysisLine(line))
+    .slice(0, 5)
+    .map((line) => {
+      const unitPrice = line.quantity > 0 ? line.untaxedAmount / line.quantity : 0;
+      return `${line.productName} · ${formatNumber(line.quantity)} pzas · ${formatCurrency(unitPrice)} unitario`;
+    })
+    .join(' | ');
+
+  return summary || 'Sin líneas de producto visibles en la cotización.';
+}
+
+function formatAbandonedAssociationSummary(
+  values: Map<string, number>,
+  fallback: string,
+) {
+  const entries = [...values.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 3);
+
+  if (!entries.length) return fallback;
+  return entries
+    .map(([name, count]) => `${name} (${formatNumber(count)})`)
+    .join(' · ');
+}
+
+function calculateQuoteAgeDays(order: OdooOrderRecord, referenceEndDate: string) {
+  const quoteDate = parseReportDate(order.quotationDate ?? order.createDate);
+  const referenceDate = parseReportDate(referenceEndDate) ?? new Date();
+  if (!quoteDate) return 0;
+  return Math.max(0, Math.round((referenceDate.getTime() - quoteDate.getTime()) / 86400000));
+}
+
+function productBucketKey(productId: number | null, productName: string) {
+  return productId !== null ? `product:${productId}` : `product-name:${normalizeText(productName)}`;
+}
+
+function sellerBucketKey(sellerId: number | null, sellerName: string) {
+  return sellerId !== null ? `seller:${sellerId}` : `seller-name:${normalizeText(sellerName)}`;
+}
+
+function customerBucketKey(customerId: number | null, customerName: string) {
+  return customerId !== null ? `customer:${customerId}` : `customer-name:${normalizeText(customerName)}`;
+}
+
+function parseReportDate(value: string | null | undefined) {
+  if (!value) return null;
+  const date = new Date(`${value.slice(0, 10)}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function dateInputFromDate(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
+function averageNumber(values: number[]) {
+  if (!values.length) return 0;
+  return values.reduce((total, value) => total + value, 0) / values.length;
+}
+
+function ratioPercent(numerator: number, denominator: number) {
+  return denominator > 0 ? (numerator / denominator) * 100 : 0;
+}
+
+type ParetoDimension = 'customers' | 'products' | 'sellers';
+
+type ParetoInsight = {
+  dimension: ParetoDimension;
+  labelSingular: string;
+  labelPlural: string;
+  mainLabel: string;
+  classACount: number;
+  classBCount: number;
+  classCCount: number;
+  classAShare: number;
+  topShare: number;
+  topRow: ParetoRow | null;
+  concentrationLevel: 'saludable' | 'vigilancia' | 'riesgo';
+  good: string;
+  bad: string;
+  improve: string;
+  actionTitle: string;
+};
+
+function ParetoExecutiveReadout({
+  customerInsight,
+  productInsight,
+}: {
+  customerInsight: ParetoInsight;
+  productInsight: ParetoInsight;
+}) {
+  return (
+    <article className="panel reports-pareto-executive">
+      <div className="panel-header">
+        <div>
+          <strong>Lectura ejecutiva del Pareto</strong>
+          <span>
+            El objetivo no es que el 80/20 sea exacto, sino decidir dónde proteger ingresos, dónde diversificar y dónde dejar de gastar atención.
+          </span>
+        </div>
+      </div>
+      <div className="reports-pareto-executive-grid">
+        <ParetoExecutiveCard
+          label="Concentración en clientes"
+          insight={customerInsight}
+          helper="Si pocos clientes clase A pesan demasiado, hay riesgo de dependencia comercial."
+        />
+        <ParetoExecutiveCard
+          label="Concentración en productos"
+          insight={productInsight}
+          helper="Si pocos productos clase A sostienen la venta, inventario, precio y disponibilidad deben cuidarse más."
+        />
+        <div className="reports-pareto-method-card">
+          <strong>Cómo leer A/B/C</strong>
+          <p>
+            Clase A concentra la mayor parte del valor acumulado. Clase B es el grupo que puede escalar. Clase C es la cola larga: útil para catálogo, pero no debe consumir la misma atención operativa.
+          </p>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function ParetoExecutiveCard({
+  label,
+  insight,
+  helper,
+}: {
+  label: string;
+  insight: ParetoInsight;
+  helper: string;
+}) {
+  return (
+    <div className={`reports-pareto-executive-card ${insight.concentrationLevel}`}>
+      <small>{label}</small>
+      <strong>{formatPercent(insight.classAShare)} en clase A</strong>
+      <span>{insight.classACount} {insight.labelPlural} concentran el primer bloque crítico.</span>
+      <p>{helper}</p>
+    </div>
+  );
+}
+
+function ParetoDecisionPanel({
+  summary,
+  insight,
+  dimension,
+}: {
+  summary: CommercialDashboardSnapshot['pareto']['customers'];
+  insight: ParetoInsight;
+  dimension: ParetoDimension;
+}) {
+  const rowsA = summary.rows.filter((row) => row.classification === 'A');
+  const rowsB = summary.rows.filter((row) => row.classification === 'B');
+  const rowsC = summary.rows.filter((row) => row.classification === 'C');
+  const visibleRows = summary.rows.slice(0, 8);
+
+  return (
+    <article className={`panel reports-pareto-decision reports-pareto-decision-${dimension}`}>
+      <div className="panel-header">
+        <div>
+          <strong>{insight.mainLabel}</strong>
+          <span>{summary.statement}</span>
+        </div>
+      </div>
+
+      <div className="reports-pareto-decision-grid">
+        <div className="reports-pareto-narrative">
+          <div className={`reports-pareto-status ${insight.concentrationLevel}`}>
+            <span>{getParetoStatusLabel(insight.concentrationLevel)}</span>
+            <strong>{insight.topRow ? insight.topRow.label : 'Sin datos suficientes'}</strong>
+            <small>
+              {insight.topRow
+                ? `${formatPercent(insight.topShare)} del resultado individual`
+                : 'No hay concentración calculable.'}
+            </small>
+          </div>
+          <ParetoFindingCard title="Qué está bien" body={insight.good} tone="good" />
+          <ParetoFindingCard title="Qué está mal o puede ser riesgo" body={insight.bad} tone="risk" />
+          <ParetoFindingCard title="Qué tiene que mejorar" body={insight.improve} tone="action" />
+        </div>
+
+        <div className="reports-pareto-abc">
+          <ParetoClassCard
+            title="Clase A"
+            subtitle="Proteger y gestionar de cerca"
+            rows={rowsA}
+            share={insight.classAShare}
+            tone="a"
+          />
+          <ParetoClassCard
+            title="Clase B"
+            subtitle="Convertir en nuevos motores"
+            rows={rowsB}
+            share={sumParetoPct(rowsB)}
+            tone="b"
+          />
+          <ParetoClassCard
+            title="Clase C"
+            subtitle="Simplificar, depurar o automatizar"
+            rows={rowsC}
+            share={sumParetoPct(rowsC)}
+            tone="c"
+          />
+        </div>
+      </div>
+
+      <section className="reports-pareto-focus-list">
+        <div className="panel-header compact">
+          <div>
+            <strong>{insight.actionTitle}</strong>
+            <span>Ordenado de mayor a menor contribución. La línea punteada indica el acumulado.</span>
+          </div>
+        </div>
+        <ParetoPreviewChart rows={visibleRows} />
+      </section>
+
+      <section className="reports-pareto-detail-table">
+        <div className="panel-header compact">
+          <div>
+            <strong>Detalle descargable</strong>
+            <span>Usa esta tabla para revisar el dato fino sin mezclar clientes, productos y vendedores.</span>
+          </div>
+        </div>
+        <DataTable
+          rows={summary.rows}
+          storageKey={`pareto-v2-${summary.title}`}
+          columns={[
+            column<ParetoRow>('position', '#', (row) => row.position, (row) => row.position),
+            column<ParetoRow>('label', getParetoColumnLabel(dimension), (row) => row.label, (row) => row.label),
+            column<ParetoRow>('value', 'Total sin impuestos', (row) => formatCurrency(row.value), (row) => row.value),
+            column<ParetoRow>('orders', 'Órdenes', (row) => formatNumber(row.orders), (row) => row.orders),
+            column<ParetoRow>('units', 'Unidades', (row) => formatNumber(row.units), (row) => row.units),
+            column<ParetoRow>('share', '% individual', (row) => formatPercent(row.individualPct), (row) => row.individualPct),
+            column<ParetoRow>('accum', '% acumulado', (row) => formatPercent(row.accumulatedPct), (row) => row.accumulatedPct),
+            column<ParetoRow>('class', 'ABC', (row) => row.classification, (row) => row.classification),
+          ]}
+        />
+      </section>
+    </article>
+  );
+}
+
+function ParetoFindingCard({
+  title,
+  body,
+  tone,
+}: {
+  title: string;
+  body: string;
+  tone: 'good' | 'risk' | 'action';
+}) {
+  return (
+    <div className={`reports-pareto-finding ${tone}`}>
+      <small>{title}</small>
+      <p>{body}</p>
+    </div>
+  );
+}
+
+function ParetoClassCard({
+  title,
+  subtitle,
+  rows,
+  share,
+  tone,
+}: {
+  title: string;
+  subtitle: string;
+  rows: ParetoRow[];
+  share: number;
+  tone: 'a' | 'b' | 'c';
+}) {
+  return (
+    <div className={`reports-pareto-class-card tone-${tone}`}>
+      <div>
+        <strong>{title}</strong>
+        <span>{subtitle}</span>
+      </div>
+      <b>{formatPercent(share)}</b>
+      <small>{rows.length} registros</small>
+      <ul>
+        {rows.slice(0, 3).map((row) => (
+          <li key={row.key}>
+            <span>{row.label}</span>
+            <em>{formatPercent(row.individualPct)}</em>
+          </li>
+        ))}
+        {rows.length === 0 ? <li><span>Sin registros en esta clase</span></li> : null}
+      </ul>
+    </div>
+  );
+}
+
+function buildParetoInsight(
+  summary: CommercialDashboardSnapshot['pareto']['customers'],
+  dimension: ParetoDimension,
+): ParetoInsight {
+  const rows = summary.rows;
+  const rowsA = rows.filter((row) => row.classification === 'A');
+  const rowsB = rows.filter((row) => row.classification === 'B');
+  const rowsC = rows.filter((row) => row.classification === 'C');
+  const topRow = rows[0] ?? null;
+  const topShare = topRow?.individualPct ?? 0;
+  const classAShare = sumParetoPct(rowsA);
+  const concentrationLevel: ParetoInsight['concentrationLevel'] =
+    topShare >= 35 || (rowsA.length <= 3 && classAShare >= 65)
+      ? 'riesgo'
+      : classAShare >= 75
+        ? 'vigilancia'
+        : 'saludable';
+  const labels = getParetoDimensionLabels(dimension);
+
+  return {
+    dimension,
+    ...labels,
+    classACount: rowsA.length,
+    classBCount: rowsB.length,
+    classCCount: rowsC.length,
+    classAShare,
+    topShare,
+    topRow,
+    concentrationLevel,
+    good: buildParetoGoodMessage(dimension, rowsA.length, classAShare, topRow),
+    bad: buildParetoRiskMessage(dimension, concentrationLevel, topShare, rowsC.length),
+    improve: buildParetoImproveMessage(dimension, rowsB.length, rowsC.length),
+    actionTitle: buildParetoActionTitle(dimension),
+  };
+}
+
+function getParetoDimensionLabels(dimension: ParetoDimension) {
+  if (dimension === 'customers') {
+    return {
+      labelSingular: 'cliente',
+      labelPlural: 'clientes',
+      mainLabel: 'Clientes que concentran el resultado',
+    };
+  }
+  if (dimension === 'products') {
+    return {
+      labelSingular: 'producto',
+      labelPlural: 'productos',
+      mainLabel: 'Productos que concentran el resultado',
+    };
+  }
+  return {
+    labelSingular: 'vendedor',
+    labelPlural: 'vendedores',
+    mainLabel: 'Vendedores que explican la concentración',
+  };
+}
+
+function buildParetoGoodMessage(
+  dimension: ParetoDimension,
+  classACount: number,
+  classAShare: number,
+  topRow: ParetoRow | null,
+) {
+  if (!topRow) return 'No hay datos suficientes para identificar una fortaleza clara.';
+  if (dimension === 'customers') {
+    return `Ya están identificados los ${classACount} clientes que explican ${formatPercent(classAShare)} del valor. Esto permite proteger cuentas clave con seguimiento directivo, acuerdos de servicio y agenda comercial priorizada.`;
+  }
+  if (dimension === 'products') {
+    return `Ya están visibles los ${classACount} productos que explican ${formatPercent(classAShare)} del valor. Esto ayuda a priorizar disponibilidad, precios, inventario y campañas alrededor de los SKU que más mueven el resultado.`;
+  }
+  return `Ya están visibles los ${classACount} vendedores que explican ${formatPercent(classAShare)} del valor. Sirve para entender quién sostiene el resultado y dónde replicar prácticas comerciales.`;
+}
+
+function buildParetoRiskMessage(
+  dimension: ParetoDimension,
+  concentrationLevel: ParetoInsight['concentrationLevel'],
+  topShare: number,
+  classCCount: number,
+) {
+  if (concentrationLevel === 'riesgo') {
+    if (dimension === 'customers') {
+      return `La dependencia es alta: el principal cliente pesa ${formatPercent(topShare)}. Si compra menos, cambia de proveedor o retrasa pagos, el resultado del período puede caer de forma desproporcionada.`;
+    }
+    if (dimension === 'products') {
+      return `La dependencia es alta: el principal producto pesa ${formatPercent(topShare)}. Cualquier falta de inventario, cambio de precio o caída de demanda puede afectar mucho la facturación.`;
+    }
+    return `La dependencia comercial está cargada en pocos vendedores. Si uno pierde ritmo, cartera o disponibilidad, el resultado general queda expuesto.`;
+  }
+
+  if (classCCount > 0) {
+    return `La cola larga tiene ${classCCount} registros clase C. No necesariamente está mal, pero puede consumir tiempo operativo si se gestiona con la misma intensidad que la clase A.`;
+  }
+
+  return 'No se observa una alerta grave de concentración, pero conviene monitorear cambios cada mes para detectar dependencia antes de que se vuelva crítica.';
+}
+
+function buildParetoImproveMessage(dimension: ParetoDimension, classBCount: number, classCCount: number) {
+  if (dimension === 'customers') {
+    return `Trabajar la clase B (${classBCount} clientes) para reducir dependencia de la clase A: visitas, recompra, bundles, condiciones comerciales y recuperación de clientes con potencial. Automatizar o segmentar la clase C (${classCCount}) para no gastar esfuerzo excesivo.`;
+  }
+  if (dimension === 'products') {
+    return `Impulsar productos B (${classBCount}) con campañas cruzadas, kits y revisión de margen. En productos C (${classCCount}), revisar si conviene depurar, vender bajo pedido o reducir inventario/atención comercial.`;
+  }
+  return `Documentar prácticas de vendedores clase A, acompañar vendedores B y revisar si los C requieren capacitación, reasignación de cartera o metas más específicas.`;
+}
+
+function buildParetoActionTitle(dimension: ParetoDimension) {
+  if (dimension === 'customers') return 'Clientes prioritarios para seguimiento';
+  if (dimension === 'products') return 'Productos prioritarios para asegurar venta';
+  return 'Vendedores para comparar prácticas';
+}
+
+function getParetoStatusLabel(level: ParetoInsight['concentrationLevel']) {
+  if (level === 'riesgo') return 'Riesgo de concentración';
+  if (level === 'vigilancia') return 'Concentración a vigilar';
+  return 'Concentración manejable';
+}
+
+function getParetoColumnLabel(dimension: ParetoDimension) {
+  if (dimension === 'customers') return 'Cliente';
+  if (dimension === 'products') return 'Producto';
+  return 'Vendedor';
+}
+
+function sumParetoPct(rows: ParetoRow[]) {
+  return rows.reduce((total, row) => total + row.individualPct, 0);
+}
+
+type ForecastRecommendation = {
+  title: string;
+  description: string;
+  metric: string;
+};
+
+type AnnualForecastTotal = {
+  activeMonths: number;
+  total: number;
+  values: number[];
+  year: number;
+};
+
+function ForecastsSection({
+  dataset,
+  error,
+  isLoading,
+  onRefresh,
+}: {
+  dataset: SalesForecastDataset | null;
+  error: unknown;
+  isLoading: boolean;
+  onRefresh: () => void;
+}) {
+  const forecast = useMemo(
+    () => (dataset ? buildAnnualSalesForecast(dataset) : null),
+    [dataset],
+  );
+
+  if (!forecast) {
+    return (
+      <div className="reports-stack">
+        <SectionLead
+          title="Pronósticos"
+          description="Se está preparando el histórico de facturación de Corporación Tectronic para proyectar el cierre del año natural."
+        />
+        <article className="panel reports-empty">
+          {isLoading ? (
+            <EmptyState title="Preparando pronóstico">
+              Estamos consultando datos agregados de Contabilidad en Odoo. Esto no modifica información y quedará guardado para próximas consultas.
+            </EmptyState>
+          ) : (
+            <EmptyState title="No se pudo preparar el pronóstico">
+              {error instanceof Error ? error.message : 'No hay datos históricos disponibles todavía.'}
+            </EmptyState>
+          )}
+          <div className="reports-panel-body">
+            <button type="button" className="secondary-button" onClick={onRefresh}>
+              <RefreshCcw size={16} />
+              Reintentar pronóstico
+            </button>
+          </div>
+        </article>
+      </div>
+    );
+  }
+
+  return (
+    <div className="reports-stack">
+      <SectionLead
+        title={forecast.scopeLabel}
+        description="Se ejecuta en segundo plano, sin filtros visibles, con histórico agregado de Contabilidad en Odoo para Corporación Tectronic."
+      />
+
+      <StaticPanel
+        title="Pronóstico del año natural"
+        subtitle={`${forecast.companyName} · datos al ${forecast.currentDateLabel} · histórico ${forecast.historicalRangeLabel}`}
+      >
+        <div className="reports-kpi-list reports-kpi-list-roomy">
+          <KpiBox label={`Facturación ${forecast.currentYear} acumulada`} value={formatCurrency(forecast.yearToDate)} />
+          <KpiBox label="Cierre anual proyectado" value={formatCurrency(forecast.annualForecast)} />
+          <KpiBox label="Pronóstico restante del año" value={formatCurrency(forecast.remainingForecast)} />
+          <KpiBox label="Ritmo mensual requerido" value={formatCurrency(forecast.requiredMonthlyRunRate)} />
+          <KpiBox label="Confiabilidad" value={`${forecast.confidenceLabel} · ${forecast.confidenceScore.toFixed(0)}%`} />
+        </div>
+        <ForecastProjectionChart models={forecast.modelResults} points={forecast.series} />
+      </StaticPanel>
+
+      <StaticPanel
+        title="Cono de probabilidad"
+        subtitle="Rango conservador, base y optimista para el cierre del año natural."
+      >
+        <div className="reports-kpi-list reports-kpi-list-roomy">
+          <KpiBox label="Escenario conservador" value={formatCurrency(forecast.probabilityCone.conservative)} />
+          <KpiBox label="Escenario base" value={formatCurrency(forecast.probabilityCone.expected)} />
+          <KpiBox label="Escenario optimista" value={formatCurrency(forecast.probabilityCone.optimistic)} />
+          <KpiBox label="Incertidumbre estimada" value={formatPercent(forecast.probabilityCone.uncertaintyPct)} />
+        </div>
+        <SectionInfoCard
+          title="Cómo leer este rango"
+          description="El escenario base es el ensamble ponderado de varios modelos. El conservador y el optimista reflejan el error histórico, la dispersión entre modelos y la variación desestacionalizada del negocio."
+        >
+          <div className="policy-card-quick-facts">
+            <span>Restante conservador: {formatCurrency(forecast.probabilityCone.remainingConservative)}</span>
+            <span>Restante base: {formatCurrency(forecast.probabilityCone.remainingExpected)}</span>
+            <span>Restante optimista: {formatCurrency(forecast.probabilityCone.remainingOptimistic)}</span>
+          </div>
+        </SectionInfoCard>
+      </StaticPanel>
+
+      <StaticPanel
+        title="Modelos utilizados"
+        subtitle="Se combinan modelos simples y auditables para evitar depender de una sola lectura del histórico."
+      >
+        <div className="reports-stack-compact">
+          <SectionInfoCard
+            title="Modelo recomendado"
+            description={`Se toma como referencia principal ${forecast.bestModelLabel}, que promedia modelos con mayor peso para los que tienen menor error histórico.`}
+          >
+            <div className="policy-card-quick-facts">
+              <span>Error estimado: {forecast.bestModelErrorPct === null ? 'Sin base suficiente' : formatPercent(forecast.bestModelErrorPct)}</span>
+              <span>Confiabilidad: {forecast.confidenceLabel}</span>
+              <span>Cierre anual: {formatCurrency(forecast.annualForecast)}</span>
+            </div>
+          </SectionInfoCard>
+          <MiniRanking
+            rows={forecast.modelResults}
+            primary={(row) => row.label}
+            secondary={(row) =>
+              row.errorPct === null
+                ? row.explanation
+                : `${row.explanation} · error histórico ${formatPercent(row.errorPct)}`
+            }
+            value={(row) => formatCurrency(row.annualForecast)}
+          />
+        </div>
+      </StaticPanel>
+
+      <StaticPanel
+        title="Qué hacer para aumentar ventas"
+        subtitle="Acciones sugeridas a partir del mismo corte de Odoo y del alcance visible para este usuario."
+      >
+        <div className="reports-stack-compact">
+          {forecast.recommendations.map((recommendation) => (
+            <SectionInfoCard
+              key={recommendation.title}
+              title={recommendation.title}
+              description={recommendation.description}
+            >
+              <div className="policy-card-quick-facts">
+                <span>{recommendation.metric}</span>
+              </div>
+            </SectionInfoCard>
+          ))}
+        </div>
+      </StaticPanel>
+
+      <StaticPanel
+        title="Metodología y confiabilidad"
+        subtitle="Cómo leer el pronóstico"
+      >
+        <div className="reports-stack-compact">
+          <SectionInfoCard
+            title="Base estadística"
+            description="El cálculo usa `read_group` sobre Análisis de facturas de Odoo, agrupado por mes, para traer totales agregados y no descargar miles de facturas. No modifica datos de Odoo."
+          >
+            <div className="policy-card-quick-facts">
+              <span>Fuente: Contabilidad · Análisis de facturas</span>
+            </div>
+          </SectionInfoCard>
+          <SectionInfoCard
+            title="Lectura de confianza"
+            description="La confiabilidad combina años completos válidos, error histórico del ensamble, dispersión entre modelos y volatilidad desestacionalizada. Es más alta cuando el patrón de temporada se repite con estabilidad."
+          >
+            <div className="policy-card-quick-facts">
+              {forecast.confidenceDrivers.map((driver) => (
+                <span key={driver}>{driver}</span>
+              ))}
+            </div>
+          </SectionInfoCard>
+          <SectionInfoCard
+            title="Limpieza y normalización"
+            description={forecast.dataQualitySummary.methodNote}
+          >
+            <div className="policy-card-quick-facts">
+              <span>Años históricos revisados: {forecast.dataQualitySummary.totalYears}</span>
+              <span>Años usados para temporada: {forecast.dataQualitySummary.validYears}</span>
+              <span>
+                Años excluidos: {forecast.dataQualitySummary.excludedYears.length > 0 ? forecast.dataQualitySummary.excludedYears.join(', ') : 'ninguno'}
+              </span>
+            </div>
+          </SectionInfoCard>
+          <SectionInfoCard
+            title="Referencias de práctica"
+            description="La metodología usa estacionalidad anual robusta, ritmo contra año anterior, media móvil, tendencia lineal y suavizamiento reciente, con validación histórica para explicar qué tan confiable es el resultado."
+          >
+            <div className="policy-card-quick-facts">
+              <span>Modelos: estacionalidad, YoY, MA, tendencia y suavizamiento</span>
+            </div>
+          </SectionInfoCard>
+        </div>
+      </StaticPanel>
+    </div>
+  );
+}
+
+type AnnualForecastModelResult = {
+  id: 'seasonalPace' | 'lastYearPace' | 'linearTrend' | 'movingAverage' | 'seasonalSmoothed';
+  label: string;
+  annualForecast: number;
+  remainingForecast: number;
+  errorPct: number | null;
+  explanation: string;
+  monthlySeries: number[];
+};
+
+type AnnualForecastProbabilityCone = {
+  conservative: number;
+  expected: number;
+  optimistic: number;
+  remainingConservative: number;
+  remainingExpected: number;
+  remainingOptimistic: number;
+  uncertaintyPct: number;
+};
+
+type AnnualForecastDataQualitySummary = {
+  excludedYears: number[];
+  methodNote: string;
+  totalYears: number;
+  validYears: number;
+};
+
+type AnnualSalesForecastResult = {
+  scopeLabel: string;
+  companyName: string;
+  currentYear: number;
+  currentDateLabel: string;
+  historicalRangeLabel: string;
+  yearToDate: number;
+  annualForecast: number;
+  remainingForecast: number;
+  requiredMonthlyRunRate: number;
+  confidenceLabel: 'Alta' | 'Media' | 'Baja';
+  confidenceScore: number;
+  bestModelLabel: string;
+  bestModelErrorPct: number | null;
+  confidenceDrivers: string[];
+  dataQualitySummary: AnnualForecastDataQualitySummary;
+  modelResults: AnnualForecastModelResult[];
+  probabilityCone: AnnualForecastProbabilityCone;
+  recommendations: ForecastRecommendation[];
+  series: Array<{
+    coneHigh?: number;
+    coneLow?: number;
+    forecast?: boolean;
+    label: string;
+    modelValues?: Record<AnnualForecastModelResult['id'], number>;
+    value: number;
+  }>;
+};
+
+function buildAnnualSalesForecast(dataset: SalesForecastDataset): AnnualSalesForecastResult {
+  const year = dataset.currentYear;
+  const currentDate = new Date(`${dataset.currentDate}T00:00:00.000Z`);
+  const currentMonthIndex = currentDate.getUTCMonth();
+  const elapsedMonthFraction = calculateElapsedMonthFraction(currentDate);
+  const monthlyByYear = buildMonthlyAmountMatrix(dataset.monthly);
+  const currentYearValues = monthlyByYear.get(year) ?? Array(12).fill(0);
+  const yearToDate =
+    currentYearValues.slice(0, currentMonthIndex).reduce((total, value) => total + value, 0) +
+    currentYearValues[currentMonthIndex];
+  const annualTotals = buildAnnualTotals(monthlyByYear);
+  const completedAnnualTotals = annualTotals.filter((entry) => entry.year < year && entry.total > 0);
+  const validSeasonalYears = completedAnnualTotals.filter((entry) => entry.activeMonths >= 10);
+  const excludedYears = completedAnnualTotals
+    .filter((entry) => entry.activeMonths < 10)
+    .map((entry) => entry.year);
+  const seasonalShares = buildAverageSeasonalShares(monthlyByYear, year);
+  const elapsedSeasonalShare =
+    seasonalShares.slice(0, currentMonthIndex).reduce((total, value) => total + value, 0) +
+    (seasonalShares[currentMonthIndex] ?? 0) * elapsedMonthFraction;
+  const modelResults = buildAnnualForecastModels({
+    annualTotals,
+    currentMonthIndex,
+    currentYearValues,
+    elapsedMonthFraction,
+    elapsedSeasonalShare,
+    seasonalShares,
+    year,
+    yearToDate,
+  });
+  const ensemble = buildAnnualForecastEnsemble(modelResults, yearToDate);
+  const annualForecast = ensemble.annualForecast;
+  const remainingForecast = Math.max(0, annualForecast - yearToDate);
+  const remainingMonthEquivalent = Math.max(1, 12 - currentMonthIndex - elapsedMonthFraction);
+  const requiredMonthlyRunRate = remainingForecast / remainingMonthEquivalent;
+  const deseasonalizedVolatilityPct = calculateDeseasonalizedVolatilityPct(validSeasonalYears, seasonalShares);
+  const confidenceScore = calculateAnnualForecastConfidence(
+    validSeasonalYears.length,
+    ensemble.errorPct,
+    deseasonalizedVolatilityPct,
+    ensemble.spreadPct,
+  );
+  const probabilityCone = buildForecastProbabilityCone(
+    annualForecast,
+    yearToDate,
+    ensemble.errorPct,
+    deseasonalizedVolatilityPct,
+    ensemble.spreadPct,
+  );
+  const confidenceLabel = confidenceScore >= 75 ? 'Alta' : confidenceScore >= 55 ? 'Media' : 'Baja';
+  const confidenceDrivers = [
+    `Años completos usados: ${validSeasonalYears.length}`,
+    `Error histórico del ensamble: ${ensemble.errorPct === null ? 'sin base suficiente' : formatPercent(ensemble.errorPct)}`,
+    `Dispersión entre modelos: ${formatPercent(ensemble.spreadPct)}`,
+    `Volatilidad desestacionalizada: ${formatPercent(deseasonalizedVolatilityPct)}`,
+  ];
+
+  return {
+    scopeLabel:
+      dataset.visibilityScope === 'own'
+        ? 'Pronóstico personal de ventas'
+        : 'Pronóstico comercial consolidado',
+    companyName: dataset.companyName,
+    currentYear: year,
+    currentDateLabel: formatDate(dataset.currentDate),
+    historicalRangeLabel: `${formatDate(dataset.historicalStartDate)} - ${formatDate(dataset.historicalEndDate)}`,
+    yearToDate,
+    annualForecast,
+    remainingForecast,
+    requiredMonthlyRunRate,
+    confidenceLabel,
+    confidenceScore,
+    bestModelLabel: 'el ensamble ponderado',
+    bestModelErrorPct: ensemble.errorPct,
+    confidenceDrivers,
+    dataQualitySummary: {
+      excludedYears,
+      methodNote:
+        'Se usan años con al menos 10 meses activos para construir la temporada. Los meses atípicos se reducen mediante participaciones medianas y volatilidad MAD, para que un pico comercial no distorsione todo el año.',
+      totalYears: completedAnnualTotals.length,
+      validYears: validSeasonalYears.length,
+    },
+    modelResults,
+    probabilityCone,
+    recommendations: buildAnnualForecastRecommendations(
+      dataset,
+      annualForecast,
+      remainingForecast,
+      requiredMonthlyRunRate,
+    ),
+    series: buildAnnualForecastSeries(
+      currentYearValues,
+      seasonalShares,
+      annualForecast,
+      currentMonthIndex,
+      year,
+      probabilityCone,
+      modelResults,
+    ),
+  };
+}
+
+function buildAnnualForecastModels({
+  annualTotals,
+  currentMonthIndex,
+  currentYearValues,
+  elapsedMonthFraction,
+  elapsedSeasonalShare,
+  seasonalShares,
+  year,
+  yearToDate,
+}: {
+  annualTotals: AnnualForecastTotal[];
+  currentMonthIndex: number;
+  currentYearValues: number[];
+  elapsedMonthFraction: number;
+  elapsedSeasonalShare: number;
+  seasonalShares: number[];
+  year: number;
+  yearToDate: number;
+}): AnnualForecastModelResult[] {
+  const completedAnnualTotals = annualTotals.filter((entry) => entry.year < year && entry.total > 0 && entry.activeMonths >= 10);
+  const lastYear = completedAnnualTotals[completedAnnualTotals.length - 1] ?? null;
+  const currentElapsedValues = currentYearValues.slice(0, currentMonthIndex + 1);
+  const historicalAnnualValues = completedAnnualTotals.map((entry) => entry.total);
+  const seasonalAnnualForecast = elapsedSeasonalShare > 0 ? yearToDate / elapsedSeasonalShare : yearToDate;
+  const smoothedAnnualForecast = forecastSeasonalSmoothedAnnual({
+    completedAnnualTotals,
+    currentMonthIndex,
+    currentYearValues,
+    elapsedMonthFraction,
+    seasonalAnnualForecast,
+    seasonalShares,
+  });
+  const linearRemainingForecast = forecastRemainingMonthsWithLinearTrend(
+    currentElapsedValues,
+    currentMonthIndex,
+    elapsedMonthFraction,
+  );
+  const movingAverageAnnualForecast =
+    yearToDate +
+    forecastMovingAverage(currentElapsedValues.filter((value) => value > 0)) *
+      Math.max(0, 12 - currentMonthIndex - elapsedMonthFraction);
+  const lastYearComparable = lastYear
+    ? calculateComparableYearToDate(lastYear.values, currentMonthIndex, elapsedMonthFraction)
+    : 0;
+  const lastYearPaceForecast =
+    lastYear && lastYearComparable > 0
+      ? lastYear.total * (yearToDate / lastYearComparable)
+      : forecastMovingAverage(historicalAnnualValues);
+
+  return [
+    {
+      id: 'seasonalPace' as const,
+      label: 'Ritmo estacional del año',
+      annualForecast: seasonalAnnualForecast,
+      remainingForecast: seasonalAnnualForecast - yearToDate,
+      errorPct: backtestAnnualSeasonalityError(completedAnnualTotals, currentMonthIndex, elapsedMonthFraction),
+      explanation: 'Proyecta el cierre según el avance del año y la participación histórica de cada mes.',
+    },
+    {
+      id: 'seasonalSmoothed' as const,
+      label: 'Estacional suavizado',
+      annualForecast: smoothedAnnualForecast,
+      remainingForecast: smoothedAnnualForecast - yearToDate,
+      errorPct: backtestAnnualSeasonalityError(completedAnnualTotals, currentMonthIndex, elapsedMonthFraction),
+      explanation: 'Ajusta la temporada histórica con el ritmo reciente, reduciendo el peso de picos aislados.',
+    },
+    {
+      id: 'lastYearPace' as const,
+      label: 'Ritmo contra año anterior',
+      annualForecast: lastYearPaceForecast,
+      remainingForecast: lastYearPaceForecast - yearToDate,
+      errorPct: backtestLastYearPaceError(completedAnnualTotals, currentMonthIndex, elapsedMonthFraction),
+      explanation: 'Compara el avance actual contra el mismo corte del año anterior.',
+    },
+    {
+      id: 'linearTrend' as const,
+      label: 'Tendencia lineal',
+      annualForecast: yearToDate + linearRemainingForecast,
+      remainingForecast: linearRemainingForecast,
+      errorPct: null,
+      explanation: 'Extiende la pendiente de los meses transcurridos hacia el resto del año.',
+    },
+    {
+      id: 'movingAverage' as const,
+      label: 'Media móvil mensual',
+      annualForecast: movingAverageAnnualForecast,
+      remainingForecast: movingAverageAnnualForecast - yearToDate,
+      errorPct: null,
+      explanation: 'Usa el promedio reciente para estimar los meses pendientes.',
+    },
+  ].map((model) => {
+    const annualForecast = clampForecast(model.annualForecast);
+    return {
+      ...model,
+      annualForecast,
+      remainingForecast: Math.max(0, annualForecast - yearToDate),
+      monthlySeries: buildMonthlyForecastValues(
+        currentYearValues,
+        seasonalShares,
+        annualForecast,
+        currentMonthIndex,
+      ),
+    };
+  });
+}
+
+function buildAnnualForecastEnsemble(models: AnnualForecastModelResult[], yearToDate: number) {
+  const usableModels = models.filter((model) => model.annualForecast > 0);
+  if (usableModels.length === 0) {
+    return {
+      annualForecast: yearToDate,
+      remainingForecast: 0,
+      errorPct: null as number | null,
+      spreadPct: 0,
+    };
+  }
+
+  const observedErrors = usableModels
+    .map((model) => model.errorPct)
+    .filter((value): value is number => value !== null && Number.isFinite(value));
+  const fallbackError = observedErrors.length > 0 ? median(observedErrors) : 18;
+  const weightedModels = usableModels.map((model) => {
+    const error = model.errorPct ?? fallbackError;
+    return {
+      model,
+      error,
+      weight: 1 / Math.max(6, error),
+    };
+  });
+  const totalWeight = weightedModels.reduce((sum, entry) => sum + entry.weight, 0);
+  const annualForecast =
+    totalWeight > 0
+      ? weightedModels.reduce((sum, entry) => sum + entry.model.annualForecast * entry.weight, 0) / totalWeight
+      : mean(usableModels.map((model) => model.annualForecast));
+  const errorPct =
+    totalWeight > 0
+      ? weightedModels.reduce((sum, entry) => sum + entry.error * entry.weight, 0) / totalWeight
+      : fallbackError;
+
+  return {
+    annualForecast: Math.max(yearToDate, clampForecast(annualForecast)),
+    remainingForecast: Math.max(0, annualForecast - yearToDate),
+    errorPct,
+    spreadPct: calculateRobustRelativeSpreadPct(usableModels.map((model) => model.annualForecast)),
+  };
+}
+
+function buildAnnualForecastRecommendations(
+  dataset: SalesForecastDataset,
+  annualForecast: number,
+  remainingForecast: number,
+  requiredMonthlyRunRate: number,
+): ForecastRecommendation[] {
+  const recommendations: ForecastRecommendation[] = [];
+  const topCategory = dataset.currentYearCategories[0] ?? null;
+  const topCustomer = dataset.currentYearCustomers[0] ?? null;
+  const topSeller = dataset.currentYearSellers[0] ?? null;
+  const currentAverage = calculateCurrentYearMonthlyAverage(dataset);
+
+  if (requiredMonthlyRunRate > currentAverage * 1.15) {
+    recommendations.push({
+      title: 'Cerrar la brecha del ritmo mensual',
+      description:
+        'El resto del año exige vender por encima del promedio actual. Conviene revisar cartera pendiente, cotizaciones abiertas y oportunidades de recompra antes de depender solo de nuevos prospectos.',
+      metric: `Requerido: ${formatCurrency(requiredMonthlyRunRate)} al mes`,
+    });
+  }
+
+  if (topCustomer && topCustomer.sharePct >= 25) {
+    recommendations.push({
+      title: 'Reducir concentración en clientes clave',
+      description:
+        'Un porcentaje alto en un solo cliente vuelve el pronóstico vulnerable. Busca cuentas parecidas y arma ofertas cruzadas para distribuir mejor el cierre del año.',
+      metric: `${topCustomer.label}: ${formatPercent(topCustomer.sharePct)} de la facturación`,
+    });
+  }
+
+  if (topCategory) {
+    recommendations.push({
+      title: 'Usar la categoría líder como palanca',
+      description:
+        'La categoría con mayor facturación puede convertirse en campaña de recompra, paquetes o venta cruzada para acelerar el ritmo mensual requerido.',
+      metric: `${topCategory.label}: ${formatCurrency(topCategory.amount)}`,
+    });
+  }
+
+  if (dataset.visibilityScope !== 'own' && topSeller) {
+    recommendations.push({
+      title: 'Replicar el patrón del vendedor líder',
+      description:
+        'Revisa mezcla de clientes, frecuencia de seguimiento y categorías vendidas por el vendedor líder para convertirlo en guía del equipo.',
+      metric: `${topSeller.label}: ${formatCurrency(topSeller.amount)}`,
+    });
+  }
+
+  if (remainingForecast > 0) {
+    recommendations.push({
+      title: 'Convertir el pronóstico en cuota operativa',
+      description:
+        'Divide el monto restante por mes y por vendedor/cartera. Así el forecast deja de ser una cifra pasiva y se vuelve una meta semanal verificable.',
+      metric: `Restante esperado: ${formatCurrency(remainingForecast)}`,
+    });
+  }
+
+  if (recommendations.length === 0) {
+    recommendations.push({
+      title: 'Mantener ritmo y proteger el forecast',
+      description:
+        'Los indicadores no muestran alertas críticas. La mejor acción es sostener seguimiento, cuidar la recompra y monitorear que el cierre alcance el ritmo proyectado.',
+      metric: `Cierre anual proyectado: ${formatCurrency(annualForecast)}`,
+    });
+  }
+
+  return recommendations.slice(0, 5);
+}
+
+function buildMonthlyAmountMatrix(points: SalesForecastDataset['monthly']) {
+  const matrix = new Map<number, number[]>();
+
+  points.forEach((point) => {
+    const date = new Date(`${point.month}-01T00:00:00.000Z`);
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth();
+    if (!matrix.has(year)) matrix.set(year, Array(12).fill(0));
+    matrix.get(year)![month] += point.amount;
+  });
+
+  return matrix;
+}
+
+function buildAnnualTotals(matrix: Map<number, number[]>) {
+  return [...matrix.entries()]
+    .map(([year, values]) => ({
+      activeMonths: values.filter((value) => Math.abs(value) > 0).length,
+      year,
+      values,
+      total: values.reduce((sum, value) => sum + value, 0),
+    }))
+    .sort((left, right) => left.year - right.year);
+}
+
+function buildAverageSeasonalShares(matrix: Map<number, number[]>, currentYear: number) {
+  const fullYears = buildAnnualTotals(matrix)
+    .filter((entry) => entry.year < currentYear && entry.total > 0 && entry.activeMonths >= 10)
+    .map((entry) => entry.values);
+  const baseShares = Array(12).fill(1 / 12);
+  if (fullYears.length === 0) return baseShares;
+  const sharesByMonth: number[][] = Array.from({ length: 12 }, () => []);
+
+  fullYears.forEach((values) => {
+    const total = values.reduce((sum, value) => sum + value, 0);
+    values.forEach((value, index) => {
+      sharesByMonth[index].push(total > 0 ? value / total : 0);
+    });
+  });
+
+  const robustShares = sharesByMonth.map((values) => median(values));
+  const totalShare = robustShares.reduce((sum, value) => sum + value, 0);
+  return totalShare > 0 ? robustShares.map((value) => value / totalShare) : baseShares;
+}
+
+function buildAnnualForecastSeries(
+  currentYearValues: number[],
+  seasonalShares: number[],
+  annualForecast: number,
+  currentMonthIndex: number,
+  year: number,
+  probabilityCone: AnnualForecastProbabilityCone,
+  modelResults: AnnualForecastModelResult[],
+) {
+  return Array.from({ length: 12 }, (_, index) => ({
+    label: new Intl.DateTimeFormat('es-MX', { month: 'short', timeZone: 'UTC' }).format(
+      new Date(Date.UTC(year, index, 1)),
+    ),
+    value: index <= currentMonthIndex ? currentYearValues[index] ?? 0 : annualForecast * (seasonalShares[index] ?? 0),
+    coneLow: index <= currentMonthIndex
+      ? currentYearValues[index] ?? 0
+      : probabilityCone.conservative * (seasonalShares[index] ?? 0),
+    coneHigh: index <= currentMonthIndex
+      ? currentYearValues[index] ?? 0
+      : probabilityCone.optimistic * (seasonalShares[index] ?? 0),
+    forecast: index > currentMonthIndex,
+    modelValues: modelResults.reduce((values, model) => ({
+      ...values,
+      [model.id]: model.monthlySeries[index] ?? 0,
+    }), {} as Record<AnnualForecastModelResult['id'], number>),
+  }));
+}
+
+function buildMonthlyForecastValues(
+  currentYearValues: number[],
+  seasonalShares: number[],
+  annualForecast: number,
+  currentMonthIndex: number,
+) {
+  return Array.from({ length: 12 }, (_, index) =>
+    index <= currentMonthIndex
+      ? currentYearValues[index] ?? 0
+      : annualForecast * (seasonalShares[index] ?? 0),
+  );
+}
+
+function calculateElapsedMonthFraction(date: Date) {
+  const daysInMonth = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+  return Math.min(1, Math.max(1 / daysInMonth, date.getUTCDate() / daysInMonth));
+}
+
+function calculateComparableYearToDate(values: number[], currentMonthIndex: number, elapsedMonthFraction: number) {
+  return (
+    values.slice(0, currentMonthIndex).reduce((sum, value) => sum + value, 0) +
+    (values[currentMonthIndex] ?? 0) * elapsedMonthFraction
+  );
+}
+
+function forecastSeasonalSmoothedAnnual({
+  completedAnnualTotals,
+  currentMonthIndex,
+  currentYearValues,
+  elapsedMonthFraction,
+  seasonalAnnualForecast,
+  seasonalShares,
+}: {
+  completedAnnualTotals: AnnualForecastTotal[];
+  currentMonthIndex: number;
+  currentYearValues: number[];
+  elapsedMonthFraction: number;
+  seasonalAnnualForecast: number;
+  seasonalShares: number[];
+}) {
+  const historicalBaseline = forecastMovingAverage(completedAnnualTotals.slice(-3).map((entry) => entry.total));
+  const baseline = historicalBaseline > 0 ? historicalBaseline : seasonalAnnualForecast;
+  const recentStart = Math.max(0, currentMonthIndex - 2);
+  const recentActual =
+    currentYearValues.slice(recentStart, currentMonthIndex).reduce((sum, value) => sum + value, 0) +
+    (currentYearValues[currentMonthIndex] ?? 0) * elapsedMonthFraction;
+  const recentExpectedShare =
+    seasonalShares.slice(recentStart, currentMonthIndex).reduce((sum, value) => sum + value, 0) +
+    (seasonalShares[currentMonthIndex] ?? 0) * elapsedMonthFraction;
+  const recentExpected = baseline * recentExpectedShare;
+  const recentRatio = recentExpected > 0 ? recentActual / recentExpected : 1;
+  const dampedRecentRatio = 1 + (recentRatio - 1) * 0.35;
+
+  return seasonalAnnualForecast * Math.min(1.4, Math.max(0.65, dampedRecentRatio));
+}
+
+function forecastRemainingMonthsWithLinearTrend(
+  values: number[],
+  currentMonthIndex: number,
+  elapsedMonthFraction: number,
+) {
+  const nextMonthForecast = forecastLinearTrend(values);
+  const remainingMonthEquivalent = Math.max(0, 12 - currentMonthIndex - elapsedMonthFraction);
+  return Math.max(0, nextMonthForecast) * remainingMonthEquivalent;
+}
+
+function backtestAnnualSeasonalityError(
+  annualTotals: AnnualForecastTotal[],
+  currentMonthIndex: number,
+  elapsedMonthFraction: number,
+) {
+  if (annualTotals.length < 3) return null;
+  const errors: number[] = [];
+
+  annualTotals.forEach((target, index) => {
+    const priorYears = annualTotals.slice(0, index);
+    if (priorYears.length < 2 || target.total <= 0) return;
+    const historicalShares = buildAverageSeasonalShares(
+      new Map(priorYears.map((entry) => [entry.year, entry.values])),
+      target.year,
+    );
+    const elapsedShare =
+      historicalShares.slice(0, currentMonthIndex).reduce((sum, value) => sum + value, 0) +
+      (historicalShares[currentMonthIndex] ?? 0) * elapsedMonthFraction;
+    const actualToDate = calculateComparableYearToDate(target.values, currentMonthIndex, elapsedMonthFraction);
+    if (elapsedShare <= 0 || actualToDate <= 0) return;
+    errors.push(Math.abs((target.total - actualToDate / elapsedShare) / target.total) * 100);
+  });
+
+  return errors.length > 0 ? mean(errors) : null;
+}
+
+function backtestLastYearPaceError(
+  annualTotals: AnnualForecastTotal[],
+  currentMonthIndex: number,
+  elapsedMonthFraction: number,
+) {
+  if (annualTotals.length < 2) return null;
+  const errors: number[] = [];
+
+  annualTotals.forEach((target, index) => {
+    const previous = annualTotals[index - 1];
+    if (!previous || previous.total <= 0 || target.total <= 0) return;
+    const previousToDate = calculateComparableYearToDate(previous.values, currentMonthIndex, elapsedMonthFraction);
+    const targetToDate = calculateComparableYearToDate(target.values, currentMonthIndex, elapsedMonthFraction);
+    if (previousToDate <= 0 || targetToDate <= 0) return;
+    const forecast = previous.total * (targetToDate / previousToDate);
+    errors.push(Math.abs((target.total - forecast) / target.total) * 100);
+  });
+
+  return errors.length > 0 ? mean(errors) : null;
+}
+
+function calculateAnnualForecastConfidence(
+  completedYears: number,
+  errorPct: number | null,
+  deseasonalizedVolatilityPct: number,
+  modelSpreadPct: number,
+) {
+  const base = 92;
+  const errorPenalty = errorPct === null ? 20 : Math.min(34, errorPct * 0.9);
+  const samplePenalty = completedYears >= 4 ? 0 : completedYears >= 3 ? 8 : completedYears >= 2 ? 18 : 30;
+  const volatilityPenalty = Math.min(20, deseasonalizedVolatilityPct * 0.3);
+  const spreadPenalty = Math.min(18, modelSpreadPct * 0.55);
+  return Math.min(92, Math.max(35, base - errorPenalty - samplePenalty - volatilityPenalty - spreadPenalty));
+}
+
+function buildForecastProbabilityCone(
+  annualForecast: number,
+  yearToDate: number,
+  errorPct: number | null,
+  deseasonalizedVolatilityPct: number,
+  modelSpreadPct: number,
+): AnnualForecastProbabilityCone {
+  const uncertaintyPct = Math.min(
+    40,
+    Math.max(8, (errorPct ?? 18) * 0.7 + deseasonalizedVolatilityPct * 0.25 + modelSpreadPct * 0.35),
+  );
+  const conservative = Math.max(yearToDate, annualForecast * (1 - uncertaintyPct / 100));
+  const optimistic = annualForecast * (1 + uncertaintyPct / 100);
+
+  return {
+    conservative: clampForecast(conservative),
+    expected: clampForecast(annualForecast),
+    optimistic: clampForecast(optimistic),
+    remainingConservative: Math.max(0, conservative - yearToDate),
+    remainingExpected: Math.max(0, annualForecast - yearToDate),
+    remainingOptimistic: Math.max(0, optimistic - yearToDate),
+    uncertaintyPct,
+  };
+}
+
+function calculateDeseasonalizedVolatilityPct(annualTotals: AnnualForecastTotal[], seasonalShares: number[]) {
+  const residuals: number[] = [];
+
+  annualTotals.forEach((entry) => {
+    entry.values.forEach((value, index) => {
+      const expected = entry.total * (seasonalShares[index] ?? 0);
+      if (expected > 0 && value > 0) {
+        residuals.push(((value - expected) / expected) * 100);
+      }
+    });
+  });
+
+  if (residuals.length >= 6) {
+    return medianAbsoluteDeviation(residuals) * 1.4826;
+  }
+
+  return calculateVolatilityPct(annualTotals.map((entry) => entry.total));
+}
+
+function calculateCurrentYearMonthlyAverage(dataset: SalesForecastDataset) {
+  const currentYearPrefix = `${dataset.currentYear}-`;
+  const elapsedMonths = dataset.monthly.filter((point) => point.month.startsWith(currentYearPrefix) && point.amount > 0);
+  return elapsedMonths.length > 0 ? mean(elapsedMonths.map((point) => point.amount)) : 0;
+}
+
+function ForecastProjectionChart({
+  models,
+  points,
+}: {
+  models: AnnualForecastModelResult[];
+  points: AnnualSalesForecastResult['series'];
+}) {
+  if (points.length === 0) {
+    return <EmptyState title="Sin base de pronóstico">No hay puntos suficientes para proyectar.</EmptyState>;
+  }
+
+  const modelPalette: Record<AnnualForecastModelResult['id'], string> = {
+    lastYearPace: '#6f8f72',
+    linearTrend: '#b77945',
+    movingAverage: '#7d8b9a',
+    seasonalPace: '#b45f4d',
+    seasonalSmoothed: '#5f8c8b',
+  };
+  const leftPadding = 64;
+  const rightPadding = 16;
+  const topPadding = 18;
+  const bottomPadding = 34;
+  const width = 720;
+  const height = 238;
+  const chartWidth = width - leftPadding - rightPadding;
+  const chartHeight = height - topPadding - bottomPadding;
+  const modelValues = models.flatMap((model) => model.monthlySeries);
+  const coneValues = points.flatMap((point) => [point.coneLow ?? point.value, point.coneHigh ?? point.value]);
+  const maxValue = Math.max(1, ...points.map((point) => point.value), ...modelValues, ...coneValues);
+  const stepX = points.length === 1 ? chartWidth : chartWidth / (points.length - 1);
+  const pointFor = (value: number, index: number) => {
+    const x = leftPadding + index * stepX;
+    const y = topPadding + chartHeight - (value / maxValue) * chartHeight;
+    return { x, y };
+  };
+  const linePoints = points
+    .map((point, index) => {
+      const { x, y } = pointFor(point.value, index);
+      return `${x},${y}`;
+    })
+    .join(' ');
+  const forecastStartIndex = Math.max(0, points.findIndex((point) => point.forecast) - 1);
+  const coneTopPoints = points
+    .slice(forecastStartIndex)
+    .map((point, offset) => {
+      const { x, y } = pointFor(point.coneHigh ?? point.value, forecastStartIndex + offset);
+      return `${x},${y}`;
+    });
+  const coneBottomPoints = points
+    .slice(forecastStartIndex)
+    .map((point, offset) => {
+      const { x, y } = pointFor(point.coneLow ?? point.value, forecastStartIndex + offset);
+      return `${x},${y}`;
+    })
+    .reverse();
+  const conePolygon = [...coneTopPoints, ...coneBottomPoints].join(' ');
+  const ySteps = 4;
+  const gridValues = Array.from({ length: ySteps + 1 }, (_, index) =>
+    (maxValue / ySteps) * (ySteps - index),
+  );
+
+  return (
+    <div className="reports-chart">
+      <div className="reports-chart-legend">
+        <span><i className="tone-invoiced"></i>Histórico visible</span>
+        <span><i className="tone-sold"></i>Media del ensamble</span>
+        <span><i className="tone-margin"></i>Cono de probabilidad</span>
+        {models.slice(0, 5).map((model) => (
+          <span key={model.id}>
+            <i style={{ background: modelPalette[model.id] }}></i>
+            {model.label}
+          </span>
+        ))}
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} className="reports-chart-svg">
+        {gridValues.map((gridValue) => {
+          const y = topPadding + chartHeight - (gridValue / maxValue) * chartHeight;
+          return (
+            <g key={gridValue}>
+              <line
+                x1={leftPadding}
+                x2={leftPadding + chartWidth}
+                y1={y}
+                y2={y}
+                className="reports-chart-grid-line"
+              />
+              <text x={leftPadding - 8} y={y + 4} textAnchor="end" className="reports-chart-axis-label">
+                {formatCurrencyCompact(gridValue)}
+              </text>
+            </g>
+          );
+        })}
+        {conePolygon ? (
+          <polygon
+            points={conePolygon}
+            fill="rgba(180, 95, 77, 0.13)"
+            stroke="rgba(180, 95, 77, 0.24)"
+            strokeWidth="1"
+          />
+        ) : null}
+        {models.slice(0, 5).map((model) => (
+          <polyline
+            key={model.id}
+            fill="none"
+            stroke={modelPalette[model.id]}
+            strokeDasharray="5 5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1.45"
+            opacity="0.72"
+            points={model.monthlySeries
+              .map((value, index) => {
+                const { x, y } = pointFor(value, index);
+                return `${x},${y}`;
+              })
+              .join(' ')}
+          />
+        ))}
+        <polyline
+          fill="none"
+          stroke="var(--reports-chart-current)"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          points={linePoints}
+        />
+        {points.map((point, index) => {
+          const { x, y } = pointFor(point.value, index);
+          return (
+            <g key={`${point.label}-${index}`}>
+              <circle
+                cx={x}
+                cy={y}
+                r={point.forecast ? 4 : 3}
+                fill={point.forecast ? 'var(--reports-chart-previous)' : 'var(--reports-chart-current)'}
+              />
+              {(index === 0 || index === points.length - 1 || index % 2 === 1) ? (
+                <text x={x} y={height - 10} textAnchor="middle" className="reports-chart-axis-label">
+                  {point.label}
+                </text>
+              ) : null}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+function forecastMovingAverage(values: number[]) {
+  const windowSize = Math.min(3, values.length);
+  return mean(values.slice(-windowSize));
+}
+
+function forecastLinearTrend(values: number[]) {
+  if (values.length <= 1) return values[0] ?? 0;
+  const n = values.length;
+  const xMean = (n - 1) / 2;
+  const yMean = mean(values);
+  let numerator = 0;
+  let denominator = 0;
+
+  values.forEach((value, index) => {
+    numerator += (index - xMean) * (value - yMean);
+    denominator += (index - xMean) ** 2;
+  });
+
+  const slope = denominator === 0 ? 0 : numerator / denominator;
+  const intercept = yMean - slope * xMean;
+  return intercept + slope * n;
+}
+
+function calculateVolatilityPct(values: number[]) {
+  const average = mean(values);
+  if (average <= 0 || values.length <= 1) return 0;
+  const variance = mean(values.map((value) => (value - average) ** 2));
+  return (Math.sqrt(variance) / average) * 100;
+}
+
+function calculateRobustRelativeSpreadPct(values: number[]) {
+  const center = median(values.filter((value) => value > 0));
+  if (center <= 0 || values.length <= 1) return 0;
+  return (medianAbsoluteDeviation(values) * 1.4826 / center) * 100;
+}
+
+function clampForecast(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, value);
+}
+
+function mean(values: number[]) {
+  if (values.length === 0) return 0;
+  return values.reduce((total, value) => total + value, 0) / values.length;
+}
+
+function median(values: number[]) {
+  if (values.length === 0) return 0;
+  const sorted = values.slice().sort((left, right) => left - right);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
+}
+
+function medianAbsoluteDeviation(values: number[]) {
+  if (values.length === 0) return 0;
+  const center = median(values);
+  return median(values.map((value) => Math.abs(value - center)));
+}
+
+function DetailsSectionV2({
+  dataset,
+  selectedDetailKey,
+  snapshot,
+  onChangeDetail,
+}: {
+  dataset: OdooCommercialDataset;
+  selectedDetailKey: DetailKey;
+  snapshot: CommercialDashboardSnapshot;
+  onChangeDetail: (detailKey: DetailKey) => void;
+}) {
+  const detailTabs: Array<{ key: DetailKey; label: string }> = [
+    { key: 'pendingQuotes', label: 'Cotizaciones pendientes' },
+    { key: 'expiredQuotes', label: 'Cotizaciones vencidas' },
+    { key: 'cancelledQuotes', label: 'Cotizaciones canceladas' },
+    { key: 'convertedQuotes', label: 'Cotizaciones convertidas' },
+    { key: 'confirmedOrders', label: 'Órdenes de venta' },
+    { key: 'postedInvoices', label: 'Facturas publicadas' },
+    { key: 'atRiskClients', label: 'Clientes en riesgo' },
+    { key: 'negativeMarginProducts', label: 'Productos con margen negativo' },
+    { key: 'lowConversionSellers', label: 'Vendedores con baja conversión' },
+  ];
+
+  return (
+    <div className="reports-stack">
+      <SectionLead
+        title="Detalle y navegación"
+        description="Abre subconjuntos de registros relacionados con hallazgos, riesgos o indicadores clave."
+      />
+
+      <AccordionPanel
+        defaultOpen
+        title="Explorar registros"
+        subtitle="Selecciona el conjunto de datos que quieres revisar"
+      >
+        <div className="reports-chip-list">
+          {detailTabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              className={selectedDetailKey === tab.key ? 'secondary-button' : 'ghost-button'}
+              onClick={() => onChangeDetail(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        {renderDetailTable(dataset, selectedDetailKey, snapshot.details[selectedDetailKey])}
+      </AccordionPanel>
+    </div>
+  );
+}
+
+function SectionLead({
+  actions,
+  title,
+  description,
+}: {
+  actions?: ReactNode;
+  title: string;
+  description?: string;
+}) {
+  return (
+    <article className="panel reports-section-lead">
+      <div className="reports-panel-body">
+        <div className="reports-section-lead-head">
+          <h3>{title}</h3>
+          {actions}
+        </div>
+        {description ? <p>{description}</p> : null}
+      </div>
+    </article>
+  );
+}
+
+function SectionReportActions({ report, compact = false }: { report: SectionReport; compact?: boolean }) {
+  const reportShareKey = `${report.generatedAtIso}|${report.sellerName ?? ''}|${report.subtitle}|${report.title}`;
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareStatus, setShareStatus] = useState<'idle' | 'preparing' | 'ready' | 'copied' | 'error'>('idle');
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareKey, setShareKey] = useState<string | null>(null);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const currentShareUrl = shareKey === reportShareKey ? shareUrl : null;
+
+  async function prepareShareLink() {
+    if (currentShareUrl || shareStatus === 'preparing') return;
+    setShareStatus('preparing');
+    setShareError(null);
+    try {
+      const url = await createSharedSalesReport({
+        companyName: report.companyName,
+        sellerName: report.sellerName,
+        title: report.title,
+        reportPeriod: report.subtitle,
+        reportHtml: buildSectionReportHtml(report),
+        score: report.score?.total,
+      });
+      setShareUrl(url);
+      setShareKey(reportShareKey);
+      setShareStatus('ready');
+    } catch (error) {
+      setShareStatus('error');
+      setShareError(
+        error instanceof Error
+          ? `No se pudo preparar el enlace. ${error.message}`
+          : 'No se pudo preparar el enlace.',
+      );
+    }
+  }
+
+  async function handleCopyShareUrl() {
+    if (!currentShareUrl) return;
+    try {
+      await navigator.clipboard.writeText(currentShareUrl);
+    } catch {
+      window.prompt('Copia el enlace del reporte:', currentShareUrl);
+    }
+    setShareStatus('copied');
+    window.setTimeout(() => setShareStatus('ready'), 2400);
+  }
+
+  function handleOpenShareModal() {
+    setIsShareModalOpen(true);
+    void prepareShareLink();
+  }
+
+  useEffect(() => {
+    if (!isShareModalOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsShareModalOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isShareModalOpen]);
+
+  const shareText = currentShareUrl
+    ? `Reporte comercial: ${report.title}\n${report.subtitle}\n${currentShareUrl}`
+    : '';
+  const whatsappUrl = currentShareUrl
+    ? `https://wa.me/?text=${encodeURIComponent(shareText)}`
+    : undefined;
+  const mailUrl = currentShareUrl
+    ? `mailto:?subject=${encodeURIComponent(report.title)}&body=${encodeURIComponent(shareText)}`
+    : undefined;
+
+  return (
+    <>
+      <div className={`reports-section-actions${compact ? ' reports-topbar-share-actions' : ''}`}>
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={handleOpenShareModal}
+        >
+          <Share2 size={16} />
+          {compact ? 'Compartir enlace' : 'Compartir reporte'}
+        </button>
+        {!compact ? <button
+          type="button"
+          className="secondary-button"
+          onClick={() => downloadSectionReportPdf(report)}
+        >
+          <FileText size={16} />
+          Exportar PDF
+        </button> : null}
+      </div>
+      {isShareModalOpen ? (
+        <div
+          className="report-share-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target) setIsShareModalOpen(false);
+          }}
+        >
+          <section
+            aria-labelledby="report-share-title"
+            aria-modal="true"
+            className="report-share-modal"
+            role="dialog"
+          >
+            <div className="report-share-modal-head">
+              <div>
+                <span>Compartir reporte</span>
+                <h2 id="report-share-title">{report.title}</h2>
+              </div>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Cerrar"
+                onClick={() => setIsShareModalOpen(false)}
+              >
+                <X size={17} />
+              </button>
+            </div>
+
+            <p className="report-share-modal-copy">
+              El reporte quedará disponible como una página fija con el mismo diseño del PDF para revisarlo sin entrar al sistema.
+            </p>
+
+            {shareStatus === 'preparing' ? (
+              <div className="report-share-status">
+                <RefreshCcw size={16} />
+                Preparando enlace seguro...
+              </div>
+            ) : null}
+
+            {shareError ? (
+              <div className="report-share-status is-error">
+                <CircleAlert size={16} />
+                {shareError}
+                <button type="button" className="text-button" onClick={() => void prepareShareLink()}>
+                  Reintentar
+                </button>
+              </div>
+            ) : null}
+
+            <div className="report-share-options">
+              <a
+                className={`report-share-option is-whatsapp${currentShareUrl ? '' : ' is-disabled'}`}
+                href={whatsappUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(event) => {
+                  if (!currentShareUrl) event.preventDefault();
+                }}
+              >
+                <MessageCircle size={18} />
+                <span>WhatsApp</span>
+              </a>
+              <button
+                type="button"
+                className="report-share-option is-copy"
+                disabled={!currentShareUrl}
+                onClick={() => void handleCopyShareUrl()}
+              >
+                {shareStatus === 'copied' ? <CheckCircle2 size={18} /> : <Copy size={18} />}
+                <span>{shareStatus === 'copied' ? 'Enlace copiado' : 'Copiar link'}</span>
+              </button>
+              <a
+                className={`report-share-option is-email${currentShareUrl ? '' : ' is-disabled'}`}
+                href={mailUrl}
+                onClick={(event) => {
+                  if (!currentShareUrl) event.preventDefault();
+                }}
+              >
+                <Mail size={18} />
+                <span>Correo</span>
+              </a>
+            </div>
+
+            <div className="report-share-link-preview">
+              <span>Enlace del reporte</span>
+              <strong>{currentShareUrl ?? 'Generando enlace...'}</strong>
+            </div>
+          </section>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function AccordionPanel({
+  children,
+  defaultOpen = false,
+  subtitle,
+  title,
+}: {
+  children: ReactNode;
+  defaultOpen?: boolean;
+  subtitle?: string;
+  title: string;
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <article className={`panel reports-accordion${isOpen ? ' is-open' : ''}`}>
+      <button
+        type="button"
+        className="reports-accordion-trigger"
+        onClick={() => setIsOpen((current) => !current)}
+      >
+        <div>
+          <strong>{title}</strong>
+          {subtitle ? <span>{subtitle}</span> : null}
+        </div>
+        <ChevronRight size={18} />
+      </button>
+      {isOpen ? <div className="reports-accordion-content">{children}</div> : null}
+    </article>
+  );
+}
+
+function StaticPanel({
+  children,
+  subtitle,
+  title,
+}: {
+  children: ReactNode;
+  subtitle?: string;
+  title: string;
+}) {
+  return (
+    <article className="panel reports-static-panel">
+      <div className="panel-header">
+        <div>
+          <strong>{title}</strong>
+          {subtitle ? <span>{subtitle}</span> : null}
+        </div>
+      </div>
+      <div className="reports-panel-body">{children}</div>
+    </article>
+  );
+}
+
+function SectionInfoCard({
+  children,
+  description,
+  title,
+}: {
+  children: ReactNode;
+  description: string;
+  title: string;
+}) {
+  return (
+    <section className="reports-info-card">
+      <div className="reports-info-copy">
+        <strong>{title}</strong>
+        <p>{description}</p>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function GaugePanel({
+  description,
+  good,
+  inverse = false,
+  max,
+  title,
+  value,
+  warning,
+}: {
+  description: string;
+  good: number;
+  inverse?: boolean;
+  max: number;
+  title: string;
+  value: number;
+  warning: number;
+}) {
+  const safeValue = Math.max(0, Math.min(value, max));
+  const normalized = safeValue / Math.max(max, 1);
+  const radius = 56;
+  const centerX = 72;
+  const startX = centerX - radius;
+  const valueX = startX + radius * 2 * normalized;
+  const toneClass = inverse
+    ? value <= good
+      ? 'good'
+      : value <= warning
+        ? 'warning'
+        : 'bad'
+    : value >= good
+      ? 'good'
+      : value >= warning
+        ? 'warning'
+        : 'bad';
+
+  return (
+    <section className="reports-gauge-card">
+      {title || description ? (
+        <div className="reports-gauge-head">
+          {title ? <strong>{title}</strong> : null}
+          {description ? <small>{description}</small> : null}
+        </div>
+      ) : null}
+      <div className="reports-gauge-visual">
+        <svg viewBox="0 0 144 92" className={`reports-gauge-svg tone-${toneClass}`}>
+          <path d="M 16 72 A 56 56 0 0 1 128 72" pathLength="100" className="reports-gauge-track" />
+          <path
+            d="M 16 72 A 56 56 0 0 1 128 72"
+            pathLength="100"
+            className="reports-gauge-fill"
+            style={{ strokeDasharray: `${normalized * 100} 100` }}
+          />
+          <line x1={valueX} y1={72} x2={valueX} y2={18} className="reports-gauge-needle" />
+          <text x={centerX} y={64} textAnchor="middle" className="reports-gauge-value">
+            {value.toFixed(1)}%
+          </text>
+          <text x="16" y="86" textAnchor="middle" className="reports-gauge-label">
+            0
+          </text>
+          <text x="128" y="86" textAnchor="middle" className="reports-gauge-label">
+            {max}
+          </text>
+        </svg>
+      </div>
+    </section>
+  );
+}
+
+function ParetoPreviewChart({ rows }: { rows: ParetoRow[] }) {
+  if (rows.length === 0) {
+    return <EmptyState title="Sin datos">No hay suficientes elementos para calcular Pareto.</EmptyState>;
+  }
+
+  const maxValue = Math.max(...rows.map((row) => row.value), 1);
+
+  return (
+    <div className="reports-pareto-preview">
+      {rows.map((row) => (
+        <div key={row.key} className="reports-pareto-row">
+          <div className="reports-pareto-copy">
+            <strong>{row.label}</strong>
+            <small>{formatPercent(row.accumulatedPct)} acumulado</small>
+          </div>
+          <div className="reports-pareto-bars">
+            <span
+              className="reports-pareto-bar"
+              style={{ width: `${(row.value / maxValue) * 100}%` }}
+            />
+            <span
+              className="reports-pareto-line-dot"
+              style={{ left: `${Math.min(row.accumulatedPct, 100)}%` }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PurchaseTrendPanel({ points }: { points: PurchaseTrendPoint[] }) {
+  if (points.length === 0) {
+    return <EmptyState title="Sin evolución">No hay datos para la serie temporal de compras.</EmptyState>;
+  }
+
+  const leftPadding = 64;
+  const rightPadding = 14;
+  const topPadding = 16;
+  const bottomPadding = 28;
+  const maxValue = Math.max(
+    1,
+    ...points.flatMap((point) => [
+      point.previousBilledAmount,
+      point.billedAmount,
+      point.orderedAmount,
+    ]),
+  );
+  const width = 720;
+  const height = 240;
+  const chartWidth = width - leftPadding - rightPadding;
+  const chartHeight = height - topPadding - bottomPadding;
+  const stepX = points.length === 1 ? chartWidth : chartWidth / (points.length - 1);
+  const ySteps = 4;
+  const gridValues = Array.from({ length: ySteps + 1 }, (_, index) =>
+    (maxValue / ySteps) * (ySteps - index),
+  );
+
+  const buildLine = (valueGetter: (point: PurchaseTrendPoint) => number) =>
+    points
+      .map((point, index) => {
+        const x = leftPadding + index * stepX;
+        const y = topPadding + chartHeight - (valueGetter(point) / maxValue) * chartHeight;
+        return `${x},${y}`;
+      })
+      .join(' ');
+  const previousBilledLine = buildLine((point) => point.previousBilledAmount);
+  const previousBilledArea = `${leftPadding},${height - bottomPadding} ${previousBilledLine} ${leftPadding + chartWidth},${height - bottomPadding}`;
+
+  return (
+    <div className="reports-chart">
+      <div className="reports-chart-legend">
+        <span><i className="tone-sold"></i>Facturación período anterior</span>
+        <span><i className="tone-invoiced"></i>Facturación proveedor</span>
+        <span><i className="tone-margin"></i>Órdenes de compra</span>
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} className="reports-chart-svg">
+        {gridValues.map((gridValue) => {
+          const y = topPadding + chartHeight - (gridValue / maxValue) * chartHeight;
+          return (
+            <g key={gridValue}>
+              <line
+                x1={leftPadding}
+                x2={leftPadding + chartWidth}
+                y1={y}
+                y2={y}
+                className="reports-chart-grid-line"
+              />
+              <text x={leftPadding - 8} y={y + 4} textAnchor="end" className="reports-chart-axis-label">
+                {formatCurrencyCompact(gridValue)}
+              </text>
+            </g>
+          );
+        })}
+        <polygon fill="url(#reports-purchase-area-gradient)" points={previousBilledArea} />
+        <defs>
+          <linearGradient id="reports-purchase-area-gradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--reports-chart-previous-fill-strong)" />
+            <stop offset="100%" stopColor="var(--reports-chart-previous-fill-soft)" />
+          </linearGradient>
+        </defs>
+        <polyline
+          fill="none"
+          stroke="var(--reports-chart-previous)"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          points={previousBilledLine}
+        />
+        <polyline
+          fill="none"
+          stroke="var(--reports-chart-margin)"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          points={buildLine((point) => point.orderedAmount)}
+        />
+        <polyline
+          fill="none"
+          stroke="var(--reports-chart-current)"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          points={buildLine((point) => point.billedAmount)}
+        />
+      </svg>
+    </div>
+  );
+}
+
+function PurchaseCategoryMixPanel({ rows }: { rows: PurchaseCategoryRow[] }) {
+  if (rows.length === 0) {
+    return <EmptyState title="Sin categorías">No hay compras facturadas por categoría en el período.</EmptyState>;
+  }
+
+  const maxSpend = Math.max(...rows.map((row) => row.billedAmount), 1);
+
+  return (
+    <div className="reports-pareto-preview">
+      {rows.map((row) => (
+        <div key={`${row.categoryId ?? row.categoryName}`} className="reports-pareto-row">
+          <div className="reports-pareto-copy">
+            <strong>{row.categoryName}</strong>
+            <small>
+              {formatPercent(row.spendSharePct)} del gasto · {formatNumber(row.productCount)} productos
+            </small>
+          </div>
+          <div className="reports-pareto-bars">
+            <span
+              className="reports-pareto-bar"
+              style={{ width: `${(row.billedAmount / maxSpend) * 100}%` }}
+            />
+            <span
+              className="reports-pareto-line-dot"
+              style={{ left: `${Math.min(row.spendSharePct, 100)}%` }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PurchaseProductsTablePanel({
+  rows,
+  title,
+}: {
+  rows: PurchaseProductRow[];
+  title: string;
+}) {
+  return (
+    <StaticPanel title={title}>
+      <DataTable
+        rows={rows}
+        storageKey={`purchase-products-${title}`}
+        columns={[
+          column<PurchaseProductRow>('product', 'Producto', (row) => row.productName, (row) => row.productName),
+          column<PurchaseProductRow>('category', 'Categoría', (row) => row.categoryName ?? 'Sin categoría', (row) => row.categoryName ?? ''),
+          column<PurchaseProductRow>('billed', 'Facturado', (row) => formatCurrency(row.billedAmount), (row) => row.billedAmount),
+          column<PurchaseProductRow>('ordered', 'Ordenado', (row) => formatCurrency(row.orderedAmount), (row) => row.orderedAmount),
+          column<PurchaseProductRow>('quantity', 'Cantidad', (row) => formatNumber(row.quantity), (row) => row.quantity),
+          column<PurchaseProductRow>('share', '% gasto', (row) => formatPercent(row.spendSharePct), (row) => row.spendSharePct),
+          column<PurchaseProductRow>('suppliers', 'Proveedores', (row) => formatNumber(row.supplierCount), (row) => row.supplierCount),
+          column<PurchaseProductRow>('change', 'Vs. período anterior', (row) => formatNullablePercent(row.billedAmountChangePct), (row) => row.billedAmountChangePct ?? Number.NEGATIVE_INFINITY),
+        ]}
+      />
+    </StaticPanel>
+  );
+}
+
+function PurchaseSuppliersTablePanel({
+  rows,
+  title,
+}: {
+  rows: PurchaseSupplierRow[];
+  title: string;
+}) {
+  return (
+    <StaticPanel title={title}>
+      <DataTable
+        rows={rows}
+        storageKey={`purchase-suppliers-${title}`}
+        columns={[
+          column<PurchaseSupplierRow>('supplier', 'Proveedor', (row) => row.supplierName, (row) => row.supplierName),
+          column<PurchaseSupplierRow>('billed', 'Facturado', (row) => formatCurrency(row.billedAmount), (row) => row.billedAmount),
+          column<PurchaseSupplierRow>('ordered', 'Ordenado', (row) => formatCurrency(row.orderedAmount), (row) => row.orderedAmount),
+          column<PurchaseSupplierRow>('bills', 'Facturas', (row) => formatNumber(row.billCount), (row) => row.billCount),
+          column<PurchaseSupplierRow>('orders', 'Órdenes', (row) => formatNumber(row.orderCount), (row) => row.orderCount),
+          column<PurchaseSupplierRow>('products', 'Productos', (row) => formatNumber(row.productCount), (row) => row.productCount),
+          column<PurchaseSupplierRow>('avg', 'Factura promedio', (row) => formatCurrency(row.averageBill), (row) => row.averageBill),
+          column<PurchaseSupplierRow>('share', '% gasto', (row) => formatPercent(row.spendSharePct), (row) => row.spendSharePct),
+          column<PurchaseSupplierRow>('change', 'Vs. período anterior', (row) => formatNullablePercent(row.billedAmountChangePct), (row) => row.billedAmountChangePct ?? Number.NEGATIVE_INFINITY),
+        ]}
+      />
+    </StaticPanel>
+  );
+}
+
+function PurchaseBuyersTablePanel({
+  rows,
+  title,
+}: {
+  rows: PurchaseBuyerRow[];
+  title: string;
+}) {
+  return (
+    <StaticPanel title={title}>
+      <DataTable
+        rows={rows}
+        storageKey={`purchase-buyers-${title}`}
+        columns={[
+          column<PurchaseBuyerRow>('buyer', 'Comprador', (row) => row.buyerName, (row) => row.buyerName),
+          column<PurchaseBuyerRow>('billed', 'Facturado', (row) => formatCurrency(row.billedAmount), (row) => row.billedAmount),
+          column<PurchaseBuyerRow>('ordered', 'Ordenado', (row) => formatCurrency(row.orderedAmount), (row) => row.orderedAmount),
+          column<PurchaseBuyerRow>('bills', 'Facturas', (row) => formatNumber(row.billCount), (row) => row.billCount),
+          column<PurchaseBuyerRow>('orders', 'Órdenes', (row) => formatNumber(row.orderCount), (row) => row.orderCount),
+          column<PurchaseBuyerRow>('suppliers', 'Proveedores', (row) => formatNumber(row.supplierCount), (row) => row.supplierCount),
+          column<PurchaseBuyerRow>('avg', 'Orden promedio', (row) => formatCurrency(row.averageOrderValue), (row) => row.averageOrderValue),
+          column<PurchaseBuyerRow>('change', 'Vs. período anterior', (row) => formatNullablePercent(row.billedAmountChangePct), (row) => row.billedAmountChangePct ?? Number.NEGATIVE_INFINITY),
+        ]}
+      />
+    </StaticPanel>
+  );
+}
+
+function PurchaseCategoriesTablePanel({
+  rows,
+  title,
+}: {
+  rows: PurchaseCategoryRow[];
+  title: string;
+}) {
+  return (
+    <StaticPanel title={title}>
+      <DataTable
+        rows={rows}
+        storageKey={`purchase-categories-${title}`}
+        columns={[
+          column<PurchaseCategoryRow>('category', 'Categoría', (row) => row.categoryName, (row) => row.categoryName),
+          column<PurchaseCategoryRow>('billed', 'Facturado', (row) => formatCurrency(row.billedAmount), (row) => row.billedAmount),
+          column<PurchaseCategoryRow>('ordered', 'Ordenado', (row) => formatCurrency(row.orderedAmount), (row) => row.orderedAmount),
+          column<PurchaseCategoryRow>('quantity', 'Cantidad', (row) => formatNumber(row.quantity), (row) => row.quantity),
+          column<PurchaseCategoryRow>('products', 'Productos', (row) => formatNumber(row.productCount), (row) => row.productCount),
+          column<PurchaseCategoryRow>('suppliers', 'Proveedores', (row) => formatNumber(row.supplierCount), (row) => row.supplierCount),
+          column<PurchaseCategoryRow>('share', '% gasto', (row) => formatPercent(row.spendSharePct), (row) => row.spendSharePct),
+          column<PurchaseCategoryRow>('change', 'Vs. período anterior', (row) => formatNullablePercent(row.billedAmountChangePct), (row) => row.billedAmountChangePct ?? Number.NEGATIVE_INFINITY),
+        ]}
+      />
+    </StaticPanel>
+  );
+}
+
+function HallazgosPanel({
+  hallazgos,
+  onOpenDetail,
+}: {
+  hallazgos: Hallazgo[];
+  onOpenDetail: (detailKey: DetailKey) => void;
+}) {
+  if (hallazgos.length === 0) {
+    return null;
+  }
+
+  return (
+    <AccordionPanel
+      defaultOpen
+      title="Hallazgos comerciales"
+      subtitle="Mensajes analíticos determinísticos basados en datos del período"
+    >
+      <div className="reports-insights">
+        {hallazgos.map((hallazgo) => (
+          <article
+            key={hallazgo.id}
+            className={`reports-insight-card tone-${mapHallazgoTone(hallazgo.level)}`}
+          >
+            <div className="timeline-card-header">
+              <strong>{hallazgo.title}</strong>
+              <span className="permission-chip allowed">{hallazgo.level}</span>
+            </div>
+            <p>{hallazgo.evidence}</p>
+            <p>{hallazgo.explanation}</p>
+            <p>
+              <strong>Recomendación:</strong> {hallazgo.recommendation}
+            </p>
+            {hallazgo.detailKey ? (
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => onOpenDetail(hallazgo.detailKey as DetailKey)}
+              >
+                Abrir detalle
+              </button>
+            ) : null}
+          </article>
+        ))}
+      </div>
+    </AccordionPanel>
+  );
+}
+
+export function FilterToolbar({
+  activeFilters,
+  appliedFilters,
+  companyLocked,
+  dataset,
+  hasPendingChanges,
+  quickRangeOptions = quickRanges,
+  sellerLocked,
+  sellerOptions,
+  sellerLabel = 'Vendedores',
+  crmOnly = false,
+  showAdvancedFilters = true,
+  onApplyFilters,
+  onApplyQuickRange,
+  onChange,
+}: {
+  activeFilters: ReportFilters;
+  appliedFilters: ReportFilters;
+  companyLocked: boolean;
+  dataset: OdooCommercialDataset | undefined;
+  hasPendingChanges: boolean;
+  quickRangeOptions?: Array<{ key: QuickRangeKey; label: string }>;
+  sellerLocked: boolean;
+  sellerOptions: ReportOption[];
+  sellerLabel?: string;
+  crmOnly?: boolean;
+  showAdvancedFilters?: boolean;
+  onApplyFilters: () => void;
+  onApplyQuickRange: (key: QuickRangeKey) => void;
+  onChange: (filters: ReportFilters) => void;
+}) {
+  const quickRangeValue = detectQuickRange(activeFilters);
+  const showLegacyFilterGrid = dataset?.database === '__legacy_filters__';
+
+  return (
+    <article
+      className="panel reports-filter-shell reports-filter-shell-reference"
+      title={buildFiltersSummaryEs(activeFilters)}
+    >
+      <div className="reports-filter-inline-row">
+        <label className="reports-inline-filter reports-inline-filter-period">
+          <span className="reports-inline-filter-icon">
+            <CalendarDays size={16} />
+          </span>
+          <select
+            value={quickRangeValue}
+            onChange={(event) => onApplyQuickRange(event.target.value as QuickRangeKey)}
+          >
+            {quickRangeOptions.map((range) => (
+              <option key={range.key} value={range.key}>
+                {range.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <InlineCompanyFilter
+          label="Compañía"
+          locked={companyLocked}
+          selectedIds={resolveActiveCompanyIds(activeFilters, dataset?.availableFilters.companies ?? [])}
+          onChange={(companyIds) => onChange({
+            ...activeFilters,
+            companyId: null,
+            companyIds,
+            sellerId: null,
+            sellerIds: dataset
+              ? getSellerOptionsForCompanies(dataset, companyIds, activeFilters).map((option) => Number(option.id))
+              : [],
+          })}
+          options={dataset?.availableFilters.companies ?? []}
+        />
+        <InlineSellerFilter
+          label={sellerLabel}
+          locked={sellerLocked}
+          selectedIds={resolveActiveSellerIds(activeFilters, sellerOptions)}
+          onChange={(sellerIds) => onChange({ ...activeFilters, sellerId: null, sellerIds })}
+          options={sellerOptions}
+        />
+        {showAdvancedFilters ? <InlineFilterSelect
+          label="Cliente"
+          value={activeFilters.customerId ?? ''}
+          onChange={(value) => onChange({ ...activeFilters, customerId: parseNullableNumber(value) })}
+          options={dataset?.availableFilters.customers ?? []}
+          emptyLabel="Todos"
+        /> : null}
+        {showAdvancedFilters && !crmOnly ? <InlineFilterSelect
+          label="Producto"
+          value={activeFilters.productId ?? ''}
+          onChange={(value) => onChange({ ...activeFilters, productId: parseNullableNumber(value) })}
+          options={dataset?.availableFilters.products ?? []}
+          emptyLabel="Todos"
+        /> : null}
+        {showAdvancedFilters && !crmOnly ? <InlineFilterSelect
+          label="Categoría"
+          value={activeFilters.categoryId ?? ''}
+          onChange={(value) => onChange({ ...activeFilters, categoryId: parseNullableNumber(value) })}
+          options={dataset?.availableFilters.categories ?? []}
+          emptyLabel="Todas"
+        /> : null}
+        {showAdvancedFilters ? <InlineFilterSelect
+          label="Equipo de ventas"
+          value={activeFilters.teamId ?? ''}
+          onChange={(value) => onChange({ ...activeFilters, teamId: parseNullableNumber(value) })}
+          options={dataset?.availableFilters.teams ?? []}
+          emptyLabel="Todos"
+        /> : null}
+        <button
+          type="button"
+          className={`reports-filter-apply-button ${hasPendingChanges ? 'has-pending-changes' : ''}`}
+          onClick={onApplyFilters}
+          disabled={!hasPendingChanges}
+        >
+          <CheckCircle2 size={16} />
+          {hasPendingChanges ? 'Aplicar filtros' : 'Filtros aplicados'}
+        </button>
+      </div>
+
+      <div className="reports-filter-range">
+        <CalendarDays size={15} />
+        <span>
+          {formatReferenceDateRange(activeFilters.startDate, activeFilters.endDate)}
+          {hasPendingChanges
+            ? ` · aplicado: ${formatReferenceDateRange(appliedFilters.startDate, appliedFilters.endDate)}`
+            : ''}
+        </span>
+      </div>
+
+      {showLegacyFilterGrid ? (
+        <div className="reports-panel-body">
+          <div className="form-grid reports-filter-grid">
+          <Field label="Fecha inicial">
+            <input
+              type="date"
+              value={activeFilters.startDate}
+              onChange={(event) => onChange({ ...activeFilters, startDate: event.target.value })}
+            />
+          </Field>
+          <Field label="Fecha final">
+            <input
+              type="date"
+              value={activeFilters.endDate}
+              onChange={(event) => onChange({ ...activeFilters, endDate: event.target.value })}
+            />
+          </Field>
+          <Field label="Compañía">
+            {companyLocked ? (
+              <div className="reports-seller-filter-locked">
+                <LockKeyhole size={15} />
+                <span>
+                  {dataset?.companyScope?.label ??
+                    dataset?.availableFilters.companies[0]?.label ??
+                    'Compañía asociada'}
+                </span>
+              </div>
+            ) : (
+              <select
+                value={activeFilters.companyId ?? ''}
+                onChange={(event) => onChange({ ...activeFilters, companyId: parseNullableNumber(event.target.value) })}
+              >
+                <option value="">Todas</option>
+                {dataset?.availableFilters.companies.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+          <Field label={sellerLabel}>
+            {sellerLocked ? (
+              <div className="reports-seller-filter-locked">
+                <LockKeyhole size={15} />
+                <span>{dataset?.sellerScope?.label ?? sellerOptions[0]?.label ?? 'Vendedor asociado'}</span>
+              </div>
+            ) : (
+              <SellerChecklistField
+                options={sellerOptions}
+                selectedIds={resolveActiveSellerIds(activeFilters, sellerOptions)}
+                onChange={(sellerIds) => onChange({ ...activeFilters, sellerId: null, sellerIds })}
+              />
+            )}
+          </Field>
+          {showAdvancedFilters ? <Field label="Equipo">
+            <select
+              value={activeFilters.teamId ?? ''}
+              onChange={(event) => onChange({ ...activeFilters, teamId: parseNullableNumber(event.target.value) })}
+            >
+              <option value="">Todos</option>
+              {dataset?.availableFilters.teams.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </Field> : null}
+          {showAdvancedFilters ? <Field label="Cliente">
+            <select
+              value={activeFilters.customerId ?? ''}
+              onChange={(event) => onChange({ ...activeFilters, customerId: parseNullableNumber(event.target.value) })}
+            >
+              <option value="">Todos</option>
+              {dataset?.availableFilters.customers.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </Field> : null}
+          {showAdvancedFilters && !crmOnly ? <Field label="Producto">
+            <select
+              value={activeFilters.productId ?? ''}
+              onChange={(event) => onChange({ ...activeFilters, productId: parseNullableNumber(event.target.value) })}
+            >
+              <option value="">Todos</option>
+              {dataset?.availableFilters.products.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </Field> : null}
+          {showAdvancedFilters && !crmOnly ? <Field label="Categoría">
+            <select
+              value={activeFilters.categoryId ?? ''}
+              onChange={(event) => onChange({ ...activeFilters, categoryId: parseNullableNumber(event.target.value) })}
+            >
+              <option value="">Todas</option>
+              {dataset?.availableFilters.categories.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </Field> : null}
+          {!crmOnly ? <Field label="Moneda">
+            <select
+              value={activeFilters.currencyCode ?? ''}
+              onChange={(event) => onChange({ ...activeFilters, currencyCode: event.target.value || null })}
+            >
+              <option value="">Todas</option>
+              {dataset?.availableFilters.currencies.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </Field> : null}
+          {!crmOnly ? <Field label="Canal">
+            <select
+              value={activeFilters.channel ?? ''}
+              onChange={(event) => onChange({ ...activeFilters, channel: event.target.value || null })}
+            >
+              <option value="">Todos</option>
+              {dataset?.availableFilters.channels.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </Field> : null}
+          {!crmOnly ? <Field label="Estado comercial">
+            <select
+              value={activeFilters.stateScope}
+              onChange={(event) =>
+                onChange({
+                  ...activeFilters,
+                  stateScope: event.target.value as ReportFilters['stateScope'],
+                })
+              }
+            >
+              <option value="all">Todos</option>
+              <option value="quotation">Cotizaciones</option>
+              <option value="confirmed">Órdenes de venta</option>
+              <option value="cancelled">Canceladas</option>
+            </select>
+          </Field> : null}
+          <Field label="Agrupación temporal">
+            <select
+              value={activeFilters.grouping}
+              onChange={(event) =>
+                onChange({
+                  ...activeFilters,
+                  grouping: event.target.value as ReportGrouping,
+                })
+              }
+            >
+              <option value="day">Día</option>
+              <option value="month">Mes</option>
+              <option value="quarter">Trimestre</option>
+              <option value="year">Año</option>
+            </select>
+          </Field>
+        </div>
+      </div>
+      ) : null}
+    </article>
+  );
+}
+
+function InlineFilterSelect({
+  emptyLabel,
+  label,
+  onChange,
+  options,
+  value,
+}: {
+  emptyLabel: string;
+  label: string;
+  onChange: (value: string) => void;
+  options: ReportOption[];
+  value: number | string;
+}) {
+  return (
+    <label className="reports-inline-filter">
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">{emptyLabel}</option>
+        {options.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function InlineCompanyFilter({
+  label,
+  locked = false,
+  onChange,
+  options,
+  selectedIds,
+}: {
+  label: string;
+  locked?: boolean;
+  onChange: (companyIds: number[]) => void;
+  options: ReportOption[];
+  selectedIds: number[];
+}) {
+  const [open, setOpen] = useState(false);
+  const normalizedOptions = useMemo(() => normalizeNumberOptions(options), [options]);
+  const allCompanyIds = useMemo(() => normalizedOptions.map((option) => option.id), [normalizedOptions]);
+  const noCompaniesSelected = selectedIds.includes(EMPTY_FILTER_SELECTION_ID);
+  const appliedSelection = useMemo(
+    () => (noCompaniesSelected ? [] : selectedIds.length > 0 ? selectedIds : allCompanyIds),
+    [allCompanyIds, noCompaniesSelected, selectedIds],
+  );
+  const [draftIds, setDraftIds] = useState<number[]>(appliedSelection);
+  const lockedLabel =
+    normalizedOptions.find((option) => appliedSelection.includes(option.id))?.label ??
+    normalizedOptions[0]?.label ??
+    'Compañía asociada';
+
+  const closeMenu = () => {
+    setDraftIds(appliedSelection);
+    setOpen(false);
+  };
+
+  const applyDraft = () => {
+    const orderedSelection = allCompanyIds.filter((companyId) => draftIds.includes(companyId));
+    onChange(orderedSelection.length > 0 ? orderedSelection : [EMPTY_FILTER_SELECTION_ID]);
+    setOpen(false);
+  };
+
+  return (
+    <div className={`reports-inline-multiselect ${open ? 'is-open' : ''} ${locked ? 'is-locked' : ''}`}>
+      <button
+        type="button"
+        className="reports-inline-multiselect-trigger"
+        disabled={locked}
+        title={locked ? 'El reporte está limitado a la compañía principal de tu usuario en Odoo.' : undefined}
+        onClick={() => {
+          if (open) {
+            closeMenu();
+            return;
+          }
+
+          setDraftIds(appliedSelection);
+          setOpen(true);
+        }}
+      >
+        <div className="reports-inline-multiselect-copy">
+          <span>{locked ? 'Compañía asociada' : label}</span>
+          <strong>{locked ? lockedLabel : formatCompanySelectionLabel(selectedIds, normalizedOptions)}</strong>
+        </div>
+        {locked ? <LockKeyhole size={15} /> : <ChevronDown size={16} />}
+      </button>
+      {open && !locked ? (
+        <div className="reports-inline-multiselect-menu">
+          <div className="reports-inline-multiselect-actions">
+            <button type="button" className="ghost-button" onClick={() => setDraftIds(allCompanyIds)}>
+              Seleccionar todas
+            </button>
+            <button type="button" className="ghost-button" onClick={() => setDraftIds([])}>
+              Desmarcar todas
+            </button>
+          </div>
+          <div className="reports-inline-multiselect-list">
+            {normalizedOptions.map((option) => {
+              const checked = draftIds.includes(option.id);
+              return (
+                <label key={option.id} className="reports-multiselect-option">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => setDraftIds(toggleDraftSellerSelection(draftIds, option.id))}
+                  />
+                  <span>{option.label}</span>
+                </label>
+              );
+            })}
+          </div>
+          <div className="reports-inline-multiselect-footer">
+            <button type="button" className="ghost-button" onClick={closeMenu}>
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={applyDraft}
+              disabled={sameNumberList(draftIds, appliedSelection)}
+            >
+              Aplicar
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function InlineSellerFilter({
+  label,
+  locked = false,
+  onChange,
+  options,
+  selectedIds,
+}: {
+  label: string;
+  locked?: boolean;
+  onChange: (sellerIds: number[]) => void;
+  options: ReportOption[];
+  selectedIds: number[];
+}) {
+  const [open, setOpen] = useState(false);
+  const normalizedOptions = useMemo(() => normalizeNumberOptions(options), [options]);
+  const allSellerIds = useMemo(() => normalizedOptions.map((option) => option.id), [normalizedOptions]);
+  const noSellersSelected = selectedIds.includes(EMPTY_FILTER_SELECTION_ID);
+  const appliedSelection = useMemo(
+    () => (noSellersSelected ? [] : selectedIds.length > 0 ? selectedIds : allSellerIds),
+    [allSellerIds, noSellersSelected, selectedIds],
+  );
+  const [draftIds, setDraftIds] = useState<number[]>(appliedSelection);
+  const lockedLabel =
+    normalizedOptions.find((option) => appliedSelection.includes(option.id))?.label ??
+    normalizedOptions[0]?.label ??
+    'Vendedor asociado';
+
+  const closeMenu = () => {
+    setDraftIds(appliedSelection);
+    setOpen(false);
+  };
+
+  const applyDraft = () => {
+    const orderedSelection = allSellerIds.filter((sellerId) => draftIds.includes(sellerId));
+    onChange(orderedSelection.length > 0 ? orderedSelection : [EMPTY_FILTER_SELECTION_ID]);
+    setOpen(false);
+  };
+
+  return (
+    <div className={`reports-inline-multiselect ${open ? 'is-open' : ''} ${locked ? 'is-locked' : ''}`}>
+      <button
+        type="button"
+        className="reports-inline-multiselect-trigger"
+        disabled={locked}
+        title={locked ? 'El reporte está limitado al vendedor asociado con tu cuenta.' : undefined}
+        onClick={() => {
+          if (open) {
+            closeMenu();
+            return;
+          }
+
+          setDraftIds(appliedSelection);
+          setOpen(true);
+        }}
+      >
+        <div className="reports-inline-multiselect-copy">
+          <span>{locked ? 'Vendedor asociado' : label}</span>
+          <strong>{locked ? lockedLabel : formatSellerSelectionLabel(selectedIds, normalizedOptions)}</strong>
+        </div>
+        {locked ? <LockKeyhole size={15} /> : <ChevronDown size={16} />}
+      </button>
+      {open && !locked ? (
+        <div className="reports-inline-multiselect-menu">
+          <div className="reports-inline-multiselect-actions">
+            <button type="button" className="ghost-button" onClick={() => setDraftIds(allSellerIds)}>
+              Seleccionar todos
+            </button>
+            <button type="button" className="ghost-button" onClick={() => setDraftIds([])}>
+              Desmarcar todos
+            </button>
+          </div>
+          <div className="reports-inline-multiselect-list">
+            {normalizedOptions.map((option) => {
+              const checked = draftIds.includes(option.id);
+              return (
+                <label key={option.id} className="reports-multiselect-option">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() =>
+                      setDraftIds(toggleDraftSellerSelection(draftIds, option.id))
+                    }
+                  />
+                  <span>{option.label}</span>
+                </label>
+              );
+            })}
+          </div>
+          <div className="reports-inline-multiselect-footer">
+            <button type="button" className="ghost-button" onClick={closeMenu}>
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={applyDraft}
+              disabled={sameNumberList(draftIds, appliedSelection)}
+            >
+              Aplicar
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SellerChecklistField({
+  onChange,
+  options,
+  selectedIds,
+}: {
+  onChange: (sellerIds: number[]) => void;
+  options: ReportOption[];
+  selectedIds: number[];
+}) {
+  const normalizedOptions = normalizeNumberOptions(options);
+
+  if (normalizedOptions.length === 0) {
+    return <div className="reports-seller-checklist">Sin vendedores disponibles.</div>;
+  }
+
+  return (
+    <div className="reports-seller-checklist">
+      <div className="reports-inline-multiselect-actions">
+        <button type="button" className="ghost-button" onClick={() => onChange(normalizedOptions.map((option) => option.id))}>
+          Marcar todos
+        </button>
+      </div>
+      <div className="reports-seller-checklist-grid">
+        {normalizedOptions.map((option) => (
+          <label key={option.id} className="reports-multiselect-option">
+            <input
+              type="checkbox"
+              checked={selectedIds.includes(option.id)}
+              onChange={() =>
+                onChange(toggleSellerSelection(selectedIds, option.id, normalizedOptions.map((item) => item.id)))
+              }
+            />
+            <span>{option.label}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ConversionTablePanel({
+  rows,
+  title,
+}: {
+  rows: Array<{
+    key: string;
+    label: string;
+    quotes: number;
+    converted: number;
+    cancelled: number;
+    pending: number;
+    expired: number;
+    conversionPct: number;
+    averageConversionDays: number;
+  }>;
+  title: string;
+}) {
+  return (
+    <AccordionPanel title={title} subtitle={`${rows.length} filas`}>
+        <DataTable
+          rows={rows}
+          storageKey={title}
+          columns={[
+            column<CommercialDashboardSnapshot['conversion']['bySeller'][number]>('label', 'Elemento', (row) => row.label, (row) => row.label),
+            column<CommercialDashboardSnapshot['conversion']['bySeller'][number]>('quotes', 'Cotizaciones', (row) => formatNumber(row.quotes), (row) => row.quotes),
+            column<CommercialDashboardSnapshot['conversion']['bySeller'][number]>('converted', 'Convertidas', (row) => formatNumber(row.converted), (row) => row.converted),
+            column<CommercialDashboardSnapshot['conversion']['bySeller'][number]>('pending', 'Pendientes', (row) => formatNumber(row.pending), (row) => row.pending),
+            column<CommercialDashboardSnapshot['conversion']['bySeller'][number]>('expired', 'Vencidas', (row) => formatNumber(row.expired), (row) => row.expired),
+            column<CommercialDashboardSnapshot['conversion']['bySeller'][number]>('cancelled', 'Canceladas', (row) => formatNumber(row.cancelled), (row) => row.cancelled),
+            column<CommercialDashboardSnapshot['conversion']['bySeller'][number]>('conversionPct', 'Conversión', (row) => formatPercent(row.conversionPct), (row) => row.conversionPct),
+            column<CommercialDashboardSnapshot['conversion']['bySeller'][number]>('days', 'Días prom.', (row) => row.averageConversionDays.toFixed(1), (row) => row.averageConversionDays),
+          ]}
+        />
+    </AccordionPanel>
+  );
+}
+
+function ConversionTeamPiePanel({
+  rows,
+}: {
+  rows: CommercialDashboardSnapshot['conversion']['byTeam'];
+}) {
+  const palette = ['#1178d4', '#14b8a6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+  const visibleRows = rows.filter((row) => row.quotes > 0).slice(0, 6);
+  const total = visibleRows.reduce(
+    (accumulator, row) => accumulator + (row.converted > 0 ? row.converted : row.quotes),
+    0,
+  );
+
+  const segments = visibleRows.reduce<
+    Array<{
+      color: string;
+      path: string;
+      row: CommercialDashboardSnapshot['conversion']['byTeam'][number];
+      share: number;
+    }>
+  >((accumulator, row, index) => {
+    const value = row.converted > 0 ? row.converted : row.quotes;
+    const ratioValue = total > 0 ? value / total : 0;
+    const previousShare = accumulator.reduce(
+      (shareAccumulator, segment) => shareAccumulator + segment.share,
+      0,
+    );
+    const startAngle = (previousShare / 100) * Math.PI * 2 - Math.PI / 2;
+    const endAngle = ((previousShare + ratioValue * 100) / 100) * Math.PI * 2 - Math.PI / 2;
+
+    return [
+      ...accumulator,
+      {
+        color: palette[index % palette.length],
+        path: describePieArc(58, 58, 46, startAngle, endAngle),
+        row,
+        share: ratioValue * 100,
+      },
+    ];
+  }, []);
+
+  return (
+    <AccordionPanel
+      title="Conversión por equipo"
+      subtitle="Participación de equipos y calidad de cierre dentro del período"
+    >
+      <div className="reports-conversion-team">
+        <div className="reports-conversion-team-chart" aria-hidden="true">
+          <svg viewBox="0 0 116 116" className="reports-pie-svg">
+            <circle cx="58" cy="58" r="46" className="reports-pie-track" />
+            {segments.map((segment) => (
+              <path
+                key={segment.row.key}
+                d={segment.path}
+                className="reports-pie-segment"
+                stroke={segment.color}
+              />
+            ))}
+          </svg>
+          <div className="reports-pie-center">
+            <strong>{formatNumber(visibleRows.length)}</strong>
+            <span>equipos</span>
+          </div>
+        </div>
+
+        <div className="reports-conversion-team-legend">
+          {visibleRows.map((row, index) => (
+            <article key={row.key} className="reports-conversion-team-item">
+              <div>
+                <span
+                  className="reports-conversion-team-dot"
+                  style={{ backgroundColor: palette[index % palette.length] }}
+                />
+                <strong>{row.label}</strong>
+              </div>
+              <small>
+                {formatNumber(row.converted)} convertidas de {formatNumber(row.quotes)} cotizaciones
+              </small>
+              <span>
+                {formatPercent(row.conversionPct)} | {formatPercent((segments[index]?.share ?? 0))}
+              </span>
+            </article>
+          ))}
+        </div>
+      </div>
+    </AccordionPanel>
+  );
+}
+
+function ProductTablePanel({
+  rows,
+  title,
+}: {
+  rows: ProductAnalysisRow[];
+  title: string;
+}) {
+  return (
+    <StaticPanel title={title} subtitle={`${rows.length} productos`}>
+      <ProductTable rows={rows} storageKey={title} />
+    </StaticPanel>
+  );
+}
+
+function SellerGoalsOverviewPanel({
+  rows,
+  onViewSeller,
+}: {
+  rows: CommercialDashboardSnapshot['sellers']['goalProgress'];
+  onViewSeller: (sellerName: string) => void;
+}) {
+  if (rows.length === 0) {
+    return (
+      <EmptyState title="Sin vendedores disponibles">
+        Todavía no hay vendedores con volumen suficiente para mostrar seguimiento.
+      </EmptyState>
+    );
+  }
+
+  return (
+    <div className="reports-bar-list">
+      {rows.map((row) => (
+        <div key={row.sellerName} className="reports-bar-row reports-bar-row-stack">
+          <div className="reports-bar-copy">
+            <strong>{row.sellerName}</strong>
+            <small>
+              Facturación {formatCurrency(row.soldAmount)} / meta {formatCurrency(row.salesTarget)}
+            </small>
+            <small>
+              Nuevos {formatNumber(row.newCustomers)} / {formatNumber(row.newCustomersTarget)} · Reactivados {formatNumber(row.reactivatedCustomers)} / {formatNumber(row.reactivatedCustomersTarget)}
+            </small>
+          </div>
+          <div className="reports-bar-track">
+            <span style={{ width: `${Math.min(row.salesProgressPct, 100)}%` }} />
+          </div>
+          <div className="reports-bar-meta">
+            <strong>{formatPercent(row.salesProgressPct)}</strong>
+            <button type="button" className="secondary-button" onClick={() => onViewSeller(row.sellerName)}>
+              Ver
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function buildSellerGoalDrafts(
+  existingGoals: SellerGoalConfig[],
+  sellers: Array<{ sellerId: number | null; sellerName: string }>,
+) {
+  const goals = new Map<string, SellerGoalConfig>();
+
+  existingGoals.forEach((goal) => {
+    goals.set(`${goal.sellerId ?? 'seller'}:${goal.sellerName}`, {
+      sellerId: goal.sellerId,
+      sellerName: goal.sellerName,
+      salesTarget: goal.salesTarget ?? 0,
+      newCustomersTarget: goal.newCustomersTarget ?? 0,
+      reactivatedCustomersTarget: goal.reactivatedCustomersTarget ?? 0,
+    });
+  });
+
+  sellers.forEach((seller) => {
+    const key = `${seller.sellerId ?? 'seller'}:${seller.sellerName}`;
+    const existing = goals.get(key);
+    goals.set(key, {
+      sellerId: seller.sellerId,
+      sellerName: seller.sellerName,
+      salesTarget: existing?.salesTarget ?? 0,
+      newCustomersTarget: existing?.newCustomersTarget ?? 0,
+      reactivatedCustomersTarget: existing?.reactivatedCustomersTarget ?? 0,
+    });
+  });
+
+  return Array.from(goals.values()).sort((left, right) => left.sellerName.localeCompare(right.sellerName, 'es'));
+}
+
+function buildMonthlyGoalDrafts(
+  existingGoals: MonthlySalesGoalConfig[] | undefined,
+  year: number,
+) {
+  const goals = new Map<number, MonthlySalesGoalConfig>();
+
+  (existingGoals ?? [])
+    .filter((goal) => goal.year === year)
+    .forEach((goal) => {
+      goals.set(goal.month, {
+        year,
+        month: goal.month,
+        targetAmount: Math.max(0, Number(goal.targetAmount) || 0),
+      });
+    });
+
+  return Array.from({ length: 12 }, (_, index) => {
+    const month = index + 1;
+    return goals.get(month) ?? { year, month, targetAmount: 0 };
+  });
+}
+
+function mergeMonthlySalesGoals(
+  currentGoals: MonthlySalesGoalConfig[] | undefined,
+  incomingGoals: MonthlySalesGoalConfig[],
+  year: number,
+) {
+  return [
+    ...(currentGoals ?? []).filter((goal) => goal.year !== year),
+    ...incomingGoals
+      .filter((goal) => goal.year === year)
+      .map((goal) => ({
+        year: goal.year,
+        month: goal.month,
+        targetAmount: Math.max(0, Number(goal.targetAmount) || 0),
+      })),
+  ];
+}
+
+function formatMonthName(month: number) {
+  const names = [
+    'Enero',
+    'Febrero',
+    'Marzo',
+    'Abril',
+    'Mayo',
+    'Junio',
+    'Julio',
+    'Agosto',
+    'Septiembre',
+    'Octubre',
+    'Noviembre',
+    'Diciembre',
+  ];
+
+  return names[month - 1] ?? `Mes ${month}`;
+}
+
+function SellerTimelineModal({
+  seller,
+  onClose,
+}: {
+  seller: SellerTimelineSummary;
+  onClose: () => void;
+}) {
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Seguimiento de ${seller.sellerName}`}>
+      <section className="modal-card modal-wide">
+        <div className="modal-head">
+          <h2>{seller.sellerName}</h2>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Cerrar">
+            x
+          </button>
+        </div>
+        <div className="compact-form">
+          <div className="reports-kpi-list">
+            <KpiBox label="Facturación acumulada" value={formatCurrency(seller.soldAmount.current)} />
+            <KpiBox label="Clientes nuevos" value={formatNumber(seller.newCustomers.current)} />
+            <KpiBox label="Clientes reactivados" value={formatNumber(seller.reactivatedCustomers.current)} />
+            <KpiBox label="Vs. año anterior" value={formatMetricChangeEs(seller.soldAmount)} />
+          </div>
+          <div className="policy-card-quick-facts">
+            <span>Meta facturación: {formatCurrency(seller.goal?.salesTarget ?? 0)}</span>
+            <span>Meta clientes nuevos: {formatNumber(seller.goal?.newCustomersTarget ?? 0)}</span>
+            <span>Meta reactivados: {formatNumber(seller.goal?.reactivatedCustomersTarget ?? 0)}</span>
+          </div>
+          <DataTable
+            rows={seller.months}
+            storageKey={`seller-timeline-${seller.sellerName}`}
+            columns={[
+              column<SellerTimelineSummary['months'][number]>('month', 'Mes', (row) => row.label, (row) => row.monthKey),
+              column<SellerTimelineSummary['months'][number]>('sold', 'Facturación', (row) => formatCurrency(row.soldAmount), (row) => row.soldAmount),
+              column<SellerTimelineSummary['months'][number]>('previousSold', 'Facturación año anterior', (row) => formatCurrency(row.previousSoldAmount), (row) => row.previousSoldAmount),
+              column<SellerTimelineSummary['months'][number]>('new', 'Clientes nuevos', (row) => formatNumber(row.newCustomers), (row) => row.newCustomers),
+              column<SellerTimelineSummary['months'][number]>('previousNew', 'Nuevos año anterior', (row) => formatNumber(row.previousNewCustomers), (row) => row.previousNewCustomers),
+              column<SellerTimelineSummary['months'][number]>('reactivated', 'Reactivados', (row) => formatNumber(row.reactivatedCustomers), (row) => row.reactivatedCustomers),
+              column<SellerTimelineSummary['months'][number]>('previousReactivated', 'Reactivados año anterior', (row) => formatNumber(row.previousReactivatedCustomers), (row) => row.previousReactivatedCustomers),
+            ]}
+          />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+type SellerRankingVariant =
+  | 'revenue'
+  | 'margin'
+  | 'conversion'
+  | 'newCustomers'
+  | 'atRiskCustomers'
+  | 'reactivatedCustomers'
+  | 'weightedScore';
+
+function SellerRankingTablePanel({
+  rows,
+  subtitle,
+  title,
+  variant,
+}: {
+  rows: SellerPerformanceRow[];
+  subtitle: string;
+  title: string;
+  variant: SellerRankingVariant;
+}) {
+  const orderedRows = useMemo(
+    () => sortSellerRowsForVariant(rows, variant),
+    [rows, variant],
+  );
+
+  return (
+    <StaticPanel title={title} subtitle={subtitle}>
+      <DataTable
+        rows={orderedRows}
+        storageKey={`${title}-${variant}`}
+        columns={buildSellerRankingColumns(variant)}
+      />
+    </StaticPanel>
+  );
+}
+
+const sellerCategoryPalette = ['#0f766e', '#2563eb', '#d97706', '#7c3aed', '#dc2626', '#0891b2'];
+
+function SellerCategoryMixPanel({
+  rows,
+}: {
+  rows: SellerCategorySummary[];
+}) {
+  const visibleRows = rows.slice(0, 6);
+  const totalShare = visibleRows.reduce((sum, row) => sum + row.sharePct, 0);
+  const segments = visibleRows.reduce<
+    Array<{
+      path: string;
+      color: string;
+      row: SellerCategorySummary;
+    }>
+  >((items, row, index) => {
+    const previousShare = visibleRows
+      .slice(0, index)
+      .reduce((sum, currentRow) => sum + currentRow.sharePct, 0);
+    const startAngle = (-Math.PI / 2) + (previousShare / 100) * (Math.PI * 2);
+    const endAngle = startAngle + (row.sharePct / 100) * (Math.PI * 2);
+    items.push({
+      path: describePieArc(58, 58, 46, startAngle, endAngle),
+      color: sellerCategoryPalette[index % sellerCategoryPalette.length],
+      row,
+    });
+    return items;
+  }, []);
+
+  return (
+    <article className="panel">
+      <div className="panel-header">
+        <strong>Participación por categoría</strong>
+        <span>Distribución del valor vendido por línea de producto</span>
+      </div>
+      <div className="reports-panel-body">
+        <div className="reports-conversion-team">
+          <div className="reports-conversion-team-chart" aria-hidden="true">
+            <svg viewBox="0 0 116 116" className="reports-pie-svg">
+              <circle cx="58" cy="58" r="46" className="reports-pie-track" />
+              {segments.map((segment) => (
+                <path
+                  key={segment.row.categoryName}
+                  d={segment.path}
+                  className="reports-pie-segment"
+                  style={{ stroke: segment.color }}
+                />
+              ))}
+            </svg>
+            <div className="reports-pie-center">
+              <strong>{formatPercent(totalShare)}</strong>
+              <span>categorías top</span>
+            </div>
+          </div>
+          <div className="reports-conversion-team-legend">
+            {visibleRows.map((row, index) => (
+              <article key={row.categoryName} className="reports-conversion-team-item">
+                <div>
+                  <span
+                    className="reports-conversion-team-dot"
+                    style={{ backgroundColor: sellerCategoryPalette[index % sellerCategoryPalette.length] }}
+                  />
+                  <strong>{row.categoryName}</strong>
+                </div>
+                <small>
+                  {formatCurrency(row.soldAmount)} · {row.activeSellers} vendedores
+                </small>
+                <span>
+                  {formatPercent(row.sharePct)} | líder: {row.topSellerName ?? 'Sin vendedor'}
+                </span>
+              </article>
+            ))}
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function SellerCategoryOverviewPanel({
+  rows,
+}: {
+  rows: SellerCategorySummary[];
+}) {
+  const maxValue = Math.max(...rows.map((row) => row.soldAmount), 0);
+
+  return (
+    <article className="panel">
+      <div className="panel-header">
+        <strong>Comparativo entre categorías</strong>
+        <span>Barras para distinguir peso relativo y vendedor dominante</span>
+      </div>
+      <div className="reports-panel-body">
+        <div className="reports-bar-list">
+          {rows.map((row, index) => (
+            <div key={row.categoryName} className="reports-bar-row reports-bar-row-stack">
+              <div className="reports-bar-copy">
+                <strong>{row.categoryName}</strong>
+                <small>
+                  {row.topSellerName ?? 'Sin vendedor'} lidera con {formatCurrency(row.topSellerAmount)}
+                </small>
+              </div>
+              <div className="reports-bar-track">
+                <span
+                  style={{
+                    width: `${maxValue > 0 ? (row.soldAmount / maxValue) * 100 : 0}%`,
+                    background: sellerCategoryPalette[index % sellerCategoryPalette.length],
+                  }}
+                />
+              </div>
+              <div className="reports-bar-meta">
+                <strong>{formatCurrency(row.soldAmount)}</strong>
+                <small>{formatPercent(row.sharePct)} del total vendido</small>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function SellerCategoryRankingPanel({
+  category,
+}: {
+  category: SellerCategorySummary;
+}) {
+  const maxValue = Math.max(...category.sellerRows.map((row) => row.soldAmount), 0);
+
+  return (
+    <StaticPanel
+      title={`Ranking en ${category.categoryName}`}
+      subtitle={`${formatPercent(category.sharePct)} de las ventas totales · ${category.activeSellers} vendedores con ventas`}
+    >
+      <div className="reports-stack-compact">
+        <div className="reports-bar-list">
+          {category.sellerRows.slice(0, 8).map((row) => (
+            <div key={`${category.categoryName}-${row.sellerName}`} className="reports-bar-row reports-bar-row-stack">
+              <div className="reports-bar-copy">
+                <strong>{row.sellerName}</strong>
+                <small>
+                  {formatPercent(row.categorySharePct)} de la categoría · {formatPercent(row.sellerMixPct)} de sus ventas
+                </small>
+              </div>
+              <div className="reports-bar-track">
+                <span
+                  style={{
+                    width: `${maxValue > 0 ? (row.soldAmount / maxValue) * 100 : 0}%`,
+                    background: '#2563eb',
+                  }}
+                />
+              </div>
+              <div className="reports-bar-meta">
+                <strong>{formatCurrency(row.soldAmount)}</strong>
+                <small>{formatNumber(row.orderCount)} órdenes</small>
+              </div>
+            </div>
+          ))}
+        </div>
+        <DataTable
+          rows={category.sellerRows}
+          storageKey={`seller-category-${category.categoryName}`}
+          columns={[
+            column<SellerCategoryPerformanceRow>('seller', 'Vendedor', (row) => row.sellerName, (row) => row.sellerName),
+            column<SellerCategoryPerformanceRow>('sold', 'Ventas', (row) => formatCurrency(row.soldAmount), (row) => row.soldAmount),
+            column<SellerCategoryPerformanceRow>('categoryShare', '% categoría', (row) => formatPercent(row.categorySharePct), (row) => row.categorySharePct),
+            column<SellerCategoryPerformanceRow>('sellerMix', '% ventas del vendedor', (row) => formatPercent(row.sellerMixPct), (row) => row.sellerMixPct),
+            column<SellerCategoryPerformanceRow>('orders', 'Órdenes', (row) => formatNumber(row.orderCount), (row) => row.orderCount),
+            column<SellerCategoryPerformanceRow>('units', 'Unidades', (row) => formatNumber(row.units), (row) => row.units),
+          ]}
+        />
+      </div>
+    </StaticPanel>
+  );
+}
+
+function buildSellerRankingColumns(
+  variant: SellerRankingVariant,
+): Array<TableColumn<SellerPerformanceRow>> {
+  const sellerColumn = column<SellerPerformanceRow>(
+    'seller',
+    'Vendedor',
+    (row) => row.sellerName,
+    (row) => row.sellerName,
+  );
+
+  switch (variant) {
+    case 'revenue':
+      return [
+        sellerColumn,
+        column<SellerPerformanceRow>(
+          'sold',
+          'Facturación',
+          (row) => formatCurrency(row.invoicedAmount),
+          (row) => row.invoicedAmount,
+        ),
+      ];
+    case 'margin':
+      return [
+        sellerColumn,
+        column<SellerPerformanceRow>(
+          'margin',
+          'Margen',
+          (row) => formatCurrency(row.margin),
+          (row) => row.margin,
+        ),
+      ];
+    case 'conversion':
+      return [
+        sellerColumn,
+        column<SellerPerformanceRow>(
+          'conversion',
+          'Conversión',
+          (row) => formatPercent(row.conversionPct),
+          (row) => row.conversionPct,
+        ),
+      ];
+    case 'newCustomers':
+      return [
+        sellerColumn,
+        column<SellerPerformanceRow>(
+          'newCustomers',
+          'Clientes nuevos',
+          (row) => formatNumber(row.newCustomers),
+          (row) => row.newCustomers,
+        ),
+      ];
+    case 'atRiskCustomers':
+      return [
+        sellerColumn,
+        column<SellerPerformanceRow>(
+          'atRiskCustomers',
+          'Clientes en riesgo',
+          (row) => formatNumber(row.atRiskCustomers),
+          (row) => row.atRiskCustomers,
+        ),
+        column<SellerPerformanceRow>(
+          'atRiskShare',
+          '% sobre cartera',
+          (row) =>
+            formatPercent(
+              row.customersServed > 0 ? (row.atRiskCustomers / row.customersServed) * 100 : 0,
+            ),
+          (row) => (row.customersServed > 0 ? row.atRiskCustomers / row.customersServed : 0),
+        ),
+      ];
+    case 'reactivatedCustomers':
+      return [
+        sellerColumn,
+        column<SellerPerformanceRow>(
+          'reactivatedCustomers',
+          'Clientes rescatados',
+          (row) => formatNumber(row.reactivatedCustomers),
+          (row) => row.reactivatedCustomers,
+        ),
+      ];
+    case 'weightedScore':
+      return [
+        sellerColumn,
+        column<SellerPerformanceRow>(
+          'weightedScore',
+          'Score',
+          (row) => row.weightedScore.toFixed(1),
+          (row) => row.weightedScore,
+        ),
+      ];
+  }
+}
+
+function sortSellerRowsForVariant(
+  rows: SellerPerformanceRow[],
+  variant: SellerRankingVariant,
+) {
+  const orderedRows = rows.slice();
+
+  switch (variant) {
+    case 'revenue':
+      return orderedRows.sort((a, b) => b.invoicedAmount - a.invoicedAmount);
+    case 'margin':
+      return orderedRows.sort((a, b) => b.margin - a.margin);
+    case 'conversion':
+      return orderedRows.sort((a, b) => b.conversionPct - a.conversionPct);
+    case 'newCustomers':
+      return orderedRows.sort((a, b) => b.newCustomers - a.newCustomers);
+    case 'atRiskCustomers':
+      return orderedRows.sort((a, b) => {
+        if (b.atRiskCustomers !== a.atRiskCustomers) return b.atRiskCustomers - a.atRiskCustomers;
+        const leftShare = a.customersServed > 0 ? a.atRiskCustomers / a.customersServed : 0;
+        const rightShare = b.customersServed > 0 ? b.atRiskCustomers / b.customersServed : 0;
+        return rightShare - leftShare;
+      });
+    case 'reactivatedCustomers':
+      return orderedRows.sort((a, b) => b.reactivatedCustomers - a.reactivatedCustomers);
+    case 'weightedScore':
+      return orderedRows.sort((a, b) => b.weightedScore - a.weightedScore);
+  }
+}
+
+function ParetoTablePanel({
+  summary,
+}: {
+  summary: {
+    title: string;
+    statement: string;
+    rows: ParetoRow[];
+  };
+}) {
+  return (
+    <article className="panel">
+      <div className="panel-header">
+        <strong>{summary.title}</strong>
+        <span>{summary.statement}</span>
+      </div>
+      <div className="reports-panel-body">
+        <DataTable
+          rows={summary.rows}
+          storageKey={summary.title}
+          columns={[
+            column<ParetoRow>('position', '#', (row) => row.position, (row) => row.position),
+            column<ParetoRow>('label', 'Elemento', (row) => row.label, (row) => row.label),
+            column<ParetoRow>('value', 'Valor', (row) => formatCurrency(row.value), (row) => row.value),
+            column<ParetoRow>('orders', 'Ordenes', (row) => formatNumber(row.orders), (row) => row.orders),
+            column<ParetoRow>('units', 'Unidades', (row) => formatNumber(row.units), (row) => row.units),
+            column<ParetoRow>('share', '% individual', (row) => formatPercent(row.individualPct), (row) => row.individualPct),
+            column<ParetoRow>('accum', '% acumulado', (row) => formatPercent(row.accumulatedPct), (row) => row.accumulatedPct),
+            column<ParetoRow>('class', 'ABC', (row) => row.classification, (row) => row.classification),
+          ]}
+        />
+      </div>
+    </article>
+  );
+}
+
+function ProductTable({
+  rows,
+  storageKey,
+}: {
+  rows: ProductAnalysisRow[];
+  storageKey: string;
+}) {
+  return (
+    <DataTable
+      rows={rows}
+      storageKey={storageKey}
+      columns={[
+        column<ProductAnalysisRow>('product', 'Producto', (row) => row.productName, (row) => row.productName),
+        column<ProductAnalysisRow>('category', 'Categoría', (row) => row.categoryName ?? '-', (row) => row.categoryName ?? ''),
+        column<ProductAnalysisRow>('revenue', 'Facturación', (row) => formatCurrency(row.revenue), (row) => row.revenue),
+        column<ProductAnalysisRow>('margin', 'Margen', (row) => formatCurrency(row.margin), (row) => row.margin),
+        column<ProductAnalysisRow>('marginPct', '% margen', (row) => formatPercent(row.marginPct ?? 0), (row) => row.marginPct ?? 0),
+        column<ProductAnalysisRow>('units', 'Unidades', (row) => formatNumber(row.units), (row) => row.units),
+        column<ProductAnalysisRow>('customers', 'Clientes', (row) => formatNumber(row.uniqueCustomers), (row) => row.uniqueCustomers),
+        column<ProductAnalysisRow>('repeat', 'Recompra', (row) => formatPercent(row.repeatPurchaseRate), (row) => row.repeatPurchaseRate),
+        column<ProductAnalysisRow>('change', 'Variación', (row) => formatNullablePercent(row.revenueChangePct), (row) => row.revenueChangePct ?? 0),
+        column<ProductAnalysisRow>('flags', 'Señales', (row) => row.flags.join(', ') || '-', (row) => row.flags.join(', ')),
+      ]}
+    />
+  );
+}
+
+function SellerTable({
+  rows,
+  storageKey,
+}: {
+  rows: SellerPerformanceRow[];
+  storageKey: string;
+}) {
+  return (
+    <DataTable
+      rows={rows}
+      storageKey={storageKey}
+      columns={[
+        column<SellerPerformanceRow>('seller', 'Vendedor', (row) => row.sellerName, (row) => row.sellerName),
+        column<SellerPerformanceRow>('quotes', 'Cotizaciones', (row) => formatNumber(row.quotes), (row) => row.quotes),
+        column<SellerPerformanceRow>('orders', 'Órdenes', (row) => formatNumber(row.confirmedOrders), (row) => row.confirmedOrders),
+        column<SellerPerformanceRow>('conversion', 'Conversión', (row) => formatPercent(row.conversionPct), (row) => row.conversionPct),
+        column<SellerPerformanceRow>('sold', 'Ventas confirmadas', (row) => formatCurrency(row.soldAmount), (row) => row.soldAmount),
+        column<SellerPerformanceRow>('invoiced', 'Facturación', (row) => formatCurrency(row.invoicedAmount), (row) => row.invoicedAmount),
+        column<SellerPerformanceRow>('margin', 'Margen', (row) => formatCurrency(row.margin), (row) => row.margin),
+        column<SellerPerformanceRow>('ticket', 'Ticket prom.', (row) => formatCurrency(row.averageTicket), (row) => row.averageTicket),
+        column<SellerPerformanceRow>('new', 'Clientes nuevos', (row) => formatNumber(row.newCustomers), (row) => row.newCustomers),
+        column<SellerPerformanceRow>('risk', 'En riesgo', (row) => formatNumber(row.atRiskCustomers), (row) => row.atRiskCustomers),
+        column<SellerPerformanceRow>('reactivated', 'Rescatados', (row) => formatNumber(row.reactivatedCustomers), (row) => row.reactivatedCustomers),
+        column<SellerPerformanceRow>('score', 'Score', (row) => row.weightedScore.toFixed(1), (row) => row.weightedScore),
+      ]}
+    />
+  );
+}
+
+function DailyInvoiceDifferenceChart({ points }: { points: DailyInvoiceDifferencePoint[] }) {
+  if (!points.length) return <EmptyState title="Sin tendencia">No hay fechas disponibles para comparar.</EmptyState>;
+
+  let currentTotal = 0;
+  let previousTotal = 0;
+  const cumulative = points.map((point) => {
+    currentTotal += point.invoicedAmount;
+    previousTotal += point.previousInvoicedAmount;
+    return { current: currentTotal, previous: previousTotal };
+  });
+  const totalDifference = currentTotal - previousTotal;
+  const differencePct = previousTotal > 0 ? totalDifference / previousTotal * 100 : null;
+  const currentColor = totalDifference >= 0 ? '#39715a' : '#bd685d';
+  const maxValue = Math.max(1, ...cumulative.flatMap((point) => [point.current, point.previous])) * 1.08;
+  const width = 720;
+  const height = 260;
+  const left = 72;
+  const right = 18;
+  const top = 18;
+  const bottom = 34;
+  const plotWidth = width - left - right;
+  const plotHeight = height - top - bottom;
+  const xFor = (index: number) => points.length === 1
+    ? left + plotWidth / 2
+    : left + index / (points.length - 1) * plotWidth;
+  const yFor = (value: number) => top + (maxValue - value) / maxValue * plotHeight;
+  const currentLine = cumulative.map((point, index) => `${xFor(index)},${yFor(point.current)}`).join(' ');
+  const previousLine = cumulative.map((point, index) => `${xFor(index)},${yFor(point.previous)}`).join(' ');
+  const tickCount = Math.min(6, points.length);
+  const tickIndices = Array.from({ length: tickCount }, (_, index) =>
+    tickCount === 1 ? 0 : Math.round(index * (points.length - 1) / (tickCount - 1)),
+  );
+
+  return (
+    <div className="reports-chart">
+      <div className="agent-invoice-trend-summary">
+        <span><small>Acumulado actual</small><strong>{formatCurrency(currentTotal)}</strong></span>
+        <span><small>Acumulado comparable</small><strong>{formatCurrency(previousTotal)}</strong></span>
+        <span className={totalDifference >= 0 ? 'agent-trend-balance-positive' : 'agent-trend-balance-negative'}>
+          <small>Diferencia total{differencePct === null ? '' : ` · ${differencePct >= 0 ? '+' : ''}${differencePct.toFixed(1)}%`}</small>
+          <strong>{totalDifference >= 0 ? '+' : ''}{formatCurrency(totalDifference)}</strong>
+        </span>
+      </div>
+      <div className="reports-chart-legend">
+        <span><i style={{ background: currentColor }} />Periodo actual acumulado</span>
+        <span><i style={{ background: 'var(--reports-chart-previous)' }} />Periodo comparable acumulado</span>
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} className="reports-chart-svg" role="img" aria-label="Facturación acumulada actual comparada con el periodo equivalente anterior">
+        {[0, maxValue / 2, maxValue].map((value, index) => (
+          <g key={index}>
+            <line x1={left} x2={left + plotWidth} y1={yFor(value)} y2={yFor(value)} className="reports-chart-grid-line" />
+            <text x={left - 8} y={yFor(value) + 4} textAnchor="end" className="reports-chart-axis-label">{formatCurrencyCompact(value)}</text>
+          </g>
+        ))}
+        {points.length > 1 ? <>
+          <polyline fill="none" stroke="var(--reports-chart-previous)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={previousLine} />
+          <polyline fill="none" stroke={currentColor} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" points={currentLine} />
+        </> : null}
+        {points.map((point, index) => (
+          <g key={point.bucketKey}>
+            <circle cx={xFor(index)} cy={yFor(cumulative[index].previous)} r={points.length > 120 ? 1.8 : 3} fill="var(--reports-chart-previous)">
+              <title>{`${point.previousLabel}: acumulado comparable ${formatCurrency(cumulative[index].previous)}`}</title>
+            </circle>
+            <circle cx={xFor(index)} cy={yFor(cumulative[index].current)} r={points.length > 120 ? 2 : 3.4} fill={currentColor}>
+              <title>{`${point.label}: actual ${formatCurrency(cumulative[index].current)}, comparable ${formatCurrency(cumulative[index].previous)}, brecha ${formatCurrency(cumulative[index].current - cumulative[index].previous)}`}</title>
+            </circle>
+          </g>
+        ))}
+        {tickIndices.map((index) => (
+          <text key={index} x={xFor(index)} y={height - 10} textAnchor="middle" className="reports-chart-axis-label">{points[index].label}</text>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+function TrendPanel({ points, mode = 'comparison' }: { points: TrendPoint[]; mode?: 'comparison' | 'trend' }) {
+  if (points.length === 0) {
+    return <EmptyState title="Sin tendencia">No hay datos para la serie temporal.</EmptyState>;
+  }
+
+  const leftPadding = 64;
+  const rightPadding = 14;
+  const topPadding = 16;
+  const bottomPadding = 28;
+  const trendValues = points.map((point) => point.invoicedAmount - point.previousInvoicedAmount);
+  const linearTrendValues = calculateLinearTrendLine(trendValues);
+  const minValue = mode === 'trend' ? Math.min(0, ...trendValues, ...linearTrendValues) : 0;
+  const maxValue = mode === 'trend'
+    ? Math.max(0, ...trendValues, ...linearTrendValues, 1)
+    : Math.max(1, ...points.flatMap((point) => [point.previousInvoicedAmount, point.invoicedAmount]));
+  const valueRange = Math.max(maxValue - minValue, 1);
+  const width = 720;
+  const height = 240;
+  const chartWidth = width - leftPadding - rightPadding;
+  const chartHeight = height - topPadding - bottomPadding;
+  const stepX = points.length === 1 ? chartWidth : chartWidth / (points.length - 1);
+  const ySteps = 4;
+  const gridValues = Array.from({ length: ySteps + 1 }, (_, index) =>
+    maxValue - (valueRange / ySteps) * index,
+  );
+  const hasPreviousInvoicedData = mode === 'comparison' && points.some((point) => point.previousInvoicedAmount > 0);
+  const linearTrendSlope = calculateLinearTrendSlope(trendValues);
+  const trendColor = linearTrendSlope >= 0 ? '#39715a' : '#bd685d';
+
+  const buildLine = (valueGetter: (point: TrendPoint) => number) =>
+    points
+      .map((point, index) => {
+        const x = leftPadding + index * stepX;
+        const y = topPadding + ((maxValue - valueGetter(point)) / valueRange) * chartHeight;
+        return `${x},${y}`;
+      })
+      .join(' ');
+  const buildValueLine = (values: number[]) => values
+    .map((value, index) => {
+      const x = leftPadding + index * stepX;
+      const y = topPadding + ((maxValue - value) / valueRange) * chartHeight;
+      return `${x},${y}`;
+    })
+    .join(' ');
+  const previousInvoicedLine = buildLine((point) => point.previousInvoicedAmount);
+  const previousInvoicedArea = `${leftPadding},${height - bottomPadding} ${previousInvoicedLine} ${leftPadding + chartWidth},${height - bottomPadding}`;
+
+  return (
+    <div className="reports-chart">
+      <div className="reports-chart-legend">
+        {mode === 'trend' ? (
+          <span><i style={{ background: trendColor }}></i>Diferencia actual vs. periodo anterior · tendencia {linearTrendSlope >= 0 ? 'positiva' : 'negativa'}</span>
+        ) : null}
+        {mode === 'comparison' && hasPreviousInvoicedData ? <span><i className="tone-sold"></i>Facturación periodo anterior</span> : null}
+        {mode === 'comparison' ? <span><i className="tone-invoiced"></i>Facturación</span> : null}
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} className="reports-chart-svg">
+        {gridValues.map((gridValue) => {
+          const y = topPadding + ((maxValue - gridValue) / valueRange) * chartHeight;
+          return (
+            <g key={gridValue}>
+              <line
+                x1={leftPadding}
+                x2={leftPadding + chartWidth}
+                y1={y}
+                y2={y}
+                className="reports-chart-grid-line"
+              />
+              <text x={leftPadding - 8} y={y + 4} textAnchor="end" className="reports-chart-axis-label">
+                {formatCurrencyCompact(gridValue)}
+              </text>
+            </g>
+          );
+        })}
+        {hasPreviousInvoicedData ? (
+          <polygon
+            fill="url(#reports-area-gradient)"
+            points={previousInvoicedArea}
+          />
+        ) : null}
+        <defs>
+          <linearGradient id="reports-area-gradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--reports-chart-previous-fill-strong)" />
+            <stop offset="100%" stopColor="var(--reports-chart-previous-fill-soft)" />
+          </linearGradient>
+        </defs>
+        {hasPreviousInvoicedData ? (
+          <polyline
+            fill="none"
+            stroke="var(--reports-chart-previous)"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            points={previousInvoicedLine}
+          />
+        ) : null}
+        <polyline
+          fill="none"
+          stroke={mode === 'trend' ? trendColor : 'var(--reports-chart-current)'}
+          strokeWidth={mode === 'trend' ? 3.5 : 2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          points={mode === 'trend'
+            ? buildValueLine(linearTrendValues)
+            : buildLine((point) => point.invoicedAmount)}
+        />
+        {hasPreviousInvoicedData ? points.map((point, index) => {
+          const x = leftPadding + index * stepX;
+          const y = topPadding + ((maxValue - point.previousInvoicedAmount) / valueRange) * chartHeight;
+          return (
+            <circle
+              key={point.bucketKey}
+              cx={x}
+              cy={y}
+              r="2.5"
+              fill="var(--reports-chart-previous)"
+            />
+          );
+        }) : null}
+      </svg>
+    </div>
+  );
+}
+
+function calculateLinearTrendSlope(values: number[]) {
+  if (values.length < 2) return 0;
+  const meanX = (values.length - 1) / 2;
+  const meanY = values.reduce((sum, value) => sum + value, 0) / values.length;
+  const numerator = values.reduce((sum, value, index) => sum + (index - meanX) * (value - meanY), 0);
+  const denominator = values.reduce((sum, _value, index) => sum + (index - meanX) ** 2, 0);
+  return denominator ? numerator / denominator : 0;
+}
+
+function calculateLinearTrendLine(values: number[]) {
+  if (values.length < 2) return values.length === 1 ? [values[0]] : [];
+  const meanX = (values.length - 1) / 2;
+  const meanY = values.reduce((sum, value) => sum + value, 0) / values.length;
+  const denominator = values.reduce((sum, _value, index) => sum + (index - meanX) ** 2, 0);
+  const slope = denominator
+    ? values.reduce((sum, value, index) => sum + (index - meanX) * (value - meanY), 0) / denominator
+    : 0;
+  const intercept = meanY - slope * meanX;
+  return values.map((_value, index) => intercept + slope * index);
+}
+
+function getAgentScoreTone(score: number) {
+  if (score >= 75) return 'good';
+  if (score >= 50) return 'regular';
+  return 'bad';
+}
+
+function MiniRanking<T>({
+  rows,
+  primary,
+  secondary,
+  value,
+}: {
+  rows: T[];
+  primary: (row: T) => string;
+  secondary: (row: T) => string;
+  value: (row: T) => string;
+}) {
+  return (
+    <div className="reports-bar-list">
+      {rows.map((row, index) => (
+        <div key={index} className="reports-bar-row">
+          <div className="reports-bar-copy">
+            <strong>{primary(row)}</strong>
+            <small>{secondary(row)}</small>
+          </div>
+          <div className="reports-bar-meta">
+            <strong>{value(row)}</strong>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ComparisonRow({
+  comparison,
+  comparisonLabel,
+  formatter,
+  label,
+}: {
+  comparison: CommercialDashboardSnapshot['sales']['soldAmount'];
+  comparisonLabel?: string;
+  formatter: (value: number) => string;
+  label: string;
+}) {
+  return (
+    <div className="policy-inline-status reports-summary-chip">
+      <span>{label}</span>
+      <strong>{formatter(comparison.current)}</strong>
+      <small className={comparison.trend === 'down' ? 'tone-bad' : 'tone-good'}>
+        {formatMetricChangeEs(comparison)}
+        {comparisonLabel ? ` vs. ${comparisonLabel}` : ''}
+      </small>
+    </div>
+  );
+}
+
+function AnnualGrowthPanel({
+  growth,
+}: {
+  growth: AnnualGrowthSnapshot;
+}) {
+  return (
+    <div className="reports-stack-compact">
+      <div className="reports-kpi-list">
+        <ComparisonRow label="Margen bruto acumulado" comparison={growth.marginAmount} formatter={formatCurrency} />
+        <ComparisonRow label="Facturación acumulada" comparison={growth.invoicedAmount} formatter={formatCurrency} />
+        <ComparisonRow label="Clientes nuevos acumulados" comparison={growth.newCustomers} formatter={formatNumber} />
+      </div>
+      <article className="reports-info-card">
+        <div className="reports-info-copy">
+          <strong>{growth.signalTitle}</strong>
+          <p>{growth.signalDescription}</p>
+        </div>
+      </article>
+    </div>
+  );
+}
+
+function AnnualMonthlyComparisonPanel({
+  comparison,
+}: {
+  comparison: CommercialDashboardSnapshot['annualMonthlyComparison'];
+}) {
+  const closedMonthLabel = comparison.closedThroughMonth
+    ? new Intl.DateTimeFormat('es-MX', { month: 'long', timeZone: 'UTC' })
+      .format(new Date(Date.UTC(comparison.year, comparison.closedThroughMonth - 1, 1)))
+    : null;
+  return (
+    <AccordionPanel
+      defaultOpen
+      title={`Comparativo mensual ${comparison.year} vs ${comparison.previousYear}`}
+      subtitle={closedMonthLabel
+        ? `Comparación de meses concluidos hasta ${closedMonthLabel}: enero-${closedMonthLabel} contra el mismo periodo del año anterior. El mes actual se incorpora al cierre.`
+        : 'Total sin impuestos facturado desde Contabilidad, comparado contra el mismo mes del año anterior y contra la meta mensual configurada.'}
+    >
+      <div className="annual-comparison-summary">
+        <KpiBox label={`Facturado ${comparison.year}`} value={formatCurrency(comparison.currentTotal)} />
+        <KpiBox label={`Facturado ${comparison.previousYear}`} value={formatCurrency(comparison.previousTotal)} />
+        <KpiBox label="Meta acumulada" value={formatCurrency(comparison.targetTotal)} />
+        <KpiBox label="Alcance acumulado" value={formatReachPercent(comparison.targetReachPct)} />
+      </div>
+      <div className="annual-comparison-table-wrap">
+        <table className="annual-comparison-table">
+          <thead>
+            <tr>
+              <th>Concepto</th>
+              {comparison.rows.map((row) => (
+                <th key={row.month}>{row.monthLabel}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="annual-comparison-total-row">
+              <th>Total sin impuestos</th>
+              {comparison.rows.map((row) => (
+                <td key={row.month}>{formatCurrency(row.currentRevenue)}</td>
+              ))}
+            </tr>
+            <tr>
+              <th>Meta mensual</th>
+              {comparison.rows.map((row) => (
+                <td key={row.month}>{row.targetRevenue > 0 ? formatCurrency(row.targetRevenue) : 'Sin meta'}</td>
+              ))}
+            </tr>
+            <tr>
+              <th>Alcance de meta</th>
+              {comparison.rows.map((row) => (
+                <td key={row.month}>
+                  <StatusPill status={row.status} label={formatReachPercent(row.targetReachPct)} />
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <th>Crecimiento mensual</th>
+              {comparison.rows.map((row) => (
+                <td key={row.month}>{formatNullablePercent(row.monthlyGrowthPct)}</td>
+              ))}
+            </tr>
+            <tr className="annual-comparison-divider">
+              <th colSpan={comparison.rows.length + 1}>Crecimiento por categoría</th>
+            </tr>
+            {collectAnnualComparisonCategories(comparison).map((categoryName) => (
+              <tr key={categoryName}>
+                <th>{categoryName}</th>
+                {comparison.rows.map((row) => {
+                  const category = row.categoryRows.find((item) => item.categoryName === categoryName);
+                  return (
+                    <td key={`${row.month}-${categoryName}`}>
+                      <span className="annual-comparison-cell-stack">
+                        <span>{formatCurrency(category?.currentRevenue ?? 0)}</span>
+                        <small>{formatNullablePercent(category?.categoryGrowthPct ?? null)} vs. {comparison.previousYear}</small>
+                      </span>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </AccordionPanel>
+  );
+}
+
+function formatReachPercent(value: number | null) {
+  return value === null ? 'Sin meta' : `${value.toFixed(1)}%`;
+}
+
+function StatusPill({
+  label,
+  status,
+}: {
+  label: string;
+  status: CommercialDashboardSnapshot['annualMonthlyComparison']['status'];
+}) {
+  return <span className={`annual-status-pill annual-status-${status}`}>{label}</span>;
+}
+
+function collectAnnualComparisonCategories(
+  comparison: CommercialDashboardSnapshot['annualMonthlyComparison'],
+) {
+  const categories = new Map<string, number>();
+  comparison.rows.forEach((row) => {
+    row.categoryRows.forEach((category) => {
+      categories.set(category.categoryName, (categories.get(category.categoryName) ?? 0) + category.currentRevenue);
+    });
+  });
+
+  return [...categories.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .map(([categoryName]) => categoryName);
+}
+
+function KpiBox({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="stat-card">
+      <span>
+        <TrendingUp size={18} />
+      </span>
+      <div>
+        <small>{label}</small>
+        <strong>{value}</strong>
+      </div>
+    </div>
+  );
+}
+
+function describePieArc(
+  cx: number,
+  cy: number,
+  radius: number,
+  startAngle: number,
+  endAngle: number,
+) {
+  const startX = cx + radius * Math.cos(startAngle);
+  const startY = cy + radius * Math.sin(startAngle);
+  const endX = cx + radius * Math.cos(endAngle);
+  const endY = cy + radius * Math.sin(endAngle);
+  const largeArcFlag = endAngle - startAngle > Math.PI ? 1 : 0;
+
+  return `M ${startX} ${startY} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${endX} ${endY}`;
+}
+
+function SummaryChip({
+  label,
+  value,
+  onClick,
+}: {
+  label: string;
+  value: string;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="policy-inline-status reports-summary-chip"
+      onClick={onClick}
+    >
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </button>
+  );
+}
+
+function SettingsModal({
+  config,
+  onClose,
+  onSave,
+  sellers,
+}: {
+  config: ReportsConfig;
+  onClose: () => void;
+  onSave: (config: ReportsConfig) => Promise<void>;
+  sellers: Array<{ sellerId: number | null; sellerName: string }>;
+}) {
+  const [draft, setDraft] = useState<ReportsConfig>(config);
+  const [monthlyGoalYear, setMonthlyGoalYear] = useState(() => new Date().getFullYear());
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const goalDrafts = useMemo(() => buildSellerGoalDrafts(draft.sellerGoals, sellers), [draft.sellerGoals, sellers]);
+  const monthlyGoalDrafts = useMemo(
+    () => buildMonthlyGoalDrafts(draft.monthlySalesGoals, monthlyGoalYear),
+    [draft.monthlySalesGoals, monthlyGoalYear],
+  );
+
+  function updateNumeric<K extends keyof ReportsConfig>(key: K, value: number) {
+    setDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateSellerGoal(
+    sellerName: string,
+    key: keyof Pick<SellerGoalConfig, 'salesTarget' | 'newCustomersTarget' | 'reactivatedCustomersTarget'>,
+    value: number,
+  ) {
+    setDraft((current) => ({
+      ...current,
+      sellerGoals: buildSellerGoalDrafts(current.sellerGoals, sellers).map((goal) =>
+        goal.sellerName === sellerName ? { ...goal, [key]: Math.max(0, value) } : goal,
+      ),
+    }));
+  }
+
+  function updateMonthlyGoal(month: number, value: number) {
+    setDraft((current) => ({
+      ...current,
+      monthlySalesGoals: [
+        ...current.monthlySalesGoals.filter((goal) => goal.year !== monthlyGoalYear),
+        ...buildMonthlyGoalDrafts(current.monthlySalesGoals, monthlyGoalYear).map((goal) =>
+          goal.month === month ? { ...goal, targetAmount: Math.max(0, value) } : goal,
+        ),
+      ],
+    }));
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await onSave(draft);
+      onClose();
+    } catch (error) {
+      console.error('No se pudieron guardar las metas mensuales del reporte.', error);
+      setSaveError(
+        error instanceof Error
+          ? error.message
+          : 'No se pudo guardar la configuración en Supabase.',
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Configuración de reportes">
+      <section className="modal-card modal-wide">
+        <div className="modal-head">
+          <h2>Configuración analítica</h2>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Cerrar">
+            x
+          </button>
+        </div>
+        <div className="compact-form">
+          <div className="form-grid">
+            <Field label="Cliente reciente (días)">
+              <input type="number" value={draft.clientRecentDays} onChange={(event) => updateNumeric('clientRecentDays', Number(event.target.value))} />
+            </Field>
+            <Field label="Cliente activo (días)">
+              <input type="number" value={draft.clientActiveDays} onChange={(event) => updateNumeric('clientActiveDays', Number(event.target.value))} />
+            </Field>
+            <Field label="En riesgo (días)">
+              <input type="number" value={draft.clientRiskDays} onChange={(event) => updateNumeric('clientRiskDays', Number(event.target.value))} />
+            </Field>
+            <Field label="Casi perdido (días)">
+              <input type="number" value={draft.clientAlmostLostDays} onChange={(event) => updateNumeric('clientAlmostLostDays', Number(event.target.value))} />
+            </Field>
+            <Field label="Dormido (días)">
+              <input type="number" value={draft.clientDormantDays} onChange={(event) => updateNumeric('clientDormantDays', Number(event.target.value))} />
+            </Field>
+            <Field label="Perdido (días)">
+              <input type="number" value={draft.clientLostDays} onChange={(event) => updateNumeric('clientLostDays', Number(event.target.value))} />
+            </Field>
+            <Field label="Mínimo compras frecuente">
+              <input type="number" value={draft.frequentPurchaseCount} onChange={(event) => updateNumeric('frequentPurchaseCount', Number(event.target.value))} />
+            </Field>
+            <Field label="Percentil alto valor">
+              <input type="number" step="0.01" value={draft.highValuePercentile} onChange={(event) => updateNumeric('highValuePercentile', Number(event.target.value))} />
+            </Field>
+            <Field label="Pareto A">
+              <input type="number" step="0.01" value={draft.paretoThresholdA} onChange={(event) => updateNumeric('paretoThresholdA', Number(event.target.value))} />
+            </Field>
+            <Field label="Pareto B">
+              <input type="number" step="0.01" value={draft.paretoThresholdB} onChange={(event) => updateNumeric('paretoThresholdB', Number(event.target.value))} />
+            </Field>
+            <Field label="Agrupación predeterminada">
+              <select value={draft.defaultGrouping} onChange={(event) => setDraft({ ...draft, defaultGrouping: event.target.value as ReportGrouping })}>
+                <option value="day">Día</option>
+                <option value="month">Mes</option>
+                <option value="quarter">Trimestre</option>
+                <option value="year">Año</option>
+              </select>
+            </Field>
+            <Field label="Métrica Pareto">
+              <select value={draft.defaultParetoMetric} onChange={(event) => setDraft({ ...draft, defaultParetoMetric: event.target.value as ParetoMetricKey })}>
+                <option value="revenue">Facturación</option>
+                <option value="margin">Margen</option>
+                <option value="units">Unidades</option>
+                <option value="orders">Órdenes</option>
+              </select>
+            </Field>
+            <Field label="Incluir impuestos">
+              <select value={draft.includeTaxes ? 'yes' : 'no'} onChange={(event) => setDraft({ ...draft, includeTaxes: event.target.value === 'yes' })}>
+                <option value="no">No</option>
+                <option value="yes">Sí</option>
+              </select>
+            </Field>
+            <Field label="Método de margen">
+              <select value={draft.marginMethod} onChange={(event) => setDraft({ ...draft, marginMethod: event.target.value as ReportsConfig['marginMethod'] })}>
+                <option value="line_margin">Margen directo de línea</option>
+                <option value="line_purchase_price">Costo de línea</option>
+                <option value="product_standard_cost">Costo estándar de producto</option>
+              </select>
+            </Field>
+          </div>
+
+          <h3>Ponderaciones del ranking compuesto</h3>
+          <div className="form-grid">
+            <Field label="Facturación %">
+              <input type="number" value={draft.sellerRankingWeights.sold_amount} onChange={(event) => setDraft({ ...draft, sellerRankingWeights: { ...draft.sellerRankingWeights, sold_amount: Number(event.target.value) } })} />
+            </Field>
+            <Field label="Margen %">
+              <input type="number" value={draft.sellerRankingWeights.margin} onChange={(event) => setDraft({ ...draft, sellerRankingWeights: { ...draft.sellerRankingWeights, margin: Number(event.target.value) } })} />
+            </Field>
+            <Field label="Conversión %">
+              <input type="number" value={draft.sellerRankingWeights.conversion} onChange={(event) => setDraft({ ...draft, sellerRankingWeights: { ...draft.sellerRankingWeights, conversion: Number(event.target.value) } })} />
+            </Field>
+            <Field label="Clientes nuevos %">
+              <input type="number" value={draft.sellerRankingWeights.new_customers} onChange={(event) => setDraft({ ...draft, sellerRankingWeights: { ...draft.sellerRankingWeights, new_customers: Number(event.target.value) } })} />
+            </Field>
+            <Field label="Retencion %">
+              <input type="number" value={draft.sellerRankingWeights.retention} onChange={(event) => setDraft({ ...draft, sellerRankingWeights: { ...draft.sellerRankingWeights, retention: Number(event.target.value) } })} />
+            </Field>
+          </div>
+
+          <h3>Metas mensuales del resumen ejecutivo</h3>
+          <div className="reports-monthly-goals-toolbar">
+            <Field label="Año de metas">
+              <input
+                type="number"
+                min="2000"
+                max="2100"
+                value={monthlyGoalYear}
+                onChange={(event) => setMonthlyGoalYear(Number(event.target.value) || new Date().getFullYear())}
+              />
+            </Field>
+            <p>
+              Estas metas se comparan contra el Total sin impuestos facturado de cada mes para mostrar el semáforo de avance.
+            </p>
+          </div>
+          <div className="reports-monthly-goals-grid">
+            {monthlyGoalDrafts.map((goal) => (
+              <Field key={`${goal.year}-${goal.month}`} label={formatMonthName(goal.month)}>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={goal.targetAmount}
+                  onChange={(event) => updateMonthlyGoal(goal.month, Number(event.target.value))}
+                />
+              </Field>
+            ))}
+          </div>
+
+          <h3>Metas por vendedor</h3>
+          {goalDrafts.length > 0 ? (
+            <div className="form-grid">
+              {goalDrafts.map((goal) => (
+                <article key={`${goal.sellerId ?? 'seller'}-${goal.sellerName}`} className="panel reports-goal-card">
+                  <div className="panel-header">
+                    <strong>{goal.sellerName}</strong>
+                    <span>Seguimiento comercial</span>
+                  </div>
+                  <div className="reports-panel-body reports-stack-compact">
+                    <Field label="Meta de ventas">
+                      <input type="number" value={goal.salesTarget} onChange={(event) => updateSellerGoal(goal.sellerName, 'salesTarget', Number(event.target.value))} />
+                    </Field>
+                    <Field label="Meta clientes nuevos">
+                      <input type="number" value={goal.newCustomersTarget} onChange={(event) => updateSellerGoal(goal.sellerName, 'newCustomersTarget', Number(event.target.value))} />
+                    </Field>
+                    <Field label="Meta clientes reactivados">
+                      <input type="number" value={goal.reactivatedCustomersTarget} onChange={(event) => updateSellerGoal(goal.sellerName, 'reactivatedCustomersTarget', Number(event.target.value))} />
+                    </Field>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="page-subtitle">Carga el reporte de vendedores para poder programar metas por vendedor.</p>
+          )}
+
+          <div className="permission-modal-actions">
+            {saveError ? <p className="form-error">{saveError}</p> : null}
+            <button type="button" className="secondary-button" onClick={onClose}>
+              Cancelar
+            </button>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={handleSave}
+            >
+              {saving ? 'Guardando...' : 'Guardar configuración'}
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function DataTable<T>({
+  columns,
+  rows,
+  storageKey,
+}: {
+  columns: Array<TableColumn<T>>;
+  rows: T[];
+  storageKey: string;
+}) {
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<string | null>(null);
+  const [direction, setDirection] = useState<'asc' | 'desc'>('desc');
+  const [page, setPage] = useState(1);
+  const pageSize = 12;
+
+  const filteredRows = useMemo(() => {
+    if (!search.trim()) return rows;
+    const normalized = search.trim().toLowerCase();
+    return rows.filter((row) =>
+      columns.some((column) => {
+        const value = column.sortValue ? column.sortValue(row) : '';
+        return `${value}`.toLowerCase().includes(normalized);
+      }),
+    );
+  }, [columns, rows, search]);
+
+  const sortableColumns = useMemo(
+    () => columns.filter((column) => column.sortable !== false && column.sortValue),
+    [columns],
+  );
+
+  const sortedRows = useMemo(() => {
+    if (!sortBy) return filteredRows;
+    const column = columns.find((item) => item.id === sortBy);
+    if (!column?.sortValue) return filteredRows;
+    const sortValue = column.sortValue;
+    return [...filteredRows].sort((left, right) => {
+      const leftValue = sortValue(left);
+      const rightValue = sortValue(right);
+      if (leftValue === rightValue) return 0;
+      const result = leftValue > rightValue ? 1 : -1;
+      return direction === 'asc' ? result : -result;
+    });
+  }, [columns, direction, filteredRows, sortBy]);
+
+  const pageCount = Math.max(1, Math.ceil(sortedRows.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const visibleRows = sortedRows.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
+
+  return (
+    <div className="table-wrap">
+      <div className="table-toolbar">
+        <label className="inline-search">
+          <Filter size={16} />
+          <input
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setPage(1);
+            }}
+            placeholder="Filtrar tabla"
+          />
+        </label>
+        <label className="reports-table-sort-control">
+          <span>Ordenar por</span>
+          <select
+            value={sortBy ?? ''}
+            onChange={(event) => {
+              setSortBy(event.target.value || null);
+              setDirection('desc');
+              setPage(1);
+            }}
+          >
+            <option value="">Orden original</option>
+            {sortableColumns.map((column) => (
+              <option key={column.id} value={column.id}>
+                {column.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="reports-table-sort-control">
+          <span>Dirección</span>
+          <select
+            value={direction}
+            disabled={!sortBy}
+            onChange={(event) => {
+              setDirection(event.target.value as 'asc' | 'desc');
+              setPage(1);
+            }}
+          >
+            <option value="desc">Mayor a menor</option>
+            <option value="asc">Menor a mayor</option>
+          </select>
+        </label>
+        <div className="header-actions">
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => downloadCsv(columns, sortedRows, storageKey)}
+          >
+            <Download size={16} />
+            Exportar
+          </button>
+          <span>
+            Pagina {currentPage} de {pageCount}
+          </span>
+        </div>
+      </div>
+      <table className="records-table reports-table">
+        <thead>
+          <tr>
+            {columns.map((column) => (
+              <th key={column.id}>
+                <button
+                  type="button"
+                  className="folio-button"
+                  onClick={() => {
+                    if (!column.sortable && !column.sortValue) return;
+                    setPage(1);
+                    if (sortBy === column.id) {
+                      setDirection((current) => (current === 'asc' ? 'desc' : 'asc'));
+                    } else {
+                      setSortBy(column.id);
+                      setDirection('desc');
+                    }
+                  }}
+                >
+                  {column.label}
+                </button>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {visibleRows.map((row, rowIndex) => (
+            <tr key={rowIndex}>
+              {columns.map((column) => (
+                <td key={column.id}>{column.render(row)}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {visibleRows.length === 0 ? (
+        <EmptyState title="Sin resultados">No hay filas para mostrar con el filtro actual.</EmptyState>
+      ) : null}
+      <div className="permission-modal-actions">
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() => setPage(Math.max(1, Math.min(currentPage, pageCount) - 1))}
+          disabled={currentPage <= 1}
+        >
+          Anterior
+        </button>
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() => setPage((current) => Math.min(pageCount, Math.min(currentPage, current) + 1))}
+          disabled={currentPage >= pageCount}
+        >
+          Siguiente
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Field({ children, label }: { children: ReactNode; label: string }) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function column<T>(
+  id: string,
+  label: string,
+  render: (row: T) => ReactNode,
+  sortValue: (row: T) => string | number,
+): TableColumn<T> {
+  return {
+    id,
+    label,
+    render,
+    sortable: true,
+    sortValue,
+  };
+}
+
+function renderStatusPill(status: string, riskLevel: RiskLevel = 'bajo') {
+  return (
+    <span className={`permission-chip reports-status-pill priority-${riskLevel}`}>
+      {status.replaceAll('_', ' ')}
+    </span>
+  );
+}
+
+function renderOdooLink(
+  dataset: OdooCommercialDataset,
+  model: string,
+  recordId: number,
+  label: string,
+) {
+  const url = `${dataset.odooBaseUrl}/web#id=${recordId}&model=${model}&view_type=form`;
+  return (
+    <a href={url} target="_blank" rel="noreferrer">
+      {label}
+    </a>
+  );
+}
+
+function scheduleReportIdleWork(callback: () => void) {
+  if (typeof window === 'undefined') {
+    callback();
+    return undefined;
+  }
+
+  const idleWindow = window as Window & {
+    requestIdleCallback?: (handler: () => void, options?: { timeout: number }) => number;
+    cancelIdleCallback?: (id: number) => void;
+  };
+
+  if (typeof idleWindow.requestIdleCallback === 'function') {
+    const idleId = idleWindow.requestIdleCallback(callback, { timeout: 1800 });
+    return () => idleWindow.cancelIdleCallback?.(idleId);
+  }
+
+  const timeoutId = window.setTimeout(callback, 900);
+  return () => window.clearTimeout(timeoutId);
+}
+
+function loadStoredConfig() {
+  const raw = window.localStorage.getItem(REPORTS_CONFIG_STORAGE_KEY);
+  if (!raw) return defaultReportsConfig;
+  try {
+    const parsed = JSON.parse(raw) as ReportsConfig;
+    return {
+      ...defaultReportsConfig,
+      ...parsed,
+      sellerRankingWeights: {
+        ...defaultReportsConfig.sellerRankingWeights,
+        ...parsed.sellerRankingWeights,
+      },
+      sellerGoals: Array.isArray(parsed.sellerGoals) ? parsed.sellerGoals : defaultReportsConfig.sellerGoals,
+      monthlySalesGoals: Array.isArray(parsed.monthlySalesGoals)
+        ? parsed.monthlySalesGoals
+        : defaultReportsConfig.monthlySalesGoals,
+    };
+  } catch {
+    return defaultReportsConfig;
+  }
+}
+
+export function buildDefaultFilters(visibilityScope: ReportVisibilityScope): ReportFilters {
+  const quickRange = buildQuickRange('previous_month');
+  return {
+    ...quickRange,
+    companyId: null,
+    companyIds: visibilityScope === 'all' ? [DEFAULT_COMPANY_FILTER_ID] : [],
+    sellerId: null,
+    sellerIds: [],
+    teamId: null,
+    customerId: null,
+    productId: null,
+    categoryId: null,
+    currencyCode: null,
+    channel: null,
+    stateScope: 'all',
+    grouping: 'day',
+    visibilityScope,
+  };
+}
+
+function buildOperationalNotificationFilters(
+  visibilityScope: ReportVisibilityScope,
+): ReportFilters {
+  const quickRange = buildRollingDayRange(90);
+  return {
+    ...buildDefaultFilters(visibilityScope),
+    startDate: quickRange.startDate,
+    endDate: quickRange.endDate,
+    visibilityScope,
+    companyId: null,
+    companyIds: [],
+    sellerId: null,
+    sellerIds: [],
+    teamId: null,
+    customerId: null,
+    productId: null,
+    categoryId: null,
+    currencyCode: null,
+    channel: null,
+    stateScope: 'all',
+  };
+}
+
+function buildRollingDayRange(days: number) {
+  const today = new Date();
+  const end = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+  const start = new Date(end);
+  start.setUTCDate(end.getUTCDate() - Math.max(0, days - 1));
+  return { startDate: toDateInput(start), endDate: toDateInput(end) };
+}
+
+function mergeStoredConfig(rawConfig: Partial<ReportsConfig> | ReportsConfig) {
+  const parsed = rawConfig ?? {};
+  return {
+    ...defaultReportsConfig,
+    ...parsed,
+    sellerRankingWeights: {
+      ...defaultReportsConfig.sellerRankingWeights,
+      ...(parsed.sellerRankingWeights ?? {}),
+    },
+    sellerGoals: Array.isArray(parsed.sellerGoals) ? parsed.sellerGoals : defaultReportsConfig.sellerGoals,
+    monthlySalesGoals: Array.isArray(parsed.monthlySalesGoals)
+      ? parsed.monthlySalesGoals
+      : defaultReportsConfig.monthlySalesGoals,
+  } satisfies ReportsConfig;
+}
+
+function mergeStoredFilters(
+  rawFilters: Partial<ReportFilters> | null | undefined,
+  visibilityScope: ReportVisibilityScope,
+): ReportFilters {
+  const defaults = buildDefaultFilters(visibilityScope);
+  if (!rawFilters) {
+    return defaults;
+  }
+
+  if (shouldMigrateLegacyDefaultFilters(rawFilters)) {
+    return defaults;
+  }
+
+  const sellerIds = Array.isArray(rawFilters.sellerIds)
+    ? rawFilters.sellerIds.filter((value) => Number.isFinite(value))
+    : rawFilters.sellerId
+      ? [rawFilters.sellerId]
+      : [];
+  const companyIds = Array.isArray(rawFilters.companyIds)
+    ? rawFilters.companyIds.filter((value) => Number.isFinite(value))
+    : rawFilters.companyId
+      ? [rawFilters.companyId]
+      : [];
+
+  return {
+    ...defaults,
+    ...rawFilters,
+    startDate: defaults.startDate,
+    endDate: defaults.endDate,
+    companyId: null,
+    companyIds: visibilityScope === 'all'
+      ? companyIds.length ? companyIds : [DEFAULT_COMPANY_FILTER_ID]
+      : companyIds,
+    sellerId: null,
+    sellerIds: visibilityScope === 'all' ? [] : sellerIds,
+    grouping: defaults.grouping,
+    visibilityScope,
+  };
+}
+
+function alignFiltersWithDataset(
+  filters: ReportFilters,
+  dataset: OdooCommercialDataset,
+  applyDefaultCompany: boolean,
+): ReportFilters {
+  const validCompanyIds = new Set(dataset.availableFilters.companies.map((option) => Number(option.id)));
+  const companyOptions = normalizeNumberOptions(dataset.availableFilters.companies);
+  const scopedCompanyId =
+    dataset.scopeApplied === 'own' ? Number(dataset.companyScope?.id) : null;
+  const scopedSellerId =
+    dataset.scopeApplied === 'own' ? Number(dataset.sellerScope?.id) : null;
+  const defaultCompany = dataset.availableFilters.companies.find(
+    (option) =>
+      [DEFAULT_COMPANY_FILTER_LABEL, DEFAULT_COMPANY_FILTER_NAME].some(
+        (companyName) => normalizeText(option.label) === normalizeText(companyName),
+      ),
+  );
+
+  const companyIds = resolveActiveCompanyIds(filters, dataset.availableFilters.companies);
+  const defaultCompanyId = defaultCompany ? Number(defaultCompany.id) : null;
+  const useDefaultCompany = applyDefaultCompany && dataset.scopeApplied === 'all' &&
+    !filters.companyIds?.length && filters.companyId == null &&
+    defaultCompanyId !== null && validCompanyIds.has(defaultCompanyId);
+  const noCompaniesSelected = filters.companyIds?.includes(EMPTY_FILTER_SELECTION_ID) ?? false;
+  const validCompanyFilterIds = companyIds.filter((companyId) =>
+    companyOptions.some((option) => option.id === companyId),
+  );
+  const selectedCompanyIds = Number.isFinite(scopedCompanyId)
+    ? [scopedCompanyId as number]
+    : noCompaniesSelected
+      ? [EMPTY_FILTER_SELECTION_ID]
+      : useDefaultCompany
+        ? [defaultCompanyId as number]
+        : validCompanyFilterIds.length > 0
+          ? validCompanyFilterIds
+          : companyOptions.map((option) => option.id);
+  const companySellerOptions = getSellerOptionsForCompanies(dataset, selectedCompanyIds, filters);
+  const sellerIds = resolveActiveSellerIds(filters, companySellerOptions);
+  const noSellersSelected = filters.sellerIds?.includes(EMPTY_FILTER_SELECTION_ID) ?? false;
+  const validSellerIds = sellerIds.filter((sellerId) =>
+    companySellerOptions.some((option) => Number(option.id) === sellerId),
+  );
+
+  return {
+    ...filters,
+    companyId: null,
+    companyIds: selectedCompanyIds,
+    sellerId: null,
+    sellerIds:
+      Number.isFinite(scopedSellerId)
+        ? [scopedSellerId as number]
+        : noSellersSelected
+        ? [EMPTY_FILTER_SELECTION_ID]
+        : validSellerIds.length > 0
+        ? validSellerIds
+        : companySellerOptions.map((option) => Number(option.id)),
+  };
+}
+
+function getSellerOptionsForCompanies(
+  dataset: OdooCommercialDataset,
+  companyIds: number[],
+  filters: Pick<ReportFilters, 'startDate' | 'endDate'>,
+): ReportOption[] {
+  if (companyIds.includes(EMPTY_FILTER_SELECTION_ID)) return [];
+  if (!companyIds.length) return dataset.availableFilters.sellers;
+  const selected = new Set(companyIds);
+  const hasOdooCompanyMapping = dataset.availableFilters.sellers.some(
+    (option) => option.companyId != null && Number.isFinite(Number(option.companyId)),
+  );
+  if (hasOdooCompanyMapping) {
+    return dataset.availableFilters.sellers.filter(
+      (option) => option.companyId != null && selected.has(Number(option.companyId)),
+    );
+  }
+  const inRange = (value: string | null | undefined) =>
+    Boolean(value && value.slice(0, 10) >= filters.startDate && value.slice(0, 10) <= filters.endDate);
+  const sellers = new Set<number>();
+  dataset.orders.forEach((order) => {
+    const date = order.state === 'sale' ? order.confirmationDate : order.createDate ?? order.quotationDate;
+    if (selected.has(order.companyId ?? -1) && inRange(date) && order.sellerId != null) sellers.add(order.sellerId);
+  });
+  dataset.invoices.forEach((invoice) => {
+    if (selected.has(invoice.companyId ?? -1) && inRange(invoice.invoiceDate) && invoice.sellerId != null) {
+      sellers.add(invoice.sellerId);
+    }
+  });
+  return dataset.availableFilters.sellers.filter((option) => sellers.has(Number(option.id)));
+}
+
+function mergeSellerCatalog(
+  current: Array<{ sellerId: number | null; sellerName: string }>,
+  options: ReportOption[],
+) {
+  const catalog = new Map<string, { sellerId: number | null; sellerName: string }>();
+
+  current.forEach((seller) => {
+    catalog.set(`${seller.sellerId ?? 'seller'}:${seller.sellerName}`, seller);
+  });
+
+  normalizeNumberOptions(options).forEach((option) => {
+    catalog.set(`${option.id}:${option.label}`, {
+      sellerId: option.id,
+      sellerName: option.label,
+    });
+  });
+
+  return Array.from(catalog.values()).sort((left, right) => left.sellerName.localeCompare(right.sellerName, 'es'));
+}
+
+function areFiltersEqual(left: ReportFilters, right: ReportFilters) {
+  return (
+    left.startDate === right.startDate &&
+    left.endDate === right.endDate &&
+    left.companyId === right.companyId &&
+    sameNumberList(left.companyIds, right.companyIds) &&
+    left.sellerId === right.sellerId &&
+    sameNumberList(left.sellerIds, right.sellerIds) &&
+    left.teamId === right.teamId &&
+    left.customerId === right.customerId &&
+    left.productId === right.productId &&
+    left.categoryId === right.categoryId &&
+    left.currencyCode === right.currencyCode &&
+    left.channel === right.channel &&
+    left.stateScope === right.stateScope &&
+    left.grouping === right.grouping &&
+    left.visibilityScope === right.visibilityScope
+  );
+}
+
+function clearExecutiveOnlyHiddenFilters(filters: ReportFilters): ReportFilters {
+  if (
+    filters.teamId === null &&
+    filters.customerId === null &&
+    filters.productId === null &&
+    filters.categoryId === null
+  ) {
+    return filters;
+  }
+
+  return {
+    ...filters,
+    teamId: null,
+    customerId: null,
+    productId: null,
+    categoryId: null,
+  };
+}
+
+function sameNumberList(left?: number[], right?: number[]) {
+  const leftList = left ?? [];
+  const rightList = right ?? [];
+  if (leftList.length !== rightList.length) return false;
+  return leftList.every((value, index) => value === rightList[index]);
+}
+
+function normalizeNumberOptions(options: ReportOption[]) {
+  return options
+    .map((option) => ({ id: Number(option.id), label: option.label }))
+    .filter((option) => Number.isFinite(option.id));
+}
+
+function resolveActiveCompanyIds(filters: ReportFilters, options: ReportOption[]) {
+  const optionIds = normalizeNumberOptions(options).map((option) => option.id);
+  if (filters.companyIds?.includes(EMPTY_FILTER_SELECTION_ID)) {
+    return [EMPTY_FILTER_SELECTION_ID];
+  }
+
+  if (Array.isArray(filters.companyIds) && filters.companyIds.length > 0) {
+    return filters.companyIds.filter((companyId) => optionIds.includes(companyId));
+  }
+
+  if (filters.companyId !== null && filters.companyId !== undefined && optionIds.includes(filters.companyId)) {
+    return [filters.companyId];
+  }
+
+  return optionIds;
+}
+
+function resolveActiveSellerIds(filters: ReportFilters, options: ReportOption[]) {
+  const optionIds = normalizeNumberOptions(options).map((option) => option.id);
+  if (filters.sellerIds?.includes(EMPTY_FILTER_SELECTION_ID)) {
+    return [EMPTY_FILTER_SELECTION_ID];
+  }
+
+  if (Array.isArray(filters.sellerIds) && filters.sellerIds.length > 0) {
+    return filters.sellerIds.filter((sellerId) => optionIds.includes(sellerId));
+  }
+
+  if (filters.sellerId !== null && filters.sellerId !== undefined && optionIds.includes(filters.sellerId)) {
+    return [filters.sellerId];
+  }
+
+  return optionIds;
+}
+
+function toggleSellerSelection(selectedIds: number[], sellerId: number, allIds: number[]) {
+  const currentIds = selectedIds.length > 0 ? selectedIds : allIds;
+  const nextIds = currentIds.includes(sellerId)
+    ? currentIds.filter((value) => value !== sellerId)
+    : [...currentIds, sellerId];
+
+  return nextIds.length > 0 ? nextIds : allIds;
+}
+
+function toggleDraftSellerSelection(selectedIds: number[], sellerId: number) {
+  return selectedIds.includes(sellerId)
+    ? selectedIds.filter((value) => value !== sellerId)
+    : [...selectedIds, sellerId];
+}
+
+function formatSellerSelectionLabel(selectedIds: number[], options: Array<{ id: number; label: string }>) {
+  if (selectedIds.includes(EMPTY_FILTER_SELECTION_ID)) return 'Ninguno';
+  if (options.length === 0) return 'Sin opciones';
+  if (selectedIds.length === 0 || selectedIds.length === options.length) return 'Todos';
+  if (selectedIds.length === 1) {
+    return options.find((option) => option.id === selectedIds[0])?.label ?? '1 vendedor';
+  }
+  return `${selectedIds.length} vendedores`;
+}
+
+function formatCompanySelectionLabel(selectedIds: number[], options: Array<{ id: number; label: string }>) {
+  if (selectedIds.includes(EMPTY_FILTER_SELECTION_ID)) return 'Ninguna';
+  if (options.length === 0) return 'Sin opciones';
+  if (selectedIds.length === 0 || selectedIds.length === options.length) return 'Todas';
+  if (selectedIds.length === 1) {
+    return options.find((option) => option.id === selectedIds[0])?.label ?? '1 compañía';
+  }
+  return `${selectedIds.length} compañías`;
+}
+
+function normalizeText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+export function buildQuickRange(key: QuickRangeKey) {
+  const today = new Date();
+  const end = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+  const start = new Date(end);
+
+  if (key === 'today') {
+    return { startDate: toDateInput(start), endDate: toDateInput(end) };
+  }
+
+  if (key === 'last_7_days') {
+    start.setUTCDate(end.getUTCDate() - 6);
+    return { startDate: toDateInput(start), endDate: toDateInput(end) };
+  }
+
+  if (key === 'last_30_days') {
+    start.setUTCDate(end.getUTCDate() - 29);
+    return { startDate: toDateInput(start), endDate: toDateInput(end) };
+  }
+
+  if (key === 'current_month') {
+    const monthStart = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1));
+    return { startDate: toDateInput(monthStart), endDate: toDateInput(end) };
+  }
+
+  if (key === 'previous_month') {
+    const prevMonthStart = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() - 1, 1));
+    const prevMonthEnd = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 0));
+    return { startDate: toDateInput(prevMonthStart), endDate: toDateInput(prevMonthEnd) };
+  }
+
+  if (key === 'current_quarter') {
+    const quarterMonth = Math.floor(end.getUTCMonth() / 3) * 3;
+    const quarterStart = new Date(Date.UTC(end.getUTCFullYear(), quarterMonth, 1));
+    return { startDate: toDateInput(quarterStart), endDate: toDateInput(end) };
+  }
+
+  if (key === 'current_year') {
+    const yearStart = new Date(Date.UTC(end.getUTCFullYear(), 0, 1));
+    return { startDate: toDateInput(yearStart), endDate: toDateInput(end) };
+  }
+
+  const previousYearStart = new Date(Date.UTC(end.getUTCFullYear() - 1, 0, 1));
+  const previousYearEnd = new Date(Date.UTC(end.getUTCFullYear() - 1, 11, 31));
+  return { startDate: toDateInput(previousYearStart), endDate: toDateInput(previousYearEnd) };
+}
+
+export function recommendedGroupingForRange(range: { startDate: string; endDate: string }) {
+  const days = diffRangeDays(range.startDate, range.endDate);
+  if (days <= 45) return 'day';
+  if (days <= 210) return 'month';
+  if (days <= 540) return 'quarter';
+  return 'year';
+}
+
+function diffRangeDays(startDate: string, endDate: string) {
+  const start = new Date(`${startDate}T00:00:00.000Z`);
+  const end = new Date(`${endDate}T00:00:00.000Z`);
+  return Math.ceil((end.getTime() - start.getTime()) / 86400000) + 1;
+}
+
+function toDateInput(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function parseNullableNumber(value: string) {
+  if (!value) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeReportsSection(value: string | null): ReportsSection | null {
+  if (
+    value === 'executive' ||
+    value === 'conversion' ||
+    value === 'clients' ||
+    value === 'products' ||
+    value === 'sellers' ||
+    value === 'pareto' ||
+    value === 'abandonedCarts' ||
+    value === 'details'
+  ) {
+    return value;
+  }
+
+  return null;
+}
+
+function normalizeReportDetailKey(value: string | null): DetailKey | null {
+  if (
+    value === 'pendingQuotes' ||
+    value === 'expiredQuotes' ||
+    value === 'cancelledQuotes' ||
+    value === 'convertedQuotes' ||
+    value === 'confirmedOrders' ||
+    value === 'postedInvoices' ||
+    value === 'atRiskClients' ||
+    value === 'dormantClients' ||
+    value === 'lostClients' ||
+    value === 'reactivatedClients' ||
+    value === 'negativeMarginProducts' ||
+    value === 'lowConversionSellers'
+  ) {
+    return value;
+  }
+
+  return null;
+}
+
+function detectQuickRange(filters: ReportFilters): QuickRangeKey {
+  const keys: QuickRangeKey[] = [
+    'current_month',
+    'previous_month',
+    'current_year',
+  ];
+
+  return (
+    keys.find((key) => {
+      const range = buildQuickRange(key);
+      return range.startDate === filters.startDate && range.endDate === filters.endDate;
+    }) ?? 'previous_month'
+  );
+}
+
+function shouldMigrateLegacyDefaultFilters(rawFilters: Partial<ReportFilters>) {
+  const legacyRange = buildQuickRange('last_30_days');
+
+  if (
+    rawFilters.startDate !== legacyRange.startDate ||
+    rawFilters.endDate !== legacyRange.endDate
+  ) {
+    return false;
+  }
+
+  const hasOtherExplicitFilters =
+    rawFilters.teamId !== null ||
+    rawFilters.customerId !== null ||
+    rawFilters.productId !== null ||
+    rawFilters.categoryId !== null ||
+    rawFilters.currencyCode !== null ||
+    rawFilters.channel !== null ||
+    rawFilters.stateScope === 'confirmed' ||
+    rawFilters.grouping === 'month' ||
+    rawFilters.grouping === 'quarter' ||
+    rawFilters.grouping === 'year';
+
+  return !hasOtherExplicitFilters;
+}
+
+function buildPreviousPeriodRange(filters: ReportFilters) {
+  const currentStart = new Date(`${filters.startDate}T00:00:00.000Z`);
+  const currentEnd = new Date(`${filters.endDate}T00:00:00.000Z`);
+  const shiftYear = (date: Date) => {
+    const year = date.getUTCFullYear() - 1;
+    const month = date.getUTCMonth();
+    const day = Math.min(date.getUTCDate(), new Date(Date.UTC(year, month + 1, 0)).getUTCDate());
+    return toDateInput(new Date(Date.UTC(year, month, day)));
+  };
+  return { startDate: shiftYear(currentStart), endDate: shiftYear(currentEnd) };
+}
+
+function formatReferenceDateRange(startDate: string, endDate: string) {
+  const formatter = new Intl.DateTimeFormat('es-MX', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+
+  const start = formatter.format(new Date(`${startDate}T00:00:00.000Z`));
+  const end = formatter.format(new Date(`${endDate}T00:00:00.000Z`));
+  return `${start} - ${end}`;
+}
+
+function formatReferenceComparisonRange(startDate: string, endDate: string) {
+  const formatter = new Intl.DateTimeFormat('es-MX', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  });
+  const start = formatter.format(new Date(`${startDate}T00:00:00.000Z`));
+  const end = formatter.format(new Date(`${endDate}T00:00:00.000Z`));
+  const year = new Date(`${endDate}T00:00:00.000Z`).getUTCFullYear();
+  return `${start} - ${end} ${year}`;
+}
+
+function applyDailySalesComparisonFallback(
+  snapshot: CommercialDashboardSnapshot,
+  comparison: ReportDailySalesComparison | null,
+): CommercialDashboardSnapshot {
+  if (!comparison) {
+    return snapshot;
+  }
+
+  const yearMatch = /^(\d{4})-01-01$/.exec(snapshot.filters.startDate);
+  const annualComparison = yearMatch && comparison.monthlyMetrics?.length
+    ? buildAnnualInvoiceComparison(
+      comparison.monthlyMetrics,
+      Number(yearMatch[1]),
+      comparison.comparisonCurrentEndDate ?? snapshot.filters.endDate,
+    )
+    : null;
+  // The daily cache is intentionally short-lived, so it must never stand in
+  // for a year-to-date comparison when monthly aggregates are unavailable.
+  if (yearMatch && !annualComparison) return snapshot;
+  if (!annualComparison && (!comparison.available || !comparison.points.length)) return snapshot;
+  const comparisonTotals = annualComparison ?? comparison;
+
+  const compareAggregate = (current: number, previous: number) => {
+    const difference = current - previous;
+    return {
+      current,
+      previous,
+      difference,
+      differencePct: previous === 0 ? null : difference / Math.abs(previous) * 100,
+      trend: difference > 0 ? 'up' as const : difference < 0 ? 'down' as const : 'stable' as const,
+    };
+  };
+  const marginPct = (margin: number, amount: number) => amount === 0 ? 0 : margin / amount * 100;
+  const invoicedAmount = compareAggregate(comparisonTotals.currentTotal, comparisonTotals.previousTotal);
+  const displayedRevenue = annualComparison
+    ? comparison.yearToDateTotals
+      ? compareAggregate(comparison.yearToDateTotals.current, comparison.yearToDateTotals.previous)
+      : snapshot.agentProfile?.summary.metrics.find((metric) => metric.id === 'revenue')?.comparison ?? snapshot.invoicing.invoicedAmount
+    : invoicedAmount;
+  const marginAmount = compareAggregate(comparisonTotals.currentMargin, comparisonTotals.previousMargin);
+  const marginPercentage = compareAggregate(
+    marginPct(comparisonTotals.currentMargin, comparisonTotals.currentTotal),
+    marginPct(comparisonTotals.previousMargin, comparisonTotals.previousTotal),
+  );
+  const invoiceCount = comparisonTotals.currentInvoiceCount !== undefined && comparisonTotals.previousInvoiceCount !== undefined
+    ? compareAggregate(comparisonTotals.currentInvoiceCount, comparisonTotals.previousInvoiceCount)
+    : snapshot.invoicing.invoiceCount;
+
+  return {
+    ...snapshot,
+    invoicing: {
+      ...snapshot.invoicing,
+      invoicedAmount,
+      invoiceCount,
+    },
+    sales: {
+      ...snapshot.sales,
+      soldAmount: invoicedAmount,
+      marginAmount,
+      marginPct: marginPercentage,
+    },
+    summaryMetrics: snapshot.summaryMetrics.map((metric) => {
+      if (metric.id === 'margin') {
+        return {
+          ...metric,
+          comparison: displayedRevenue,
+          formattedCurrent: formatCurrency(displayedRevenue.current),
+        };
+      }
+      if (metric.id === 'invoiced') {
+        return {
+          ...metric,
+          comparison: invoiceCount,
+          formattedCurrent: formatNumber(invoiceCount.current),
+        };
+      }
+      return metric;
+    }),
+    agentProfile: snapshot.agentProfile ? {
+      ...snapshot.agentProfile,
+      summary: {
+        ...snapshot.agentProfile.summary,
+        metrics: snapshot.agentProfile.summary.metrics.map((metric) => metric.id === 'revenue'
+          ? {
+            ...metric,
+            comparison: displayedRevenue,
+            formattedCurrent: formatCurrency(displayedRevenue.current),
+          }
+          : metric),
+      },
+    } : snapshot.agentProfile,
+    dailyInvoiceDifference: annualComparison?.points ?? comparison.points,
+    annualMonthlyComparison: applyMonthlyAggregateComparison(
+      snapshot,
+      comparison.monthlyMetrics ?? [],
+      comparison.closedMonthsOnly ? comparison.comparisonCurrentEndDate ?? null : null,
+    ),
+  };
+}
+
+function omitSellerFilterWhenAllSelected(
+  filters: ReportFilters,
+  dataset: OdooCommercialDataset,
+): ReportFilters {
+  if (filters.visibilityScope !== 'all' || filters.sellerIds?.includes(EMPTY_FILTER_SELECTION_ID)) {
+    return filters;
+  }
+
+  const options = getSellerOptionsForCompanies(dataset, filters.companyIds ?? [], filters)
+    .map((option) => Number(option.id))
+    .filter((id) => Number.isFinite(id));
+  const selected = filters.sellerIds ?? [];
+  if (!selected.length || !options.length) return { ...filters, sellerIds: [] };
+
+  const optionIds = new Set(options);
+  const selectedIds = new Set(selected);
+  const allSelected = selectedIds.size === optionIds.size && [...optionIds].every((id) => selectedIds.has(id));
+  return allSelected ? { ...filters, sellerIds: [] } : filters;
+}
+
+function applyMonthlyAggregateComparison(
+  snapshot: CommercialDashboardSnapshot,
+  metrics: NonNullable<ReportDailySalesComparison['monthlyMetrics']>,
+  closedMonthEndDate: string | null,
+) {
+  const annual = snapshot.annualMonthlyComparison;
+  if (!metrics.length || snapshot.filters.startDate !== `${annual.year}-01-01`) return annual;
+
+  const totals = new Map<string, number>();
+  const categories = new Map<string, { name: string; current: number; previous: number }>();
+  for (const row of metrics) {
+    const month = Number(row.metric_month.slice(5, 7));
+    const amount = Number(row.untaxed_amount) || 0;
+    if (row.grain === 'total') {
+      totals.set(`${row.period}:${month}`, (totals.get(`${row.period}:${month}`) ?? 0) + amount);
+      continue;
+    }
+    const key = `${month}:${row.category_id}`;
+    const current = categories.get(key) ?? { name: row.category_name || 'Sin categoría', current: 0, previous: 0 };
+    if (row.period === 'current') current.current += amount;
+    else current.previous += amount;
+    categories.set(key, current);
+  }
+
+  const rows = annual.rows.map((base) => {
+    const currentRevenue = totals.get(`current:${base.month}`) ?? 0;
+    const previousRevenue = totals.get(`previous:${base.month}`) ?? 0;
+    const monthlyGrowthPct = aggregateGrowth(currentRevenue, previousRevenue);
+    const monthCategories = [...categories.entries()]
+      .filter(([key]) => Number(key.split(':', 1)[0]) === base.month)
+      .map(([, category]) => {
+        const categoryGrowthPct = aggregateGrowth(category.current, category.previous);
+        const referenceShare = previousRevenue > 0
+          ? category.previous / previousRevenue
+          : currentRevenue > 0 ? category.current / currentRevenue : 0;
+        const targetRevenue = base.targetRevenue * referenceShare;
+        const targetReachPct = targetRevenue > 0 ? category.current / targetRevenue * 100 : null;
+        return {
+          categoryName: category.name,
+          currentRevenue: category.current,
+          previousRevenue: category.previous,
+          categoryGrowthPct,
+          targetRevenue,
+          targetReachPct,
+          status: classifyAggregateStatus(targetReachPct, categoryGrowthPct),
+        };
+      })
+      .sort((left, right) => right.currentRevenue - left.currentRevenue);
+    const targetReachPct = base.targetRevenue > 0 ? currentRevenue / base.targetRevenue * 100 : null;
+    return {
+      ...base,
+      currentRevenue,
+      previousRevenue,
+      monthlyGrowthPct,
+      targetReachPct,
+      status: classifyAggregateStatus(targetReachPct, monthlyGrowthPct),
+      categoryRows: monthCategories,
+    };
+  });
+  const currentTotal = rows.reduce((sum, row) => sum + row.currentRevenue, 0);
+  const previousTotal = rows.reduce((sum, row) => sum + row.previousRevenue, 0);
+  const targetReachPct = annual.targetTotal > 0 ? currentTotal / annual.targetTotal * 100 : null;
+  const growthPct = aggregateGrowth(currentTotal, previousTotal);
+  return {
+    ...annual,
+    closedThroughMonth: closedMonthEndDate ? Number(closedMonthEndDate.slice(5, 7)) : null,
+    currentTotal,
+    previousTotal,
+    growthPct,
+    targetReachPct,
+    status: classifyAggregateStatus(targetReachPct, growthPct),
+    rows,
+  };
+}
+
+function aggregateGrowth(current: number, previous: number) {
+  if (previous === 0) return current === 0 ? 0 : null;
+  return (current - previous) / Math.abs(previous) * 100;
+}
+
+function classifyAggregateStatus(targetReachPct: number | null, growthPct: number | null) {
+  if (targetReachPct !== null) {
+    if (targetReachPct >= 100) return 'success' as const;
+    if (targetReachPct >= 85) return 'warning' as const;
+    return 'danger' as const;
+  }
+  if (growthPct === null) return 'neutral' as const;
+  if (growthPct >= 8) return 'success' as const;
+  if (growthPct >= 0) return 'warning' as const;
+  return 'danger' as const;
+}
+
+function formatMetricChangeChip(comparison: ExecutiveMetric['comparison']) {
+  if (comparison.differencePct === null) return 'Sin base anterior';
+  const prefix = comparison.differencePct > 0 ? '↑' : comparison.differencePct < 0 ? '↓' : '•';
+  return `${prefix} ${Math.abs(comparison.differencePct).toFixed(1)}%`;
+}
+
+function formatRelativeUpdate(isoDate: string | null) {
+  if (!isoDate) return 'Actualizado hace unos minutos';
+  const diffMs = Date.now() - new Date(isoDate).getTime();
+  const diffMinutes = Math.max(1, Math.round(diffMs / 60000));
+  if (diffMinutes < 60) {
+    return `Actualizado: hace ${diffMinutes} min`;
+  }
+  const diffHours = Math.round(diffMinutes / 60);
+  return `Actualizado: hace ${diffHours} h`;
+}
+
+function buildFiltersSummary(filters: ReportFilters) {
+  const companySummary = buildCompanySummaryLabel(filters);
+  const sellerSummary = buildSellerSummaryLabel(filters);
+  const parts = [
+    `${filters.startDate} a ${filters.endDate}`,
+    companySummary,
+    sellerSummary,
+    filters.teamId ? `Equipo ${filters.teamId}` : null,
+    filters.customerId ? `Cliente ${filters.customerId}` : null,
+    filters.productId ? `Producto ${filters.productId}` : null,
+    filters.categoryId ? `Categoría ${filters.categoryId}` : null,
+    filters.currencyCode ? `Moneda ${filters.currencyCode}` : null,
+    filters.channel ? `Canal ${filters.channel}` : null,
+    filters.stateScope !== 'all' ? `Estado ${filters.stateScope}` : null,
+    `Agrupación ${groupingLabel(filters.grouping)}`,
+  ].filter(Boolean);
+
+  return parts.join(' · ');
+}
+
+function groupingLabel(grouping: ReportGrouping) {
+  if (grouping === 'month') return 'Mes';
+  if (grouping === 'quarter') return 'Trimestre';
+  if (grouping === 'year') return 'Año';
+  return 'Día';
+}
+
+function mapHallazgoTone(level: HallazgoLevel) {
+  if (level === 'critico') return 'warning';
+  if (level === 'atencion') return 'warning';
+  if (level === 'positivo') return 'good';
+  return 'neutral';
+}
+
+function formatMetricChange(comparison: ExecutiveMetric['comparison']) {
+  if (comparison.differencePct === null) return 'Sin comparación';
+  return `${comparison.differencePct >= 0 ? '+' : ''}${comparison.differencePct.toFixed(1)}% vs. período anterior`;
+}
+
+function buildFiltersSummaryEs(filters: ReportFilters) {
+  const companySummary = buildCompanySummaryLabel(filters);
+  const sellerSummary = buildSellerSummaryLabel(filters);
+  const parts = [
+    `${filters.startDate} a ${filters.endDate}`,
+    companySummary,
+    sellerSummary,
+    filters.teamId ? `Equipo ${filters.teamId}` : null,
+    filters.customerId ? `Cliente ${filters.customerId}` : null,
+    filters.productId ? `Producto ${filters.productId}` : null,
+    filters.categoryId ? `Categoría ${filters.categoryId}` : null,
+    filters.currencyCode ? `Moneda ${filters.currencyCode}` : null,
+    filters.channel ? `Canal ${filters.channel}` : null,
+    filters.stateScope !== 'all' ? `Estado ${filters.stateScope}` : null,
+    `Agrupación ${groupingLabelEs(filters.grouping)}`,
+  ].filter(Boolean);
+
+  return parts.join(' · ');
+}
+
+function buildCompanySummaryLabel(filters: ReportFilters) {
+  if (filters.companyIds?.includes(EMPTY_FILTER_SELECTION_ID)) {
+    return 'Ninguna compañía';
+  }
+
+  if (Array.isArray(filters.companyIds) && filters.companyIds.length > 0) {
+    return filters.companyIds.length === 1 ? '1 compañía' : `${filters.companyIds.length} compañías`;
+  }
+
+  if (filters.companyId) {
+    return `Compañía ${filters.companyId}`;
+  }
+
+  return null;
+}
+
+function buildSellerSummaryLabel(filters: ReportFilters) {
+  if (filters.sellerIds?.includes(EMPTY_FILTER_SELECTION_ID)) {
+    return 'Ningún vendedor';
+  }
+
+  if (Array.isArray(filters.sellerIds) && filters.sellerIds.length > 0) {
+    return filters.sellerIds.length === 1 ? '1 vendedor' : `${filters.sellerIds.length} vendedores`;
+  }
+
+  if (filters.sellerId) {
+    return `Vendedor ${filters.sellerId}`;
+  }
+
+  return null;
+}
+
+function groupingLabelEs(grouping: ReportGrouping) {
+  if (grouping === 'month') return 'Mes';
+  if (grouping === 'quarter') return 'Trimestre';
+  if (grouping === 'year') return 'Año';
+  return 'Día';
+}
+
+function formatMetricChangeEs(comparison: ExecutiveMetric['comparison']) {
+  if (comparison.differencePct === null) return 'Sin comparación';
+  return `${comparison.differencePct >= 0 ? '+' : ''}${comparison.differencePct.toFixed(1)}% vs. período anterior`;
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatCurrencyCompact(value: number) {
+  return new Intl.NumberFormat('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
+function formatPercent(value: number) {
+  return `${value.toFixed(1)}%`;
+}
+
+function formatMarginPercent(value: number) {
+  return `${value.toFixed(2)}%`;
+}
+
+function formatNullablePercent(value: number | null) {
+  return value === null ? '-' : `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat('es-MX', {
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatNullableNumber(value: number | null) {
+  return value === null ? '-' : formatNumber(value);
+}
+
+function formatDate(value: string | null) {
+  if (!value) return '-';
+  return new Intl.DateTimeFormat('es-MX', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(value));
+}
+
+function downloadCsv<T>(columns: Array<TableColumn<T>>, rows: T[], storageKey: string) {
+  const csvRows = [
+    columns.map((column) => `"${column.label.replaceAll('"', '""')}"`).join(','),
+    ...rows.map((row) =>
+      columns
+        .map((column) => {
+          const rendered = column.sortValue ? column.sortValue(row) : '';
+          return `"${`${rendered}`.replaceAll('"', '""')}"`;
+        })
+        .join(','),
+    ),
+  ];
+  const blob = new Blob([csvRows.join('\n')], {
+    type: 'text/csv;charset=utf-8',
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${storageKey}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function buildAgentComprehensiveReport(
+  snapshot: CommercialDashboardSnapshot,
+  score: AgentPerformanceScore,
+  dataset?: OdooCommercialDataset,
+  summaryContext?: AgentSummaryContext,
+  companyScope = false,
+  previousQuoteCount: number | null = null,
+): SectionReport {
+  const profile = snapshot.agentProfile;
+  if (!profile) {
+    return buildExecutiveSectionReport(snapshot, snapshot.hallazgos);
+  }
+  const generatedAtIso = new Date().toISOString();
+  const sections: AgentProfileSectionKey[] = [
+    'conversion',
+    'clients',
+    'products',
+    'sales',
+    'pareto',
+  ];
+  const highlights = sections.flatMap((section) => {
+    const analysis = profile[section] as AgentYearSection;
+    const title = agentProfileSectionMeta[section].title;
+    return [
+      ...analysis.positives
+        .filter((item) => item.tone !== 'neutral')
+        .slice(0, 1)
+        .map((item) => `Fortaleza · ${title}: ${item.title}. ${item.detail}`),
+      ...analysis.attention
+        .filter((item) => item.tone !== 'neutral')
+        .slice(0, 1)
+        .map((item) => `Prioridad · ${title}: ${item.title}. ${item.detail}`),
+    ];
+  });
+  const trendPoints = buildCumulativeInvoiceComparison(snapshot.dailyInvoiceDifference);
+  const trendCurrentTotal = trendPoints.at(-1)?.accumulatedCurrent ?? 0;
+  const trendPreviousTotal = trendPoints.at(-1)?.accumulatedPrevious ?? 0;
+  const trendDifference = trendCurrentTotal - trendPreviousTotal;
+  const trendGrowth = trendPreviousTotal > 0 ? `${trendDifference >= 0 ? '+' : ''}${(trendDifference / trendPreviousTotal * 100).toFixed(1)}%` : 'sin base comparable';
+  const categoryRows = profile.sales.rows.filter((row) => row.current > 0).slice(0, 8);
+  const clientRows = profile.clients.rows.slice(0, 8);
+  const productRows = profile.products.rows.filter((row) => row.current > 0).slice(0, 5);
+  const productOtherValue = Math.max(
+    0,
+    profile.products.rows
+      .filter((row) => row.current > 0)
+      .slice(5)
+      .reduce((total, row) => total + row.current, 0),
+  );
+  const customerBalance = dataset
+    ? dataset.executiveSummary?.customerBalance ?? buildAgentCustomerBalance(snapshot.clientLifecycle.rows, snapshot.filters, profile.clients.rows)
+    : null;
+  const crmBalance = dataset
+    ? dataset.executiveSummary?.crmBalance ?? buildAgentCrmBalance(dataset, snapshot.filters, companyScope ? null : profile.sellerName)
+    : null;
+  const abandonedQuoteBalance = dataset
+    ? dataset.executiveSummary?.abandonedQuoteBalance ?? buildAgentAbandonedQuoteBalance(dataset, snapshot, companyScope ? null : profile.sellerName, companyScope ? previousQuoteCount : summaryContext?.previousQuoteCount ?? null)
+    : null;
+  const paretoClients = buildAgentParetoSegments(profile.clients.rows);
+  const customerChangeRows = profile.clients.rows
+    .filter((row) => row.differencePct !== null && row.differencePct !== 0)
+    .slice()
+    .sort((left, right) => Math.abs(right.differencePct ?? 0) - Math.abs(left.differencePct ?? 0))
+    .slice(0, 10);
+  const referenceRows = [
+    ...clientRows.slice(0, 5).map((row) => [
+      row.label,
+      'Cliente',
+      formatCurrency(row.current),
+      formatCurrency(row.previous),
+      row.differencePct === null ? 'Sin base' : `${row.differencePct >= 0 ? '+' : ''}${row.differencePct.toFixed(1)}%`,
+    ]),
+    ...productRows.slice(0, 5).map((row) => [
+      row.label,
+      'Producto',
+      formatCurrency(row.current),
+      formatCurrency(row.previous),
+      row.differencePct === null ? 'Sin base' : `${row.differencePct >= 0 ? '+' : ''}${row.differencePct.toFixed(1)}%`,
+    ]),
+  ];
+
+  return {
+    fileBase: `reporte-integral-${normalizeFileName(companyScope ? profile.companyName : profile.sellerName)}`,
+    companyName: profile.companyName || REPORT_COMPANY_NAME,
+    logoSrc: REPORT_LOGO_SRC,
+    sellerName: companyScope ? profile.companyName : profile.sellerName,
+    position: companyScope ? 'Reporte comercial general' : 'Agente de ventas',
+    title: `Reporte integral de desempeño · ${companyScope ? profile.companyName : profile.sellerName}`,
+    subtitle: `${profile.currentPeriodLabel} comparado con ${profile.previousYearPeriodLabel}. ${profile.comparisonContext}.`,
+    objective:
+      companyScope
+        ? 'Presentar una lectura integral del desempeño comercial del alcance seleccionado para priorizar clientes, productos y oportunidades.'
+        : 'Presentar una lectura integral y accionable del desempeño del agente para reconocer fortalezas, recuperar oportunidades y priorizar clientes, productos y actividades comerciales.',
+    generatedAtIso,
+    generatedAt: formatDateTimeLabel(generatedAtIso),
+    score,
+    kpis: [
+      {
+        label: 'Calificación comercial',
+        value: `${score.total}/100`,
+        note: score.rating,
+      },
+      ...profile.summary.metrics.map((metric) => ({
+        label: metric.label,
+        value: formatAgentMetricValueUi(metric.comparison.current, metric.format),
+        note: `${formatAgentComparisonDelta(metric.comparison)} vs. ${profile.previousYearPeriodLabel}`,
+      })),
+    ],
+    highlights,
+    charts: [
+      {
+        title: 'Tendencia de facturación',
+        subtitle: `Facturación acumulada por ${trendPoints[0]?.bucketKind === 'month' ? 'mes' : 'día'} · cierre ${trendDifference >= 0 ? '+' : ''}${formatCurrency(trendDifference)} (${trendGrowth})`,
+        kind: 'line',
+        labels: trendPoints.map((point) => point.label),
+        series: [
+          {
+            label: 'Periodo actual acumulado',
+            color: trendDifference >= 0 ? '#39715a' : '#bd685d',
+            values: trendPoints.map((point) => point.accumulatedCurrent),
+            formatter: 'currency',
+          },
+          {
+            label: 'Periodo comparable acumulado',
+            color: '#9d887c',
+            values: trendPoints.map((point) => point.accumulatedPrevious),
+            formatter: 'currency',
+          },
+        ],
+      },
+      {
+        title: 'Ventas por categoría',
+         subtitle: companyScope ? 'Mezcla comercial del alcance seleccionado' : 'Mezcla comercial del agente',
+        kind: 'donut',
+        labels: categoryRows.map((row) => row.label),
+        series: [
+          {
+            label: 'Periodo actual',
+            color: '#8c6958',
+            values: categoryRows.map((row) => row.current),
+            formatter: 'currency',
+          },
+        ],
+      },
+      {
+        title: 'Clientes que más aportan',
+        subtitle: 'Comparativo de facturación por cliente',
+        labels: clientRows.map((row) => row.label),
+        series: [
+          {
+            label: 'Periodo actual',
+            color: '#74805d',
+            values: clientRows.map((row) => row.current),
+            formatter: 'currency',
+          },
+          {
+            label: 'Año anterior',
+            color: '#c6b7aa',
+            values: clientRows.map((row) => row.previous),
+            formatter: 'currency',
+          },
+        ],
+      },
+      {
+        title: 'Facturación por producto',
+        subtitle: 'Cinco productos principales y el resto agrupado',
+        labels: [...productRows.map((row) => row.label), ...(productOtherValue > 0 ? ['Otros'] : [])],
+        series: [
+          {
+            label: 'Periodo actual',
+            color: '#74805d',
+            values: [...productRows.map((row) => row.current), ...(productOtherValue > 0 ? [productOtherValue] : [])],
+            formatter: 'currency',
+          },
+        ],
+      },
+      ...(customerBalance ? [{
+        title: 'Balance de clientes',
+        subtitle: 'Movimientos de cartera del periodo',
+        kind: 'donut' as const,
+        labels: ['Nuevos', 'Reactivados', 'A reactivar', 'Perdidos'],
+        series: [{
+          label: 'Clientes',
+          color: '#5f9975',
+          values: [
+            customerBalance.newCount,
+            customerBalance.reactivatedCount,
+            customerBalance.toReactivateCount,
+            customerBalance.lostCount,
+          ],
+          formatter: 'number' as const,
+        }],
+      }] : []),
+      ...(crmBalance ? [{
+        title: 'Leads asignados vs. atendidos',
+        subtitle: 'Cobertura de seguimiento del periodo',
+        kind: 'donut' as const,
+        labels: ['Atendidos', 'Sin atención'],
+        series: [{
+          label: 'Leads',
+          color: '#39715a',
+          values: [crmBalance.attended, Math.max(crmBalance.assigned - crmBalance.attended, 0)],
+          formatter: 'number' as const,
+        }],
+      }] : []),
+      ...(abandonedQuoteBalance && abandonedQuoteBalance.previous !== null ? [{
+        title: 'Cotizaciones abandonadas vs. periodo anterior',
+        subtitle: 'Misma regla de análisis que la sección Cotizaciones abandonadas',
+        labels: ['Periodo actual', 'Periodo anterior'],
+        series: [{
+          label: 'Cotizaciones',
+          color: '#b66a4d',
+          values: [abandonedQuoteBalance.current, abandonedQuoteBalance.previous],
+          formatter: 'number' as const,
+        }],
+      }] : []),
+      {
+        title: 'Pareto comercial',
+        subtitle: `El Top 5 de clientes concentra ${formatPercent(paretoClients.topShare)} de la facturación actual`,
+        kind: 'donut',
+        labels: paretoClients.segments.map((segment) => segment.label),
+        series: [{
+          label: 'Facturación',
+          color: '#9a5139',
+          values: paretoClients.segments.map((segment) => segment.value),
+          formatter: 'currency',
+        }],
+      },
+      ...(customerChangeRows.length ? [{
+        title: 'Crecimiento y deterioro de clientes',
+        subtitle: 'Variación porcentual frente al periodo comparable; no es monto absoluto',
+        labels: customerChangeRows.map((row) => row.label),
+        series: [{
+          label: 'Crecimiento',
+          color: '#5f9975',
+          values: customerChangeRows.map((row) => Math.max(row.differencePct ?? 0, 0)),
+          formatter: 'percent' as const,
+        }, {
+          label: 'Deterioro',
+          color: '#bd685d',
+          values: customerChangeRows.map((row) => Math.min(row.differencePct ?? 0, 0)),
+          formatter: 'percent' as const,
+        }],
+      }] : []),
+    ],
+    tables: referenceRows.length
+      ? [{
+        title: 'Referencia rápida de clientes y productos prioritarios',
+        columns: ['Elemento', 'Tipo', 'Periodo actual', 'Año anterior', 'Variación'],
+        rows: referenceRows,
+      }]
+      : [],
+    bibliography: [...SALES_PERFORMANCE_BIBLIOGRAPHY],
+  };
+}
+
+function buildAgentReportTable(
+  profile: AgentPerformanceProfile,
+  section: AgentProfileSectionKey,
+): ReportTable {
+  const analysis = profile[section] as AgentYearSection;
+  const meta = agentProfileSectionMeta[section];
+  return {
+    title: meta.title,
+    columns: [
+      meta.rowLabel,
+      'Periodo actual',
+      'Mismo periodo año anterior',
+      'Variación',
+      ...(section === 'conversion' ? [] : ['Participación actual']),
+    ],
+    rows: analysis.rows.slice(0, 20).map((row) => [
+      row.label,
+      formatAgentDimensionValue(row.current, meta.rowFormat),
+      formatAgentDimensionValue(row.previous, meta.rowFormat),
+      row.differencePct === null
+        ? row.difference === 0
+          ? 'Sin cambio'
+          : 'Sin base anterior'
+        : `${row.differencePct >= 0 ? '+' : ''}${row.differencePct.toFixed(1)}%`,
+      ...(section === 'conversion' ? [] : [formatPercent(row.currentSharePct)]),
+    ]),
+  };
+}
+
+function buildAgentProfileSectionReport(
+  snapshot: CommercialDashboardSnapshot,
+  section: AgentProfileSectionKey,
+): SectionReport {
+  const profile = snapshot.agentProfile;
+  if (!profile) {
+    return buildExecutiveSectionReport(snapshot, snapshot.hallazgos);
+  }
+  const generatedAtIso = new Date().toISOString();
+  const analysis = profile[section] as AgentYearSection;
+  const meta = agentProfileSectionMeta[section];
+  const highlights = [
+    ...analysis.positives.map((item) => `Fortaleza: ${item.title}. ${item.detail}`),
+    ...analysis.attention.map((item) => `Atención: ${item.title}. ${item.detail}`),
+  ];
+
+  return {
+    fileBase: `reporte-personal-${section}`,
+    companyName: profile.companyName || REPORT_COMPANY_NAME,
+    logoSrc: REPORT_LOGO_SRC,
+    sellerName: profile.sellerName,
+    position: 'Agente de ventas',
+    title: `${meta.title} · ${profile.sellerName}`,
+    subtitle: `${profile.currentPeriodLabel} comparado con ${profile.previousYearPeriodLabel}. ${profile.comparisonContext}.`,
+    objective:
+      'Evaluar el desempeño personal del agente frente al mismo periodo del año anterior, destacando avances, retrocesos y prioridades comerciales.',
+    generatedAtIso,
+    generatedAt: formatDateTimeLabel(generatedAtIso),
+    kpis: analysis.metrics.map((metric) => ({
+      label: metric.label,
+      value: formatAgentMetricValueUi(metric.comparison.current, metric.format),
+      note: `${formatAgentComparisonDelta(metric.comparison)} vs. ${profile.previousYearPeriodLabel}`,
+    })),
+    highlights,
+    tables: [
+      {
+        title: meta.rowsTitle,
+        columns: [
+          meta.rowLabel,
+          'Periodo actual',
+          'Mismo periodo año anterior',
+          'Variación',
+          'Participación actual',
+        ],
+        rows: analysis.rows.map((row) => [
+          row.label,
+          formatAgentDimensionValue(row.current, meta.rowFormat),
+          formatAgentDimensionValue(row.previous, meta.rowFormat),
+          row.differencePct === null
+            ? row.difference === 0
+              ? 'Sin cambio'
+              : 'Sin base anterior'
+            : `${row.differencePct >= 0 ? '+' : ''}${row.differencePct.toFixed(1)}%`,
+          section === 'conversion' ? '-' : formatPercent(row.currentSharePct),
+        ]),
+      },
+    ],
+  };
+}
+
+function normalizeFileName(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function buildExecutiveSectionReport(
+  snapshot: CommercialDashboardSnapshot,
+  hallazgos: Hallazgo[],
+): SectionReport {
+  const generatedAtIso = new Date().toISOString();
+  const atRiskRows = snapshot.clientLifecycle.rows
+    .filter((row) => row.currentStatus === 'en_riesgo')
+    .slice()
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 20);
+
+  return {
+    fileBase: 'reporte-resumen-ejecutivo',
+    companyName: REPORT_COMPANY_NAME,
+    logoSrc: REPORT_LOGO_SRC,
+    title: 'Reporte ejecutivo comercial',
+    subtitle: `Período ${formatReferenceDateRange(snapshot.filters.startDate, snapshot.filters.endDate)}. Lectura consolidada para dirección comercial.`,
+    objective: 'Entregar una lectura gerencial del período para ubicar riesgos, fortalezas y prioridades inmediatas del flujo comercial.',
+    generatedAtIso,
+    generatedAt: formatDateTimeLabel(generatedAtIso),
+    kpis: snapshot.summaryMetrics.map((metric) => ({
+      label: metric.label,
+      value: metric.formattedCurrent,
+      note: formatMetricChangeEs(metric.comparison),
+    })),
+    highlights: hallazgos.map(
+      (item) => `${item.title}. ${item.evidence} Recomendación: ${item.recommendation}`,
+    ),
+    tables: [
+      {
+        title: 'Vendedores con mayor facturación',
+        columns: ['Vendedor', 'Facturación', 'Conversión', 'Margen'],
+        rows: snapshot.sellers.rankingByRevenue.slice(0, 15).map((row) => [
+          row.sellerName,
+          formatCurrency(row.invoicedAmount),
+          formatPercent(row.conversionPct),
+          formatCurrency(row.margin),
+        ]),
+      },
+      {
+        title: 'Productos con mayor facturación',
+        columns: ['Producto', 'Facturación', 'Margen', '% margen'],
+        rows: snapshot.products.topByRevenue.slice(0, 15).map((row) => [
+          row.productName,
+          formatCurrency(row.revenue),
+          formatCurrency(row.margin),
+          formatPercent(row.marginPct ?? 0),
+        ]),
+      },
+      {
+        title: 'Clientes en riesgo con mayor impacto',
+        columns: ['Cliente', 'Vendedor', 'Facturación', 'Margen', 'Días sin compra'],
+        rows: atRiskRows.map((row) => [
+          row.customerName,
+          row.sellerName,
+          formatCurrency(row.revenue),
+          formatCurrency(row.margin),
+          formatNullableNumber(row.daysSinceLastPurchase),
+        ]),
+      },
+    ],
+  };
+}
+
+function buildConversionSectionReport(snapshot: CommercialDashboardSnapshot): SectionReport {
+  const generatedAtIso = new Date().toISOString();
+  return {
+    fileBase: 'reporte-conversion-comercial',
+    companyName: REPORT_COMPANY_NAME,
+    logoSrc: REPORT_LOGO_SRC,
+    title: 'Reporte de conversión comercial',
+    subtitle: `Período ${formatReferenceDateRange(snapshot.filters.startDate, snapshot.filters.endDate)}. Seguimiento de cotizaciones, cierres y puntos de fuga.`,
+    objective: 'Detectar en qué etapa se frena la conversión comercial para enfocar seguimiento, cierre y recuperación de oportunidades.',
+    generatedAtIso,
+    generatedAt: formatDateTimeLabel(generatedAtIso),
+    kpis: [
+      {
+        label: 'Conversión general',
+        value: formatPercent(snapshot.conversion.overall.current),
+        note: formatMetricChangeEs(snapshot.conversion.overall),
+      },
+      {
+        label: 'Cotizaciones pendientes',
+        value: formatNumber(snapshot.quoteSummary.pendingQuotes),
+      },
+      {
+        label: 'Cotizaciones vencidas',
+        value: formatNumber(snapshot.quoteSummary.expiredQuotes),
+      },
+      {
+        label: 'Tiempo promedio de conversión',
+        value: `${snapshot.quoteSummary.averageConversionDays.current.toFixed(1)} días`,
+        note: formatMetricChangeEs(snapshot.quoteSummary.averageConversionDays),
+      },
+    ],
+    highlights: [
+      `Cotizaciones: ${formatNumber(snapshot.quoteSummary.totalQuotes.current)}.`,
+      `Órdenes convertidas: ${formatNumber(snapshot.quoteSummary.convertedQuotes)}.`,
+      'Enfoque del reporte: detectar dónde se frena el flujo entre cotización y cierre.',
+    ],
+    tables: [
+      buildConversionReportTable('Conversión por vendedor', snapshot.conversion.bySeller),
+      buildConversionReportTable('Conversión por cliente', snapshot.conversion.byCustomer.slice(0, 20)),
+      buildConversionReportTable('Conversión por mes', snapshot.conversion.byMonth),
+      buildConversionReportTable('Conversión por rango de importe', snapshot.conversion.byRange),
+      buildConversionReportTable('Conversión por producto', snapshot.conversion.byProduct),
+    ],
+  };
+}
+
+function buildClientsSectionReport(snapshot: CommercialDashboardSnapshot): SectionReport {
+  const generatedAtIso = new Date().toISOString();
+  const prioritizedRows = snapshot.clientLifecycle.rows
+    .slice()
+    .sort((a, b) => {
+      const riskGap = riskPriority(b.currentStatus) - riskPriority(a.currentStatus);
+      if (riskGap !== 0) return riskGap;
+      return b.revenue - a.revenue;
+    })
+    .slice(0, 30);
+
+  return {
+    fileBase: 'reporte-clientes',
+    companyName: REPORT_COMPANY_NAME,
+    logoSrc: REPORT_LOGO_SRC,
+    title: 'Reporte de clientes',
+    subtitle: `Período ${formatReferenceDateRange(snapshot.filters.startDate, snapshot.filters.endDate)}. Panorama de cartera, riesgo y valor comercial.`,
+    objective: 'Identificar el estado de la cartera, el nivel de riesgo y las cuentas que deben priorizarse para proteger ingresos.',
+    generatedAtIso,
+    generatedAt: formatDateTimeLabel(generatedAtIso),
+    kpis: [
+      { label: 'Clientes nuevos', value: formatNumber(snapshot.clientLifecycle.summary.newCustomers) },
+      { label: 'Clientes activos', value: formatNumber(snapshot.clientLifecycle.summary.activeCustomers) },
+      { label: 'Clientes en riesgo', value: formatNumber(snapshot.clientLifecycle.summary.atRiskCustomers) },
+      { label: 'Valor en riesgo', value: formatCurrency(snapshot.clientLifecycle.summary.valueAtRisk) },
+      { label: 'Retención', value: formatPercent(snapshot.clientLifecycle.summary.retentionPct) },
+      { label: 'Riesgo de abandono', value: formatPercent(snapshot.clientLifecycle.summary.churnRiskPct) },
+    ],
+    highlights: [
+      `Segmentos RFM identificados: ${formatNumber(snapshot.clientLifecycle.rfmSegments.length)}.`,
+      'La lectura prioriza clientes en riesgo con mayor facturación histórica.',
+    ],
+    tables: [
+      {
+        title: 'Clientes a priorizar',
+        columns: ['Cliente', 'Estado', 'Vendedor', 'Facturación', 'Margen', 'Días sin comprar', 'RFM'],
+        rows: prioritizedRows.map((row) => [
+          row.customerName,
+          row.currentStatus,
+          row.sellerName,
+          formatCurrency(row.revenue),
+          formatCurrency(row.margin),
+          formatNullableNumber(row.daysSinceLastPurchase),
+          `${row.rfmScore} - ${row.rfmSegment}`,
+        ]),
+      },
+      {
+        title: 'Segmentos RFM',
+        columns: ['Segmento', 'Clientes'],
+        rows: snapshot.clientLifecycle.rfmSegments.map((segment) => [
+          segment.segment,
+          formatNumber(segment.customers),
+        ]),
+      },
+    ],
+  };
+}
+
+function buildProductsSectionReport(snapshot: CommercialDashboardSnapshot): SectionReport {
+  const generatedAtIso = new Date().toISOString();
+  return {
+    fileBase: 'reporte-productos',
+    companyName: REPORT_COMPANY_NAME,
+    logoSrc: REPORT_LOGO_SRC,
+    title: 'Reporte de productos',
+    subtitle: `Período ${formatReferenceDateRange(snapshot.filters.startDate, snapshot.filters.endDate)}. Análisis de rentabilidad, volumen y deterioro comercial.`,
+    objective: 'Ubicar qué productos impulsan ventas, cuáles destruyen margen y dónde conviene ajustar precio, mezcla o empuje comercial.',
+    generatedAtIso,
+    generatedAt: formatDateTimeLabel(generatedAtIso),
+    kpis: [
+      { label: 'Alta venta / alto margen', value: formatNumber(snapshot.products.matrix.alta_venta_alto_margen) },
+      { label: 'Alta venta / bajo margen', value: formatNumber(snapshot.products.matrix.alta_venta_bajo_margen) },
+      { label: 'Baja venta / alto margen', value: formatNumber(snapshot.products.matrix.baja_venta_alto_margen) },
+      { label: 'Baja venta / bajo margen', value: formatNumber(snapshot.products.matrix.baja_venta_bajo_margen) },
+    ],
+    highlights: [
+      `Productos con margen negativo detectados: ${formatNumber(snapshot.products.negativeMargin.length)}.`,
+      'La prioridad directiva debe concentrarse en alta facturación con bajo margen y en margen negativo.',
+    ],
+    tables: [
+      buildProductReportTable('Top por facturación', snapshot.products.topByRevenue),
+      buildProductReportTable('Productos más vendidos del período', snapshot.products.topByUnits),
+      buildProductReportTable('Top por margen', snapshot.products.topByMargin),
+      buildProductReportTable('Alta facturación y bajo margen', snapshot.products.highRevenueLowMargin),
+      buildProductReportTable('Productos con margen negativo', snapshot.products.negativeMargin),
+      ...snapshot.sellers.categoryBreakdown.map((category) =>
+        buildSellerCategoryReportTable(`Ranking por categoría: ${category.categoryName}`, category.sellerRows),
+      ),
+    ],
+  };
+}
+
+function buildSellersSectionReport(snapshot: CommercialDashboardSnapshot): SectionReport {
+  const generatedAtIso = new Date().toISOString();
+  const lowConversionRows = snapshot.details.lowConversionSellers
+    .slice()
+    .sort((a, b) => a.conversionPct - b.conversionPct);
+  const topCategory = snapshot.sellers.categoryBreakdown[0];
+  const secondCategory = snapshot.sellers.categoryBreakdown[1];
+
+  return {
+    fileBase: 'reporte-vendedores',
+    companyName: REPORT_COMPANY_NAME,
+    logoSrc: REPORT_LOGO_SRC,
+    title: 'Reporte de vendedores',
+    subtitle: `Período ${formatReferenceDateRange(snapshot.filters.startDate, snapshot.filters.endDate)}. Análisis de desempeño, conversión y riesgo comercial por ejecutivo.`,
+    objective:
+      'Comparar desempeño comercial por vendedor para detectar baja conversión, concentración de margen, exposición de cartera y dependencia por categoría de producto.',
+    generatedAtIso,
+    generatedAt: formatDateTimeLabel(generatedAtIso),
+    kpis: [
+      { label: 'Umbral mínimo de órdenes', value: formatNumber(snapshot.sellers.minOrderThreshold) },
+      { label: 'Vendedores con baja conversión', value: formatNumber(lowConversionRows.length) },
+      {
+        label: 'Mejor conversión',
+        value: snapshot.sellers.rankingByConversion[0]
+          ? `${snapshot.sellers.rankingByConversion[0].sellerName} - ${formatPercent(snapshot.sellers.rankingByConversion[0].conversionPct)}`
+          : '-',
+      },
+      {
+        label: 'Mayor margen',
+        value: snapshot.sellers.rankingByMargin[0]
+          ? `${snapshot.sellers.rankingByMargin[0].sellerName} - ${formatCurrency(snapshot.sellers.rankingByMargin[0].margin)}`
+          : '-',
+      },
+      {
+        label: 'Categoría líder',
+        value: topCategory
+          ? `${topCategory.categoryName} - ${formatPercent(topCategory.sharePct)}`
+          : '-',
+      },
+      {
+        label: 'Segunda categoría',
+        value: secondCategory
+          ? `${secondCategory.categoryName} - ${formatPercent(secondCategory.sharePct)}`
+          : '-',
+      },
+    ],
+    highlights: [
+      'Las tablas se ordenan por el KPI central de cada ranking para acelerar la toma de decisiones.',
+      'La baja conversión se reporta solo para vendedores con volumen suficiente y menos de 50% de cierre.',
+      topCategory
+        ? `${topCategory.categoryName} concentra ${formatPercent(topCategory.sharePct)} de las ventas del período y su vendedor líder es ${topCategory.topSellerName ?? 'Sin vendedor'}.`
+        : 'No hubo ventas por categoría en el período seleccionado.',
+    ],
+    tables: [
+      buildSellerReportTable('Vendedores con baja conversión', lowConversionRows),
+      buildSellerReportTable('Ranking por facturación', snapshot.sellers.rankingByRevenue),
+      buildSellerReportTable('Ranking por margen', snapshot.sellers.rankingByMargin),
+      buildSellerReportTable('Ranking por conversión', snapshot.sellers.rankingByConversion),
+      buildSellerReportTable('Ranking por clientes nuevos', snapshot.sellers.rankingByNewCustomers),
+      buildSellerReportTable('Ranking por clientes en riesgo', snapshot.sellers.rankingByAtRiskCustomers),
+      buildSellerReportTable('Ranking compuesto', snapshot.sellers.weightedRanking),
+    ],
+  };
+}
+
+function buildPurchasesSectionReport(snapshot: PurchaseDashboardSnapshot): SectionReport {
+  const generatedAtIso = new Date().toISOString();
+
+  return {
+    fileBase: 'reporte-compras',
+    companyName: REPORT_COMPANY_NAME,
+    logoSrc: REPORT_LOGO_SRC,
+    title: 'Reporte de compras',
+    subtitle: `Período ${formatReferenceDateRange(snapshot.filters.startDate, snapshot.filters.endDate)}. Panorama de abastecimiento, gasto y concentración por producto, proveedor y comprador.`,
+    objective: 'Analizar qué productos y categorías absorben el gasto, cuáles proveedores concentran la compra y cómo evoluciona el abastecimiento frente al período anterior.',
+    generatedAtIso,
+    generatedAt: formatDateTimeLabel(generatedAtIso),
+    kpis: [
+      {
+        label: 'Compra ordenada',
+        value: formatCurrency(snapshot.summary.orderedAmount.current),
+        note: formatMetricChangeEs(snapshot.summary.orderedAmount),
+      },
+      {
+        label: 'Facturación proveedor',
+        value: formatCurrency(snapshot.summary.billedAmount.current),
+        note: formatMetricChangeEs(snapshot.summary.billedAmount),
+      },
+      {
+        label: 'Proveedores activos',
+        value: formatNumber(snapshot.summary.supplierCount.current),
+        note: formatMetricChangeEs(snapshot.summary.supplierCount),
+      },
+      {
+        label: 'Compradores activos',
+        value: formatNumber(snapshot.summary.buyerCount.current),
+        note: formatMetricChangeEs(snapshot.summary.buyerCount),
+      },
+      {
+        label: 'Orden promedio',
+        value: formatCurrency(snapshot.summary.averageOrderValue.current),
+        note: formatMetricChangeEs(snapshot.summary.averageOrderValue),
+      },
+      {
+        label: 'Notas de crédito',
+        value: formatCurrency(snapshot.summary.refundAmount.current),
+        note: formatMetricChangeEs(snapshot.summary.refundAmount),
+      },
+    ],
+    highlights: [
+      snapshot.products.topBySpend[0]
+        ? `Producto con mayor compra facturada: ${snapshot.products.topBySpend[0].productName} con ${formatCurrency(snapshot.products.topBySpend[0].billedAmount)}.`
+        : 'No se detectó un producto líder en compras para el período.',
+      snapshot.suppliers.topBySpend[0]
+        ? `Proveedor con mayor gasto: ${snapshot.suppliers.topBySpend[0].supplierName} con ${formatCurrency(snapshot.suppliers.topBySpend[0].billedAmount)}.`
+        : 'No se detectó un proveedor líder en compras para el período.',
+      snapshot.buyers.topBySpend[0]
+        ? `Comprador con mayor ejecución: ${snapshot.buyers.topBySpend[0].buyerName} con ${formatCurrency(snapshot.buyers.topBySpend[0].billedAmount)} facturados.`
+        : 'No se detectó un comprador líder en compras para el período.',
+    ],
+    tables: [
+      {
+        title: 'Productos con mayor compra facturada',
+        columns: ['Producto', 'Categoría', 'Facturado', 'Ordenado', 'Cantidad', '% gasto'],
+        rows: snapshot.products.topBySpend.map((row) => [
+          row.productName,
+          row.categoryName ?? 'Sin categoría',
+          formatCurrency(row.billedAmount),
+          formatCurrency(row.orderedAmount),
+          formatNumber(row.quantity),
+          formatPercent(row.spendSharePct),
+        ]),
+      },
+      {
+        title: 'Proveedores con mayor gasto',
+        columns: ['Proveedor', 'Facturado', 'Ordenado', 'Facturas', 'Órdenes', '% gasto'],
+        rows: snapshot.suppliers.topBySpend.map((row) => [
+          row.supplierName,
+          formatCurrency(row.billedAmount),
+          formatCurrency(row.orderedAmount),
+          formatNumber(row.billCount),
+          formatNumber(row.orderCount),
+          formatPercent(row.spendSharePct),
+        ]),
+      },
+      {
+        title: 'Compradores con mayor ejecución',
+        columns: ['Comprador', 'Facturado', 'Ordenado', 'Facturas', 'Órdenes', 'Proveedores'],
+        rows: snapshot.buyers.topBySpend.map((row) => [
+          row.buyerName,
+          formatCurrency(row.billedAmount),
+          formatCurrency(row.orderedAmount),
+          formatNumber(row.billCount),
+          formatNumber(row.orderCount),
+          formatNumber(row.supplierCount),
+        ]),
+      },
+      {
+        title: 'Categorías con mayor compra facturada',
+        columns: ['Categoría', 'Facturado', 'Ordenado', 'Cantidad', 'Productos', '% gasto'],
+        rows: snapshot.categories.topBySpend.map((row) => [
+          row.categoryName,
+          formatCurrency(row.billedAmount),
+          formatCurrency(row.orderedAmount),
+          formatNumber(row.quantity),
+          formatNumber(row.productCount),
+          formatPercent(row.spendSharePct),
+        ]),
+      },
+    ],
+  };
+}
+
+function buildParetoSectionReport(snapshot: CommercialDashboardSnapshot): SectionReport {
+  const generatedAtIso = new Date().toISOString();
+  return {
+    fileBase: 'reporte-pareto',
+    companyName: REPORT_COMPANY_NAME,
+    logoSrc: REPORT_LOGO_SRC,
+    title: 'Reporte Pareto comercial',
+    subtitle: `Período ${formatReferenceDateRange(snapshot.filters.startDate, snapshot.filters.endDate)}. Concentración del resultado en clientes, productos y vendedores.`,
+    objective: 'Mostrar qué clientes, productos y vendedores concentran la mayor parte del resultado para orientar foco y recursos.',
+    generatedAtIso,
+    generatedAt: formatDateTimeLabel(generatedAtIso),
+    kpis: [
+      { label: 'Clientes clase A', value: formatNumber(snapshot.pareto.customers.rows.filter((row) => row.classification === 'A').length) },
+      { label: 'Productos clase A', value: formatNumber(snapshot.pareto.products.rows.filter((row) => row.classification === 'A').length) },
+      { label: 'Vendedores clase A', value: formatNumber(snapshot.pareto.sellers.rows.filter((row) => row.classification === 'A').length) },
+    ],
+    highlights: [
+      snapshot.pareto.customers.statement,
+      snapshot.pareto.products.statement,
+      snapshot.pareto.sellers.statement,
+    ],
+    tables: [
+      buildParetoReportTable(snapshot.pareto.customers),
+      buildParetoReportTable(snapshot.pareto.products),
+      buildParetoReportTable(snapshot.pareto.sellers),
+    ],
+  };
+}
+
+function buildConversionReportTable(
+  title: string,
+  rows: Array<{
+    label: string;
+    quotes: number;
+    converted: number;
+    pending: number;
+    expired: number;
+    cancelled: number;
+    conversionPct: number;
+    averageConversionDays: number;
+  }>,
+): ReportTable {
+  return {
+    title,
+    columns: ['Elemento', 'Cotizaciones', 'Convertidas', 'Pendientes', 'Vencidas', 'Canceladas', 'Conversión', 'Días prom.'],
+    rows: rows.map((row) => [
+      row.label,
+      formatNumber(row.quotes),
+      formatNumber(row.converted),
+      formatNumber(row.pending),
+      formatNumber(row.expired),
+      formatNumber(row.cancelled),
+      formatPercent(row.conversionPct),
+      row.averageConversionDays.toFixed(1),
+    ]),
+  };
+}
+
+function buildProductReportTable(title: string, rows: ProductAnalysisRow[]): ReportTable {
+  return {
+    title,
+    columns: ['Producto', 'Categoría', 'Facturación', 'Margen', '% margen', 'Unidades', 'Clientes'],
+    rows: rows.map((row) => [
+      row.productName,
+      row.categoryName ?? '-',
+      formatCurrency(row.revenue),
+      formatCurrency(row.margin),
+      formatPercent(row.marginPct ?? 0),
+      formatNumber(row.units),
+      formatNumber(row.uniqueCustomers),
+    ]),
+  };
+}
+
+function buildSellerReportTable(title: string, rows: SellerPerformanceRow[]): ReportTable {
+  return {
+    title,
+    columns: ['Vendedor', 'Cotizaciones', 'Órdenes', 'Conversión', 'Facturación', 'Margen', 'Clientes nuevos', 'En riesgo'],
+    rows: rows.map((row) => [
+      row.sellerName,
+      formatNumber(row.quotes),
+      formatNumber(row.confirmedOrders),
+      formatPercent(row.conversionPct),
+      formatCurrency(row.invoicedAmount),
+      formatCurrency(row.margin),
+      formatNumber(row.newCustomers),
+      formatNumber(row.atRiskCustomers),
+    ]),
+  };
+}
+
+function buildSellerCategoryReportTable(
+  title: string,
+  rows: SellerCategoryPerformanceRow[],
+): ReportTable {
+  return {
+    title,
+    columns: ['Vendedor', 'Ventas', '% categoría', '% mezcla vendedor', 'Órdenes', 'Unidades', 'Margen'],
+    rows: rows.map((row) => [
+      row.sellerName,
+      formatCurrency(row.soldAmount),
+      formatPercent(row.categorySharePct),
+      formatPercent(row.sellerMixPct),
+      formatNumber(row.orderCount),
+      formatNumber(row.units),
+      formatCurrency(row.margin),
+    ]),
+  };
+}
+
+function buildParetoReportTable(summary: CommercialDashboardSnapshot['pareto']['customers']): ReportTable {
+  return {
+    title: summary.title,
+    columns: ['#', 'Elemento', 'Valor', 'Ordenes', 'Unidades', '% individual', '% acumulado', 'Clase'],
+    rows: summary.rows.map((row) => [
+      formatNumber(row.position),
+      row.label,
+      formatCurrency(row.value),
+      formatNumber(row.orders),
+      formatNumber(row.units),
+      formatPercent(row.individualPct),
+      formatPercent(row.accumulatedPct),
+      row.classification,
+    ]),
+  };
+}
+
+function downloadSectionReportPdf(report: SectionReport) {
+  const frame = document.createElement('iframe');
+  frame.setAttribute('aria-hidden', 'true');
+  frame.style.position = 'fixed';
+  frame.style.right = '0';
+  frame.style.bottom = '0';
+  frame.style.width = '0';
+  frame.style.height = '0';
+  frame.style.border = '0';
+  document.body.appendChild(frame);
+
+  const frameWindow = frame.contentWindow;
+  if (!frameWindow) {
+    frame.remove();
+    window.alert('No se pudo preparar la vista del reporte para imprimir.');
+    return;
+  }
+
+  const cleanup = () => {
+    window.setTimeout(() => {
+      frame.remove();
+    }, 500);
+  };
+
+  frameWindow.document.open();
+  frameWindow.document.write(buildSectionReportHtml(report));
+  frameWindow.document.close();
+  frame.onload = () => {
+    window.setTimeout(() => {
+      frameWindow.focus();
+      frameWindow.print();
+      cleanup();
+    }, 250);
+  };
+}
+
+function buildSectionReportHtml(report: SectionReport) {
+  const scoreColor = report.score
+    ? getAgentScoreTone(report.score.total) === 'good'
+      ? '#39715a'
+      : getAgentScoreTone(report.score.total) === 'regular'
+        ? '#c39a4a'
+        : '#bd685d'
+    : '#b66a4d';
+  const kpiCards = report.kpis
+    .map(
+      (kpi, index) => `
+        <article class="kpi-card">
+          <div class="kpi-card-head">
+            ${reportKpiIcon(index)}
+            <span>${escapeHtml(kpi.label)}</span>
+          </div>
+          <strong>${escapeHtml(kpi.value)}</strong>
+          ${kpi.note ? `<small>${escapeHtml(kpi.note)}</small>` : '<small>Indicador del periodo</small>'}
+        </article>
+      `,
+    )
+    .join('');
+
+  const highlightItems = report.highlights
+    .map((item) => `<li>${escapeHtml(item)}</li>`)
+    .join('');
+
+  const tables = report.tables
+    .map(
+      (table) => `
+        <section class="report-block">
+          <h3>${escapeHtml(table.title)}</h3>
+          <table>
+            <thead>
+              <tr>${table.columns.map((column) => `<th>${escapeHtml(column)}</th>`).join('')}</tr>
+            </thead>
+            <tbody>
+              ${table.rows
+                .map(
+                  (row) => `
+                    <tr>${row.map((value) => `<td>${escapeHtml(value)}</td>`).join('')}</tr>
+                  `,
+                )
+                .join('')}
+            </tbody>
+          </table>
+        </section>
+      `,
+    )
+    .join('');
+  const scoreSection = report.score
+    ? `
+      <section class="score-section report-block">
+        <div class="score-ring" style="--score-angle: ${report.score.total * 3.6}deg; --score-color: ${scoreColor}">
+          <div><strong>${report.score.total}</strong><span>de 100</span></div>
+        </div>
+        <div class="score-copy">
+          <span>Calificación de desempeño comercial</span>
+          <h2>${escapeHtml(report.score.rating)}</h2>
+          <p>${escapeHtml(report.score.summary)}</p>
+          <small>${escapeHtml(report.score.methodologyNote)}</small>
+        </div>
+        <div class="score-dimensions">
+          ${report.score.dimensions.map((dimension) => `
+            <div class="score-dimension">
+              <div><span>${escapeHtml(dimension.label)} · ${dimension.weight}%</span><strong>${dimension.score}</strong></div>
+              <i><em style="width: ${dimension.score}%"></em></i>
+              <small>${escapeHtml(dimension.evidence)}</small>
+            </div>
+          `).join('')}
+        </div>
+      </section>
+    `
+    : '';
+  const charts = (report.charts ?? []).map(buildReportChartHtml).join('');
+  const bibliography = report.bibliography?.length
+    ? `
+      <section class="report-block bibliography">
+        <span class="section-kicker">Metodología y fuentes</span>
+        <h2>Referencias de desempeño comercial</h2>
+        <p>Las fuentes orientan la selección de dimensiones. Los pesos corresponden a un modelo interno y deben revisarse según las metas y el ciclo comercial de la empresa.</p>
+        <ol>
+          ${report.bibliography.map((source) => `
+            <li>${escapeHtml(source.citation)}<br /><a href="${escapeHtml(source.url)}">${escapeHtml(source.url)}</a></li>
+          `).join('')}
+        </ol>
+      </section>
+    `
+    : '';
+
+  const generatedDate = formatDateOnlyLabel(report.generatedAtIso);
+  const generatedTime = formatTimeOnlyLabel(report.generatedAtIso);
+  const scoreBadge = report.score
+    ? `
+      <div class="hero-score-badge" aria-label="Calificación global ${report.score.total} de 100">
+        <div class="hero-score-ring" style="--score-angle: ${report.score.total * 3.6}deg; --score-color: ${scoreColor}">
+          <strong>${report.score.total}</strong>
+        </div>
+        <div>
+          <span>Calificación global del periodo</span>
+          <strong>${escapeHtml(report.score.rating)}</strong>
+        </div>
+      </div>
+    `
+    : '';
+
+  return `<!DOCTYPE html>
+  <html lang="es">
+    <head>
+      <meta charset="utf-8" />
+      <title>${escapeHtml(report.title)}</title>
+      <style>
+        :root { color-scheme: light; }
+        * { box-sizing: border-box; }
+        body {
+          margin: 0;
+          background: #e8e4de;
+          color: #22303a;
+          font-family: "Aptos", "Segoe UI", Arial, sans-serif;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .page {
+          width: 210mm;
+          min-height: 297mm;
+          margin: 0 auto;
+          background:
+            linear-gradient(90deg, rgba(182,106,77,.035) 1px, transparent 1px),
+            #fcfbf8;
+          background-size: 28px 28px;
+          padding: 16mm 15mm 18mm;
+        }
+        .hero {
+          background:
+            radial-gradient(circle at top right, rgba(182, 106, 77, 0.16), transparent 38%),
+            linear-gradient(135deg, #fffdf9, #f2e9e2);
+          border-radius: 24px;
+          padding: 24px 26px 26px;
+          box-shadow: 0 14px 34px rgba(83, 58, 45, .08);
+        }
+        .hero-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+          margin-bottom: 18px;
+        }
+        .brand {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          min-width: 0;
+        }
+        .brand img {
+          width: 58px;
+          height: 58px;
+          object-fit: contain;
+          border-radius: 16px;
+          background: rgba(255,255,255,.72);
+          padding: 8px;
+        }
+        .brand-copy span {
+          display: block;
+          margin-bottom: 4px;
+          color: #736759;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+        }
+        .brand-copy strong {
+          display: block;
+          font-size: 26px;
+          line-height: 1.1;
+          color: #1f2a33;
+        }
+        .hero-badges {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+        .hero-tag {
+          border-radius: 999px;
+          background: #6f412f;
+          color: #fffaf6;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          padding: 8px 12px;
+          text-transform: uppercase;
+          white-space: nowrap;
+        }
+        .hero-score-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 9px;
+          min-height: 40px;
+          border: 1px solid rgba(111, 65, 47, .16);
+          border-radius: 999px;
+          background: rgba(255, 253, 249, .88);
+          padding: 5px 12px 5px 6px;
+          box-shadow: 0 8px 20px rgba(83, 58, 45, .07);
+        }
+        .hero-score-ring {
+          --score-angle: 0deg;
+          --score-color: #b66a4d;
+          display: grid;
+          place-items: center;
+          width: 31px;
+          height: 31px;
+          border-radius: 50%;
+          background: conic-gradient(var(--score-color) var(--score-angle), #eaded5 0deg);
+        }
+        .hero-score-ring::before {
+          grid-area: 1 / 1;
+          width: 22px;
+          height: 22px;
+          border-radius: inherit;
+          background: #fffaf6;
+          content: "";
+        }
+        .hero-score-ring strong {
+          z-index: 1;
+          grid-area: 1 / 1;
+          color: var(--score-color);
+          font-size: 10px;
+          line-height: 1;
+        }
+        .hero-score-badge span,
+        .hero-score-badge strong {
+          display: block;
+          white-space: nowrap;
+        }
+        .hero-score-badge span {
+          color: #7b6b5e;
+          font-size: 8px;
+          font-weight: 800;
+          letter-spacing: .1em;
+          text-transform: uppercase;
+        }
+        .hero-score-badge > div:last-child > strong {
+          margin-top: 1px;
+          color: #2d3438;
+          font-size: 11px;
+          line-height: 1.1;
+        }
+        .hero h1 {
+          margin: 0 0 8px;
+          font-size: 30px;
+          line-height: 1.12;
+          color: #1f2a33;
+        }
+        .hero p {
+          margin: 0;
+          color: #5f665f;
+          line-height: 1.55;
+        }
+        .hero-datetime {
+          margin-top: 10px;
+          color: #6f6557;
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0.02em;
+        }
+        .hero-datetime strong {
+          color: #4e473e;
+        }
+        .hero-objective {
+          margin-top: 18px;
+          max-width: 680px;
+          border-left: 3px solid #b66a4d;
+          padding-left: 14px;
+        }
+        .hero-objective span {
+          display: block;
+          margin-bottom: 6px;
+          color: #776b5e;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+        }
+        .hero-objective p {
+          margin: 0;
+          color: #23303a;
+          font-size: 14px;
+          line-height: 1.45;
+        }
+        .kpi-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 12px;
+          margin: 18px 0 22px;
+        }
+        .kpi-card {
+          border-radius: 18px;
+          background: linear-gradient(180deg, #ffffff, #f5f0eb);
+          padding: 14px 15px;
+          box-shadow: 0 8px 22px rgba(61, 48, 40, .065);
+          break-inside: avoid;
+        }
+        .kpi-card-head {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .kpi-icon {
+          width: 27px;
+          height: 27px;
+          border-radius: 9px;
+          display: grid;
+          place-items: center;
+          text-align: center;
+          justify-content: center;
+          flex: 0 0 27px;
+          line-height: 0;
+          color: #8f5038;
+          background: #f0dfd5;
+        }
+        .kpi-icon svg {
+          display: grid;
+          place-items: center;
+          text-align: center;
+          justify-content: center;
+          width: 15px;
+          height: 15px;
+          stroke: currentColor;
+          fill: none;
+          stroke-width: 1.8;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+          overflow: visible;
+        }
+        .kpi-card span,
+        .kpi-card small {
+          display: grid;
+          place-items: center;
+          color: #6f6557;
+        }
+        .kpi-card strong {
+          display: block;
+          margin: 6px 0 4px;
+          font-size: 22px;
+          line-height: 1.1;
+          color: #23303a;
+        }
+        .report-block {
+          margin-top: 22px;
+          break-inside: auto;
+        }
+        .report-block h2,
+        .report-block h3 {
+          margin: 0 0 10px;
+          color: #23303a;
+        }
+        .section-kicker,
+        .score-copy > span {
+          display: block;
+          margin-bottom: 6px;
+          color: #8f5038;
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: .12em;
+          text-transform: uppercase;
+        }
+        .score-section {
+          display: grid;
+          grid-template-columns: 132px minmax(0, 1fr);
+          gap: 18px 22px;
+          align-items: center;
+          border-radius: 24px;
+          background: linear-gradient(135deg, #fff, #f3eee8);
+          padding: 20px 22px;
+          box-shadow: 0 10px 26px rgba(61, 48, 40, .07);
+          break-inside: avoid;
+        }
+        .score-ring {
+          --score-angle: 0deg;
+          --score-color: #b66a4d;
+          display: grid;
+          width: 118px;
+          height: 118px;
+          place-items: center;
+          border-radius: 50%;
+          background: conic-gradient(var(--score-color) var(--score-angle), #e5ddd5 0deg);
+        }
+        .score-ring::before {
+          grid-area: 1 / 1;
+          width: 88px;
+          height: 88px;
+          border-radius: 50%;
+          background: #fffdf9;
+          content: "";
+        }
+        .score-ring > div {
+          z-index: 1;
+          grid-area: 1 / 1;
+          text-align: center;
+        }
+        .score-ring strong,
+        .score-ring span {
+          display: block;
+        }
+        .score-ring strong { color: var(--score-color); font-size: 34px; line-height: 1; }
+        .score-ring span { margin-top: 4px; color: #786b61; font-size: 10px; }
+        .score-copy h2 { margin: 0 0 7px; font-size: 21px; }
+        .score-copy p { margin: 0 0 7px; color: #46535b; line-height: 1.5; }
+        .score-copy small { color: #746c65; line-height: 1.45; }
+        .score-dimensions {
+          grid-column: 1 / -1;
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px 18px;
+        }
+        .score-dimension > div {
+          display: flex;
+          justify-content: space-between;
+          gap: 10px;
+          color: #4a5357;
+          font-size: 11px;
+        }
+        .score-dimension i,
+        .chart-bar-track {
+          display: block;
+          height: 7px;
+          overflow: hidden;
+          border-radius: 999px;
+          background: #e8e1db;
+        }
+        .score-dimension em {
+          display: block;
+          height: 100%;
+          border-radius: inherit;
+          background: linear-gradient(90deg, #8f5038, #c48467);
+        }
+        .score-dimension small {
+          display: block;
+          margin-top: 5px;
+          color: #776f69;
+          font-size: 9px;
+          line-height: 1.35;
+        }
+        .chart-card {
+          border-radius: 20px;
+          background: #fff;
+          padding: 17px 18px;
+          box-shadow: 0 9px 24px rgba(61, 48, 40, .06);
+          break-inside: avoid;
+        }
+        .chart-head {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 14px;
+        }
+        .chart-head h3 { margin: 0; }
+        .chart-head p { margin: 3px 0 0; color: #756c65; font-size: 11px; }
+        .chart-legend { display: flex; flex-wrap: wrap; gap: 8px; }
+        .chart-legend span { color: #665e58; font-size: 10px; }
+        .chart-legend i {
+          display: inline-block;
+          width: 9px;
+          height: 9px;
+          margin-right: 4px;
+          border-radius: 50%;
+        }
+        .chart-row {
+          display: grid;
+          grid-template-columns: 126px minmax(0, 1fr);
+          gap: 11px;
+          align-items: start;
+          padding: 7px 0;
+          border-top: 1px solid #eee9e4;
+        }
+        .chart-row > strong {
+          overflow: hidden;
+          color: #3c474d;
+          font-size: 10px;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .chart-series { display: grid; gap: 5px; }
+        .chart-series-line {
+          display: grid;
+          grid-template-columns: 84px minmax(0, 1fr) 74px;
+          gap: 7px;
+          align-items: center;
+          font-size: 9px;
+        }
+        .chart-series-line > span { color: #756c65; }
+        .chart-series-line > strong { color: #3f494e; text-align: right; }
+        .chart-bar-track em {
+          display: block;
+          min-width: 2px;
+          height: 100%;
+          border-radius: inherit;
+        }
+        .report-line-chart {
+          display: block;
+          width: 100%;
+          height: auto;
+          min-height: 180px;
+        }
+        .report-donut-layout {
+          display: grid;
+          grid-template-columns: 150px minmax(0, 1fr);
+          align-items: center;
+          gap: 22px;
+        }
+        .report-donut {
+          display: grid;
+          width: 142px;
+          height: 142px;
+          place-items: center;
+          border-radius: 50%;
+        }
+        .report-donut::before {
+          grid-area: 1 / 1;
+          width: 101px;
+          height: 101px;
+          border-radius: 50%;
+          background: #fff;
+          content: "";
+        }
+        .report-donut > div {
+          z-index: 1;
+          grid-area: 1 / 1;
+          text-align: center;
+        }
+        .report-donut strong,
+        .report-donut span { display: block; }
+        .report-donut strong { color: #3b302a; font-size: 18px; }
+        .report-donut span { margin-top: 3px; color: #766c64; font-size: 10px; }
+        .report-donut-legend { display: grid; gap: 8px; }
+        .report-donut-legend > div {
+          display: grid;
+          grid-template-columns: 10px minmax(0, 1fr) auto;
+          gap: 7px;
+          align-items: center;
+          color: #4a5357;
+          font-size: 11px;
+        }
+        .report-donut-legend i {
+          width: 9px;
+          height: 9px;
+          border-radius: 50%;
+        }
+        .report-donut-legend strong { color: #303d43; }
+        .report-block ul {
+          margin: 0;
+          padding-left: 18px;
+          color: #4a565f;
+          line-height: 1.6;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 12px;
+          overflow: hidden;
+          border-radius: 14px;
+          break-inside: auto;
+        }
+        thead { display: table-header-group; }
+        tr { break-inside: avoid; }
+        thead th {
+          background: #ebe5dc;
+          color: #463f36;
+          text-align: left;
+        }
+        th, td {
+          border: 1px solid #ded7cd;
+          padding: 8px 9px;
+          vertical-align: top;
+        }
+        tbody tr:nth-child(even) {
+          background: #f7f4ef;
+        }
+        tbody tr:nth-child(odd) {
+          background: #fdfbf8;
+        }
+        .bibliography {
+          border-radius: 18px;
+          background: #f3eee8;
+          padding: 17px 19px;
+          break-inside: avoid;
+        }
+        .bibliography > p,
+        .bibliography li { color: #5c625f; font-size: 10px; line-height: 1.5; }
+        .bibliography a { color: #8f5038; text-decoration: none; }
+        @page {
+          margin: 14mm;
+        }
+        @media print {
+          body { background: #ffffff; }
+          .page {
+            width: auto;
+            min-height: auto;
+            margin: 0;
+            padding: 0;
+          }
+          .hero,
+          .kpi-card,
+          .score-section,
+          .chart-card { box-shadow: none; }
+        }
+      </style>
+    </head>
+    <body>
+      <main class="page">
+        <section class="hero">
+          <div class="hero-top">
+            <div class="brand">
+              <img src="${escapeHtml(report.logoSrc)}" alt="Logo de ${escapeHtml(report.companyName)}" />
+              <div class="brand-copy">
+                <span>Reporte empresarial</span>
+                <strong>${escapeHtml(report.companyName)}</strong>
+              </div>
+            </div>
+            <div class="hero-badges">
+              <div class="hero-tag">${escapeHtml(report.position ?? 'Análisis comercial')}</div>
+              ${scoreBadge}
+            </div>
+          </div>
+          <h1>${escapeHtml(report.title)}</h1>
+          <p>${escapeHtml(report.subtitle)}</p>
+          <div class="hero-datetime">
+            <strong>Fecha de emisión:</strong> ${escapeHtml(generatedDate)} · ${escapeHtml(generatedTime)}
+          </div>
+          <section class="hero-objective">
+            <span>Objetivo del reporte</span>
+            <p>${escapeHtml(report.objective)}</p>
+          </section>
+        </section>
+        ${scoreSection}
+        ${report.kpis.length > 0 ? `<section class="kpi-grid">${kpiCards}</section>` : ''}
+        ${charts}
+        ${report.highlights.length > 0 ? `<section class="report-block"><h2>Hallazgos clave</h2><ul>${highlightItems}</ul></section>` : ''}
+        ${tables}
+        ${bibliography}
+      </main>
+    </body>
+  </html>`;
+}
+
+function buildReportChartHtml(chart: ReportChart): string {
+  if (chart.kind === 'scatter') return buildReportScatterChartHtml(chart);
+  if (chart.kind === 'line') return buildReportLineChartHtml(chart);
+  if (chart.kind === 'donut') return buildReportDonutChartHtml(chart);
+
+  const maxValue = Math.max(
+    1,
+    ...chart.series.flatMap((series) => series.values.map((value) => Math.abs(value))),
+  );
+  const rows = chart.labels.map((label, rowIndex) => `
+    <div class="chart-row">
+      <strong title="${escapeHtml(label)}">${escapeHtml(label)}</strong>
+      <div class="chart-series">
+        ${chart.series.map((series) => {
+          const value = series.values[rowIndex] ?? 0;
+          const width = Math.min(100, (Math.abs(value) / maxValue) * 100);
+          return `
+            <div class="chart-series-line">
+              <span>${escapeHtml(series.label)}</span>
+              <i class="chart-bar-track"><em style="width:${width}%;background:${escapeHtml(series.color)}"></em></i>
+              <strong>${escapeHtml(formatReportChartValue(value, series.formatter))}</strong>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `).join('');
+
+  return `
+    <section class="report-block chart-card">
+      <div class="chart-head">
+        <div>
+          <span class="section-kicker">Visualización comparativa</span>
+          <h3>${escapeHtml(chart.title)}</h3>
+          ${chart.subtitle ? `<p>${escapeHtml(chart.subtitle)}</p>` : ''}
+        </div>
+        <div class="chart-legend">
+          ${chart.series.map((series) => `<span><i style="background:${escapeHtml(series.color)}"></i>${escapeHtml(series.label)}</span>`).join('')}
+        </div>
+      </div>
+      ${rows}
+    </section>
+  `;
+}
+
+function buildReportScatterChartHtml(chart: ReportChart): string {
+  const values = chart.series[0]?.values ?? [];
+  if (!values.length) return '';
+  const trendLine = calculateLinearTrendLine(values);
+  const slope = calculateLinearTrendSlope(values);
+  const trendColor = slope >= 0 ? '#39715a' : '#bd685d';
+  const rawMin = Math.min(0, ...values, ...trendLine);
+  const rawMax = Math.max(0, ...values, ...trendLine);
+  const extra = Math.max((rawMax - rawMin) * 0.08, 1);
+  const min = rawMin - extra;
+  const max = rawMax + extra;
+  const width = 900;
+  const height = 250;
+  const left = 72;
+  const right = 24;
+  const top = 18;
+  const bottom = 42;
+  const xFor = (index: number) => values.length === 1
+    ? width / 2
+    : left + index / (values.length - 1) * (width - left - right);
+  const yFor = (value: number) => top + (max - value) / (max - min) * (height - top - bottom);
+  const points = trendLine.map((value, index) => `${xFor(index)},${yFor(value)}`).join(' ');
+  const dots = values.map((value, index) => `
+    <circle cx="${xFor(index)}" cy="${yFor(value)}" r="${values.length > 120 ? 1.6 : 3.2}" fill="${value >= 0 ? '#39715a' : '#bd685d'}">
+      <title>${escapeHtml(chart.labels[index] ?? '')}: ${escapeHtml(formatCurrency(value))}</title>
+    </circle>
+  `).join('');
+  const tickCount = Math.min(5, values.length);
+  const labels = Array.from({ length: tickCount }, (_, index) => {
+    const pointIndex = tickCount === 1 ? 0 : Math.round(index * (values.length - 1) / (tickCount - 1));
+    return `<text x="${xFor(pointIndex)}" y="${height - 12}" text-anchor="middle" fill="#75685f" font-size="11">${escapeHtml(chart.labels[pointIndex] ?? '')}</text>`;
+  }).join('');
+  const total = values.reduce((sum, value) => sum + value, 0);
+  return `
+    <section class="report-block chart-card">
+      <div class="chart-head">
+        <div>
+          <span class="section-kicker">Diferencia diaria</span>
+          <h3>${escapeHtml(chart.title)}</h3>
+          <p>${escapeHtml(chart.subtitle ?? '')} Saldo del periodo: ${escapeHtml(formatCurrency(total))}.</p>
+        </div>
+      </div>
+      <svg class="report-line-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(chart.title)}">
+        <line x1="${left}" y1="${yFor(0)}" x2="${width - right}" y2="${yFor(0)}" stroke="#d9d2ca" stroke-dasharray="5 4" />
+        ${values.length > 1 ? `<polyline points="${points}" fill="none" stroke="${trendColor}" stroke-width="3" stroke-linecap="round" />` : ''}
+        ${dots}${labels}
+      </svg>
+    </section>
+  `;
+}
+
+function buildReportLineChartHtml(chart: ReportChart): string {
+  const width = 900;
+  const height = 250;
+  const padding = { top: 18, right: 24, bottom: 42, left: 24 };
+  const allValues = chart.series.flatMap((series) => series.values);
+  const minValue = Math.min(0, ...allValues);
+  const maxValue = Math.max(1, ...allValues);
+  const range = Math.max(maxValue - minValue, 1);
+  const xFor = (index: number) => chart.labels.length <= 1
+    ? width / 2
+    : padding.left + index / (chart.labels.length - 1) * (width - padding.left - padding.right);
+  const yFor = (value: number) => padding.top + (maxValue - value) / range * (height - padding.top - padding.bottom);
+  const gridLines = [0, 0.5, 1].map((ratio) => {
+    const y = padding.top + ratio * (height - padding.top - padding.bottom);
+    return `<line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" stroke="#e9ded5" stroke-width="1" />`;
+  }).join('');
+  const labels = chart.labels.map((label, index) => {
+    const x = xFor(index);
+    return `<text x="${x}" y="${height - 14}" text-anchor="middle" fill="#75685f" font-size="11">${escapeHtml(label)}</text>`;
+  }).join('');
+  const lines = chart.series.map((series) => {
+    const points = series.values.map((value, index) => `${xFor(index)},${yFor(value)}`).join(' ');
+    const dots = series.values.map((value, index) => `<circle cx="${xFor(index)}" cy="${yFor(value)}" r="3.5" fill="${escapeHtml(series.color)}"><title>${escapeHtml(series.label)} · ${escapeHtml(chart.labels[index] ?? '')}: ${escapeHtml(formatReportChartValue(value, series.formatter))}</title></circle>`).join('');
+    return `<polyline points="${points}" fill="none" stroke="${escapeHtml(series.color)}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />${dots}`;
+  }).join('');
+  return `
+    <section class="report-block chart-card">
+      <div class="chart-head">
+        <div>
+          <span class="section-kicker">Evolución</span>
+          <h3>${escapeHtml(chart.title)}</h3>
+          ${chart.subtitle ? `<p>${escapeHtml(chart.subtitle)}</p>` : ''}
+        </div>
+        <div class="chart-legend">${chart.series.map((series) => `<span><i style="background:${escapeHtml(series.color)}"></i>${escapeHtml(series.label)}</span>`).join('')}</div>
+      </div>
+      <svg class="report-line-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(chart.title)}">
+        ${gridLines}${lines}${labels}
+      </svg>
+    </section>
+  `;
+}
+
+function buildReportDonutChartHtml(chart: ReportChart): string {
+  const series = chart.series[0];
+  if (!series) return '';
+  const values = series.values.map((value) => Math.max(0, value));
+  const total = values.reduce((sum, value) => sum + value, 0);
+  if (!total) {
+    return `
+      <section class="report-block chart-card">
+        <div class="chart-head">
+          <div>
+            <span class="section-kicker">Distribución</span>
+            <h3>${escapeHtml(chart.title)}</h3>
+            ${chart.subtitle ? `<p>${escapeHtml(chart.subtitle)}</p>` : ''}
+          </div>
+        </div>
+        <p class="report-empty-chart">No hay datos disponibles para este periodo.</p>
+      </section>
+    `;
+  }
+  const colors = ['#9a5139', '#39715a', '#6f87a8', '#a0836d', '#b26a5c', '#557b73', '#c58a4f', '#7b6f9f'];
+  let offset = 0;
+  const gradient = values.map((value, index) => {
+    const start = offset / total * 100;
+    offset += value;
+    return `${colors[index % colors.length]} ${start}% ${offset / total * 100}%`;
+  }).join(', ');
+  return `
+    <section class="report-block chart-card">
+      <div class="chart-head">
+        <div>
+          <span class="section-kicker">Distribución</span>
+          <h3>${escapeHtml(chart.title)}</h3>
+          ${chart.subtitle ? `<p>${escapeHtml(chart.subtitle)}</p>` : ''}
+        </div>
+      </div>
+      <div class="report-donut-layout">
+        <div class="report-donut" style="background:conic-gradient(${gradient})"><div><strong>${escapeHtml(formatReportChartValue(total, series.formatter))}</strong><span>total</span></div></div>
+        <div class="report-donut-legend">
+          ${chart.labels.map((label, index) => `<div><i style="background:${colors[index % colors.length]}"></i><span>${escapeHtml(label)}</span><strong>${escapeHtml(formatReportChartValue(values[index] ?? 0, series.formatter))}</strong></div>`).join('')}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function formatReportChartValue(
+  value: number,
+  formatter: ReportChart['series'][number]['formatter'],
+) {
+  if (formatter === 'currency') return formatCurrencyCompact(value);
+  if (formatter === 'percent') return formatPercent(value);
+  return formatNumber(value);
+}
+
+function reportKpiIcon(index: number) {
+  const icons = [
+    '<svg viewBox="0 0 24 24"><path d="M4 19V9m6 10V5m6 14v-7m4 7H2"/></svg>',
+    '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3m10-10h-3M5 12H2"/></svg>',
+    '<svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/><path d="M9 8h6m-6 4h6"/></svg>',
+    '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2"/><path d="M3 20c0-4 2-7 6-7s6 3 6 7m0-5c3 0 5 2 5 5"/></svg>',
+  ];
+  return `<span class="kpi-icon">${icons[index % icons.length]}</span>`;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function formatDateTimeLabel(value: string) {
+  return new Intl.DateTimeFormat('es-MX', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+}
+
+function formatDateOnlyLabel(value: string) {
+  return new Intl.DateTimeFormat('es-MX', {
+    dateStyle: 'long',
+  }).format(new Date(value));
+}
+
+function formatTimeOnlyLabel(value: string) {
+  return new Intl.DateTimeFormat('es-MX', {
+    timeStyle: 'short',
+  }).format(new Date(value));
+}
+
+function riskPriority(status: ClientLifecycleRow['currentStatus']) {
+  if (status === 'perdido') return 5;
+  if (status === 'casi_perdido') return 4;
+  if (status === 'en_riesgo') return 3;
+  if (status === 'observacion') return 2;
+  if (status === 'dormido') return 1;
+  return 0;
+}
